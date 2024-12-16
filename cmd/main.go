@@ -1,7 +1,7 @@
 package main
 
-import pmcli "github.com/jlrosende/project-manager/cmd/pm-cli"
+import cli "github.com/jlrosende/project-manager/cmd/cli"
 
 func main() {
-	pmcli.Execute()
+	cli.Execute()
 }

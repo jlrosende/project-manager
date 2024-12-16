@@ -1,10 +1,11 @@
-package pmcli
+package cli
 
 import (
 	"fmt"
 	"os"
 
-	initialize "github.com/jlrosende/project-manager/cmd/pm-cli/init"
+	initialize "github.com/jlrosende/project-manager/cmd/cli/init"
+	"github.com/jlrosende/project-manager/cmd/cli/new"
 	"github.com/jlrosende/project-manager/internal"
 	"github.com/spf13/cobra"
 )
@@ -19,6 +20,7 @@ var rootCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(initialize.InitCmd)
+	rootCmd.AddCommand(new.NewCmd)
 }
 
 func Execute() {
