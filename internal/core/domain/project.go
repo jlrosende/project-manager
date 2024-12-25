@@ -1,5 +1,8 @@
 package domain
 
 type Project struct {
-	Name string
+	Name    string
+	Path    string
+	EnvVars map[string]string
+	Theme   string
 }

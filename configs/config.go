@@ -9,11 +9,13 @@ import (
 	"log/slog"
 	"os"
 	"path"
+	"reflect"
 
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/spf13/viper"
 )
 
-// go:embed config.default.hcl
+//go:embed config.default.hcl
 var defaultConfig []byte
 
 var (
@@ -21,8 +23,23 @@ var (
 )
 
 type Config struct {
-	Theme      string `mapstructure:"theme"`
-	RootFolder string `mapstructure:"root_folder"`
+	Theme      string               `mapstructure:"theme"`
+	RootFolder string               `mapstructure:"root_folder"`
+	Projects   map[string][]Project `mapstructure:"project"`
+}
+
+type Project struct {
+	Path         string                 `mapstructure:"path"`
+	Theme        string                 `mapstructure:"theme"`
+	EnvVars      map[string]string      `mapstructure:"env_vars"`
+	EnvVarsFile  string                 `mapstructure:"env_vars_file"`
+	Environments map[string]Environment `mapstructure:"environment"`
+}
+
+type Environment struct {
+	Theme       string            `mapstructure:"theme"`
+	EnvVars     map[string]string `mapstructure:"env_vars"`
+	EnvVarsFile string            `mapstructure:"env_vars_file"`
 }
 
 func GetConfig(cfgFile string) (*Config, error) {
@@ -30,15 +47,7 @@ func GetConfig(cfgFile string) (*Config, error) {
 	v, err := LoadConfig(cfgFile)
 
 	if err != nil {
-		if errors.Is(err, NotFoundErr) {
-			defaultViper, err := DefaultConfig()
-
-			if err != nil {
-				return nil, err
-			}
-
-			v = defaultViper
-		}
+		return nil, err
 	}
 
 	config, err := ParseConfig(v)
@@ -76,7 +85,7 @@ func LoadConfig(cfgFile string) (*viper.Viper, error) {
 	if err != nil {
 		slog.Debug(fmt.Sprintf("Unable to read config: %v", err))
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			return nil, errors.New("config file not found")
+			return DefaultConfig()
 		}
 		return nil, err
 	}
@@ -86,7 +95,13 @@ func LoadConfig(cfgFile string) (*viper.Viper, error) {
 func ParseConfig(v *viper.Viper) (*Config, error) {
 	var cfg Config
 
-	err := v.Unmarshal(&cfg)
+	configOption := viper.DecodeHook(mapstructure.ComposeDecodeHookFunc(
+		sliceOfMapsToMapHookFunc(),
+		mapstructure.StringToTimeDurationHookFunc(),
+		mapstructure.StringToSliceHookFunc(","),
+	))
+
+	err := v.Unmarshal(&cfg, configOption)
 
 	if err != nil {
 		return nil, fmt.Errorf("Unable to parse config: %w", err)
@@ -105,4 +120,31 @@ func DefaultConfig() (*viper.Viper, error) {
 	}
 
 	return v, nil
+}
+
+// sliceOfMapsToMapHookFunc merges a slice of maps to a map
+func sliceOfMapsToMapHookFunc() mapstructure.DecodeHookFunc {
+	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
+		if from.Kind() == reflect.Slice && from.Elem().Kind() == reflect.Map && (to.Kind() == reflect.Struct || to.Kind() == reflect.Map) {
+			source, ok := data.([]map[string]interface{})
+			if !ok {
+				return data, nil
+			}
+			if len(source) == 0 {
+				return data, nil
+			}
+			if len(source) == 1 {
+				return source[0], nil
+			}
+			// flatten the slice into one map
+			convert := make(map[string]interface{})
+			for _, mapItem := range source {
+				for key, value := range mapItem {
+					convert[key] = value
+				}
+			}
+			return convert, nil
+		}
+		return data, nil
+	}
 }

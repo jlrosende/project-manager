@@ -2,11 +2,13 @@ package cli
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"path"
 
 	initialize "github.com/jlrosende/project-manager/cmd/cli/init"
 	"github.com/jlrosende/project-manager/cmd/cli/new"
+	"github.com/jlrosende/project-manager/configs"
 	"github.com/jlrosende/project-manager/internal"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -63,6 +65,14 @@ func initConfig() {
 }
 
 func root(cmd *cobra.Command, args []string) error {
-	fmt.Fprintln(cmd.OutOrStderr(), "TODO")
+
+	config, err := configs.GetConfig(cfgFile)
+
+	if err != nil {
+		return err
+	}
+
+	slog.Info(fmt.Sprintf("%+v\n", config))
+
 	return nil
 }

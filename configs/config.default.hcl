@@ -1,5 +1,5 @@
 
 theme = "default"
 
-root_folder = "$HOME/workspace"
+root_folder = "$HOME"
 
