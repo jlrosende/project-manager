@@ -23,9 +23,9 @@ var (
 )
 
 type Config struct {
-	Theme      string               `mapstructure:"theme"`
-	RootFolder string               `mapstructure:"root_folder"`
-	Projects   map[string][]Project `mapstructure:"project"`
+	Theme      string             `mapstructure:"theme"`
+	RootFolder string             `mapstructure:"root_folder"`
+	Projects   map[string]Project `mapstructure:"project"`
 }
 
 type Project struct {

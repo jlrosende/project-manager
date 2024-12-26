@@ -4,18 +4,17 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path"
 
+	tea "github.com/charmbracelet/bubbletea"
 	initialize "github.com/jlrosende/project-manager/cmd/cli/init"
 	"github.com/jlrosende/project-manager/cmd/cli/new"
 	"github.com/jlrosende/project-manager/configs"
 	"github.com/jlrosende/project-manager/internal"
+	"github.com/jlrosende/project-manager/pkg/ui/styles/list"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var (
-	cfgFile string
 	rootCmd = &cobra.Command{
 		Use:          "pm",
 		Short:        "pm is a tool to create and organize projects in your computer",
@@ -28,7 +27,7 @@ var (
 
 func init() {
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.config/pm/config)")
+	rootCmd.PersistentFlags().String("config", "", "config file (default is $HOME/.config/pm/config.hcl)")
 
 	rootCmd.AddCommand(initialize.InitCmd)
 	rootCmd.AddCommand(new.NewCmd)
@@ -41,30 +40,13 @@ func Execute() {
 	}
 }
 
-func initConfig() {
-	if cfgFile != "" {
-		// Use config file from the flag.
-		viper.SetConfigFile(cfgFile)
-	} else {
-		// Find home directory.
-		home, err := os.UserHomeDir()
-		cobra.CheckErr(err)
-
-		// Search config in home directory with name ".cobra" (without extension).
-
-		viper.AddConfigPath(path.Join(home, ".config/pm/"))
-		viper.SetConfigName("config")
-		viper.SetConfigType("hcl")
-	}
-
-	viper.AutomaticEnv()
-
-	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
-	}
-}
-
 func root(cmd *cobra.Command, args []string) error {
+
+	cfgFile, err := cmd.PersistentFlags().GetString("config")
+
+	if err != nil {
+		return err
+	}
 
 	config, err := configs.GetConfig(cfgFile)
 
@@ -73,6 +55,25 @@ func root(cmd *cobra.Command, args []string) error {
 	}
 
 	slog.Info(fmt.Sprintf("%+v\n", config))
+
+	items := []list.Item{}
+
+	for project := range config.Projects {
+		slog.Info(project)
+		items = append(items, list.Item{
+			Name: project,
+			Desc: config.Projects[project].Path,
+		})
+	}
+
+	m := list.NewList("Projects", items)
+
+	p := tea.NewProgram(m, tea.WithAltScreen())
+
+	if _, err := p.Run(); err != nil {
+		fmt.Println("Error running program:", err)
+		os.Exit(1)
+	}
 
 	return nil
 }
