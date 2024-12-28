@@ -6,10 +6,12 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/go-git/go-git/v5/config"
 	"github.com/jlrosende/project-manager/internal/core/domain"
 	"github.com/jlrosende/project-manager/internal/core/ports"
+	"github.com/joho/godotenv"
 )
 
 type ProjectRepository struct {
@@ -32,7 +34,36 @@ func NewProjectRepository() (*ProjectRepository, error) {
 
 func (p *ProjectRepository) Get(name string) (*domain.Project, error) {
 
-	return nil, nil
+	for _, section := range p.git.Raw.Sections {
+		if section.IsName("includeIf") {
+			for _, sub := range section.Subsections {
+				if sub.HasOption("project") && sub.Option("project") == name {
+					// TODO Se debe de leer el fichero de .env aqui
+
+					path := strings.Split(sub.Name, ":")[1]
+
+					// Read .env and load content in Project
+					dotEnvPath := filepath.Join(path, ".env")
+
+					envVars, err := godotenv.Read(dotEnvPath)
+
+					log.Println(envVars)
+
+					if err != nil {
+						return nil, err
+					}
+
+					return &domain.Project{
+						Name:    sub.Option("project"),
+						Path:    path,
+						EnvVars: envVars,
+					}, nil
+				}
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("project '%s' not found, projects are case sensitive", name)
 }
 
 func (p *ProjectRepository) List() ([]domain.Project, error) {

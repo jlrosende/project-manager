@@ -1,25 +1,26 @@
 package cli
 
 import (
-	"fmt"
-	"log/slog"
+	"log"
 	"os"
+	"os/exec"
+	"path/filepath"
 
-	tea "github.com/charmbracelet/bubbletea"
-	initialize "github.com/jlrosende/project-manager/cmd/cli/init"
-	"github.com/jlrosende/project-manager/cmd/cli/new"
-	"github.com/jlrosende/project-manager/configs"
+	cmdInit "github.com/jlrosende/project-manager/cmd/cli/init"
+	cmdNew "github.com/jlrosende/project-manager/cmd/cli/new"
 	"github.com/jlrosende/project-manager/internal"
-	"github.com/jlrosende/project-manager/pkg/ui/list"
+	"github.com/jlrosende/project-manager/internal/adapters/repositories"
+	"github.com/jlrosende/project-manager/internal/core/services"
 	"github.com/spf13/cobra"
 )
 
 var (
 	rootCmd = &cobra.Command{
-		Use:          "pm",
+		Use:          "pm [project] [path]",
 		Short:        "pm is a tool to create and organize projects in your computer",
 		Long:         `A tool to manage the configuration and estructure of multiple projects inside your computer`,
 		Version:      internal.GetVersion(),
+		Args:         cobra.MaximumNArgs(2),
 		SilenceUsage: true,
 		RunE:         root,
 	}
@@ -27,53 +28,70 @@ var (
 
 func init() {
 
-	rootCmd.PersistentFlags().String("config", "", "config file (default is $HOME/.config/pm/config.hcl)")
-
-	rootCmd.AddCommand(initialize.InitCmd)
-	rootCmd.AddCommand(new.NewCmd)
+	rootCmd.AddCommand(cmdInit.InitCmd)
+	rootCmd.AddCommand(cmdNew.NewCmd)
 }
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		// fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
 func root(cmd *cobra.Command, args []string) error {
 
-	cfgFile, err := cmd.PersistentFlags().GetString("config")
+	log.Println(os.Getpid(), os.Getppid())
+
+	name := ""
+
+	if len(args) > 0 {
+		name = args[0]
+	}
+
+	repo, err := repositories.NewProjectRepository()
 
 	if err != nil {
 		return err
 	}
 
-	config, err := configs.GetConfig(cfgFile)
+	svc := services.NewProjectService(repo)
+
+	project, err := svc.Get(name)
 
 	if err != nil {
 		return err
 	}
 
-	slog.Info(fmt.Sprintf("%+v\n", config))
-
-	items := []list.Item{}
-
-	for project := range config.Projects {
-		slog.Info(project)
-		items = append(items, list.Item{
-			Name: project,
-			Desc: config.Projects[project].Path,
-		})
+	// Launch TUI if project is empty
+	if project == nil {
+		log.Println("No project defined")
+		return nil
 	}
 
-	m := list.NewList("Projects", items)
-
-	p := tea.NewProgram(m, tea.WithAltScreen())
-
-	if _, err := p.Run(); err != nil {
-		fmt.Println("Error running program:", err)
-		os.Exit(1)
+	if len(args) > 1 {
+		project.Path = args[1]
 	}
+
+	log.Printf("Start project %s shell in %s", project.Name, project.Path)
+
+	shell := exec.Command(os.Getenv("SHELL"))
+	shell.Dir = filepath.Dir(project.Path)
+	shell.Env = append(os.Environ(), project.EnvVarsSlice()...)
+	shell.Stdin = os.Stdin
+	shell.Stdout = os.Stdout
+	shell.Stderr = os.Stderr
+
+	shell.Start()
+	log.Println(shell.Process.Pid)
+
+	if err := shell.Wait(); err != nil {
+		log.Println(err)
+	}
+
+	log.Println(shell.Process.Pid)
+
+	log.Printf("End project session %s shell", project.Name)
 
 	return nil
 }

@@ -1,8 +1,6 @@
 package new
 
 import (
-	"log"
-
 	"github.com/jlrosende/project-manager/internal/adapters/repositories"
 	"github.com/jlrosende/project-manager/internal/core/services"
 	"github.com/spf13/cobra"
@@ -58,16 +56,6 @@ func new(cmd *cobra.Command, args []string) error {
 		path = args[1]
 	}
 
-	// if name == "" {
-	// 	// Ask for name
-	// 	nameInput := textinput.NewTextInput("Whats the name of the new project?", "Project name")
-	// 	p := tea.NewProgram(nameInput)
-	// 	if _, err := p.Run(); err != nil {
-	// 		log.Fatal(err)
-	// 	}
-	// 	name = nameInput.Value()
-	// }
-
 	repo, err := repositories.NewProjectRepository()
 
 	if err != nil {
@@ -76,15 +64,7 @@ func new(cmd *cobra.Command, args []string) error {
 
 	svc := services.NewProjectService(repo)
 
-	projects, _ := svc.List()
-
-	if err != nil {
-		return err
-	}
-
-	log.Println(projects)
-
-	_, _ = svc.Create(name, path, subproject, envVars)
+	_, err = svc.Create(name, path, subproject, envVars)
 
 	if err != nil {
 		return err
