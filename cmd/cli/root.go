@@ -10,7 +10,7 @@ import (
 	"github.com/jlrosende/project-manager/cmd/cli/new"
 	"github.com/jlrosende/project-manager/configs"
 	"github.com/jlrosende/project-manager/internal"
-	"github.com/jlrosende/project-manager/pkg/ui/styles/list"
+	"github.com/jlrosende/project-manager/pkg/ui/list"
 	"github.com/spf13/cobra"
 )
 

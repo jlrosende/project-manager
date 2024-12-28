@@ -1,7 +1,7 @@
 
 theme = "default"
 
-root_folder = "$HOME/workspace"
+root_folder = "$HOME"
 
 project "example" {
     theme = "default" # overwrite global
