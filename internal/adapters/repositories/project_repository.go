@@ -11,7 +11,6 @@ import (
 	"github.com/go-git/go-git/v5/config"
 	"github.com/jlrosende/project-manager/internal/core/domain"
 	"github.com/jlrosende/project-manager/internal/core/ports"
-	"github.com/joho/godotenv"
 )
 
 type ProjectRepository struct {
@@ -38,23 +37,11 @@ func (p *ProjectRepository) Get(name string) (*domain.Project, error) {
 		if section.IsName("includeIf") {
 			for _, sub := range section.Subsections {
 				if sub.HasOption("project") && sub.Option("project") == name {
-					// TODO Se debe de leer el fichero de .env aqui
-
 					path := strings.Split(sub.Name, ":")[1]
 
-					// Read .env and load content in Project
-					dotEnvPath := filepath.Join(path, ".env")
-
-					envVars, err := godotenv.Read(dotEnvPath)
-
-					if err != nil {
-						return nil, err
-					}
-
 					return &domain.Project{
-						Name:    sub.Option("project"),
-						Path:    path,
-						EnvVars: envVars,
+						Name: sub.Option("project"),
+						Path: path,
 					}, nil
 				}
 			}
@@ -71,9 +58,10 @@ func (p *ProjectRepository) List() ([]domain.Project, error) {
 		if section.IsName("includeIf") {
 			for _, sub := range section.Subsections {
 				if sub.HasOption("project") {
+					path := strings.Split(sub.Name, ":")[1]
 					projects = append(projects, domain.Project{
 						Name: sub.Option("project"),
-						Path: filepath.Dir(sub.Option("path")),
+						Path: path,
 					})
 				}
 			}
@@ -85,7 +73,7 @@ func (p *ProjectRepository) List() ([]domain.Project, error) {
 
 }
 
-func (p *ProjectRepository) Create(name, path, subproject string, env_vars map[string]string) (*domain.Project, error) {
+func (p *ProjectRepository) Create(name, path, subproject string, envVars domain.EnvVars, gitConfig domain.GitConfig) (*domain.Project, error) {
 	// Get the global config
 
 	path, err := filepath.Abs(path)
@@ -184,10 +172,6 @@ func (p *ProjectRepository) Create(name, path, subproject string, env_vars map[s
 
 	slog.Info(fmt.Sprintf("%d Bytes written in %s", n_bytes, gitConfigPath))
 
-	if err != nil {
-		return nil, err
-	}
-
 	if err := newConfig.Validate(); err != nil {
 		return nil, err
 	}
@@ -207,7 +191,7 @@ func (p *ProjectRepository) Create(name, path, subproject string, env_vars map[s
 	}
 	defer fpEnv.Close()
 
-	for key, value := range env_vars {
+	for key, value := range envVars {
 		n_bytes_env, err := fpEnv.WriteString(fmt.Sprintf("%s=%s\n", key, value))
 		if err != nil {
 			return nil, err
@@ -222,11 +206,6 @@ func (p *ProjectRepository) Create(name, path, subproject string, env_vars map[s
 	// }
 
 	return nil, nil
-}
-
-func (p *ProjectRepository) Edit(name string) (*domain.Project, error) {
-	return nil, nil
-
 }
 
 func (p *ProjectRepository) Delete(name string) error {

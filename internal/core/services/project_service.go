@@ -6,33 +6,56 @@ import (
 )
 
 type ProjectService struct {
-	repo ports.ProjectRepository
+	git     ports.GitRepository
+	envVars ports.EnvVarsRepository
+	project ports.ProjectRepository
 }
 
 var _ ports.ProjectService = (*ProjectService)(nil)
 
-func NewProjectService(repo ports.ProjectRepository) *ProjectService {
+func NewProjectService(project ports.ProjectRepository, envVars ports.EnvVarsRepository, git ports.GitRepository) *ProjectService {
 	return &ProjectService{
-		repo: repo,
+		project: project,
+		envVars: envVars,
+		git:     git,
 	}
 }
 
-func (p *ProjectService) Get(name string) (*domain.Project, error) {
-	return p.repo.Get(name)
+func (svc *ProjectService) Get(name string) (*domain.Project, error) {
+
+	// Get Project
+	project, err := svc.project.Get(name)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// load env vars
+	project.EnvVars, err = svc.envVars.Load(project.Path)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// load git
+	project.GitConfig, err = svc.git.Load(project.Path)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return project, nil
 }
 
-func (p *ProjectService) List() ([]domain.Project, error) {
-	return p.repo.List()
+func (svc *ProjectService) List() ([]domain.Project, error) {
+	return svc.project.List()
 }
 
-func (p *ProjectService) Create(name, path, subproject string, env_vars map[string]string) (*domain.Project, error) {
-	return p.repo.Create(name, path, subproject, env_vars)
+func (svc *ProjectService) Create(name, path, subproject string, envVars domain.EnvVars, gitConfig domain.GitConfig) (*domain.Project, error) {
+
+	return svc.project.Create(name, path, subproject, envVars, gitConfig)
 }
 
-func (p *ProjectService) Edit(name string) (*domain.Project, error) {
-	return p.repo.Edit(name)
-}
-
-func (p *ProjectService) Delete(name string) error {
-	return p.repo.Delete(name)
+func (svc *ProjectService) Delete(name string) error {
+	return svc.project.Delete(name)
 }

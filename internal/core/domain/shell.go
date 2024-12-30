@@ -14,10 +14,12 @@ const (
 type Shell struct {
 	Type    ShellType
 	Dir     string
+	Name    string
+	Env     string
 	EnvVars map[string]string
 }
 
-func NewShell(shell string) *Shell {
+func NewShell(shell string, project Project) *Shell {
 	var shellType ShellType
 	switch shell {
 	default:
@@ -25,5 +27,6 @@ func NewShell(shell string) *Shell {
 	}
 	return &Shell{
 		Type: shellType,
+		Dir:  project.Path,
 	}
 }

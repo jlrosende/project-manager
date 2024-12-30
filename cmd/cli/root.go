@@ -66,13 +66,23 @@ func root(cmd *cobra.Command, args []string) error {
 		name = args[0]
 	}
 
-	repo, err := repositories.NewProjectRepository()
+	repoProject, err := repositories.NewProjectRepository()
+	if err != nil {
+		return err
+	}
+
+	repoEnvVars, err := repositories.NewEnvVarsRepository()
+	if err != nil {
+		return err
+	}
+
+	repoGitConfig, err := repositories.NewGitRepository()
 
 	if err != nil {
 		return err
 	}
 
-	svc := services.NewProjectService(repo)
+	svc := services.NewProjectService(repoProject, repoEnvVars, repoGitConfig)
 
 	project, err := svc.Get(name)
 
@@ -98,7 +108,7 @@ func root(cmd *cobra.Command, args []string) error {
 
 	shell.Env = append(
 		os.Environ(),
-		project.EnvVarsSlice()...,
+		project.EnvVars.ToSlice()...,
 	)
 
 	shell.Env = append(
