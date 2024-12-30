@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -41,7 +42,23 @@ func Execute() {
 
 func root(cmd *cobra.Command, args []string) error {
 
-	log.Println(os.Getpid(), os.Getppid())
+	log.Printf("PID: %d PPID: %d PM_ACTIVE_PROJECT: %s", os.Getpid(), os.Getppid(), os.Getenv("PM_ACTIVE_PROJECT"))
+
+	if os.Getenv("PM_ACTIVE_PROJECT") != "" {
+
+		log.Println("Interrupt parent process")
+
+		p, err := os.FindProcess(os.Getppid())
+		if err != nil {
+			return err
+		}
+
+		err = p.Kill()
+		if err != nil {
+			return err
+		}
+		return nil
+	}
 
 	name := ""
 
@@ -76,22 +93,34 @@ func root(cmd *cobra.Command, args []string) error {
 	log.Printf("Start project %s shell in %s", project.Name, project.Path)
 
 	shell := exec.Command(os.Getenv("SHELL"))
+
 	shell.Dir = filepath.Dir(project.Path)
-	shell.Env = append(os.Environ(), project.EnvVarsSlice()...)
+
+	shell.Env = append(
+		os.Environ(),
+		project.EnvVarsSlice()...,
+	)
+
+	shell.Env = append(
+		shell.Env,
+		fmt.Sprintf("PM_ACTIVE_PROJECT=%s", project.Name),
+	)
+
 	shell.Stdin = os.Stdin
 	shell.Stdout = os.Stdout
 	shell.Stderr = os.Stderr
 
-	shell.Start()
-	log.Println(shell.Process.Pid)
+	if err := shell.Start(); err != nil {
+		return err
+	}
+
+	log.Printf("New SHELL PID: %d\n", shell.Process.Pid)
 
 	if err := shell.Wait(); err != nil {
 		log.Println(err)
 	}
 
-	log.Println(shell.Process.Pid)
-
-	log.Printf("End project session %s shell", project.Name)
+	log.Printf("End project session %s shell, (PID: %d)", project.Name, shell.Process.Pid)
 
 	return nil
 }

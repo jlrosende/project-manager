@@ -47,8 +47,6 @@ func (p *ProjectRepository) Get(name string) (*domain.Project, error) {
 
 					envVars, err := godotenv.Read(dotEnvPath)
 
-					log.Println(envVars)
-
 					if err != nil {
 						return nil, err
 					}

@@ -13,3 +13,7 @@ type GitConfig struct {
 		GPGSign bool
 	}
 }
+
+func New() *GitConfig {
+	return &GitConfig{}
+}
