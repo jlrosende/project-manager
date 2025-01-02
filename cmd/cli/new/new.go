@@ -2,6 +2,7 @@ package new
 
 import (
 	"github.com/jlrosende/project-manager/internal/adapters/repositories"
+	"github.com/jlrosende/project-manager/internal/core/domain"
 	"github.com/jlrosende/project-manager/internal/core/services"
 	"github.com/spf13/cobra"
 )
@@ -56,15 +57,61 @@ func new(cmd *cobra.Command, args []string) error {
 		path = args[1]
 	}
 
-	repo, err := repositories.NewProjectRepository()
+	repoProject, err := repositories.NewProjectRepository()
+	if err != nil {
+		return err
+	}
+
+	repoEnvVars, err := repositories.NewEnvVarsRepository()
+	if err != nil {
+		return err
+	}
+
+	repoGitConfig, err := repositories.NewGitRepository()
 
 	if err != nil {
 		return err
 	}
 
-	svc := services.NewProjectService(repo)
+	svc := services.NewProjectService(repoProject, repoEnvVars, repoGitConfig)
 
-	_, err = svc.Create(name, path, subproject, envVars)
+	gitUserName, err := cmd.Flags().GetString("user.name")
+
+	if err != nil {
+		return err
+	}
+
+	gitUserEmail, err := cmd.Flags().GetString("user.email")
+
+	if err != nil {
+		return err
+	}
+
+	gitUserSigningKey, err := cmd.Flags().GetString("user.signingkey")
+
+	if err != nil {
+		return err
+	}
+
+	gitCommitGPGsign, err := cmd.Flags().GetBool("commit.gpgsign")
+
+	if err != nil {
+		return err
+	}
+
+	_, err = svc.Create(
+		name,
+		path,
+		subproject,
+		envVars,
+		domain.New(
+			domain.WithName(gitUserName),
+			domain.WithEmail(gitUserEmail),
+			domain.WithSigningKey(gitUserSigningKey),
+			domain.WithCommitSign(gitCommitGPGsign),
+			domain.WithTagSign(gitCommitGPGsign),
+		),
+	)
 
 	if err != nil {
 		return err

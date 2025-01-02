@@ -73,7 +73,7 @@ func (p *ProjectRepository) List() ([]domain.Project, error) {
 
 }
 
-func (p *ProjectRepository) Create(name, path, subproject string, envVars domain.EnvVars, gitConfig domain.GitConfig) (*domain.Project, error) {
+func (p *ProjectRepository) Create(name, path, subproject string, envVars domain.EnvVars, gitConfig *domain.GitConfig) (*domain.Project, error) {
 	// Get the global config
 
 	path, err := filepath.Abs(path)

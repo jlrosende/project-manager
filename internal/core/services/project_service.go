@@ -51,7 +51,7 @@ func (svc *ProjectService) List() ([]domain.Project, error) {
 	return svc.project.List()
 }
 
-func (svc *ProjectService) Create(name, path, subproject string, envVars domain.EnvVars, gitConfig domain.GitConfig) (*domain.Project, error) {
+func (svc *ProjectService) Create(name, path, subproject string, envVars domain.EnvVars, gitConfig *domain.GitConfig) (*domain.Project, error) {
 
 	return svc.project.Create(name, path, subproject, envVars, gitConfig)
 }
