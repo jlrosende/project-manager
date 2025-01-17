@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"path/filepath"
 
 	cmdInit "github.com/jlrosende/project-manager/cmd/cli/init"
 	cmdNew "github.com/jlrosende/project-manager/cmd/cli/new"
@@ -29,6 +28,8 @@ var (
 
 func init() {
 
+	rootCmd.Flags().BoolP("list", "l", false, "List all the projects.")
+
 	rootCmd.AddCommand(cmdInit.InitCmd)
 	rootCmd.AddCommand(cmdNew.NewCmd)
 }
@@ -42,6 +43,13 @@ func Execute() {
 
 func root(cmd *cobra.Command, args []string) error {
 
+	if list, err := cmd.Flags().GetBool("list"); err != nil {
+		return err
+	} else if list {
+		fmt.Fprintln(cmd.OutOrStderr(), "Print list and return")
+		return nil
+	}
+
 	log.Printf("PID: %d PPID: %d PM_ACTIVE_PROJECT: %s", os.Getpid(), os.Getppid(), os.Getenv("PM_ACTIVE_PROJECT"))
 
 	if os.Getenv("PM_ACTIVE_PROJECT") != "" {
@@ -53,8 +61,7 @@ func root(cmd *cobra.Command, args []string) error {
 			return err
 		}
 
-		err = p.Kill()
-		if err != nil {
+		if err := p.Kill(); err != nil {
 			return err
 		}
 		return nil
@@ -97,18 +104,18 @@ func root(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(args) > 1 {
-		project.Path = args[1]
+		// project.Path = args[1]
 	}
 
-	log.Printf("Start project %s shell in %s", project.Name, project.Path)
+	// log.Printf("Start project %s shell in %s", project.Name, project.Path)
 
 	shell := exec.Command(os.Getenv("SHELL"))
 
-	shell.Dir = filepath.Dir(project.Path)
+	// shell.Dir = filepath.Dir(project.Path)
 
 	shell.Env = append(
 		os.Environ(),
-		project.EnvVars.ToSlice()...,
+		// project.EnvVars.ToSlice()...,
 	)
 
 	shell.Env = append(

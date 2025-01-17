@@ -1,6 +1,9 @@
 package services
 
 import (
+	"fmt"
+	"log/slog"
+
 	"github.com/jlrosende/project-manager/internal/core/domain"
 	"github.com/jlrosende/project-manager/internal/core/ports"
 )
@@ -31,18 +34,20 @@ func (svc *ProjectService) Get(name string) (*domain.Project, error) {
 	}
 
 	// load env vars
-	project.EnvVars, err = svc.envVars.Load(project.Path)
+	// project.EnvVars, err = svc.envVars.Load(project.Path)
 
-	if err != nil {
-		return nil, err
-	}
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	// load git
-	project.GitConfig, err = svc.git.Load(project.Path)
+	// // load git
+	// project.GitConfig, err = svc.git.Load(project.Path)
 
-	if err != nil {
-		return nil, err
-	}
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	slog.Info(fmt.Sprintf("%+v", project))
 
 	return project, nil
 }

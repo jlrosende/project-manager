@@ -1,14 +1,18 @@
 package repositories
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/go-git/go-git/v5/config"
+	"github.com/hashicorp/hcl/v2/hclsimple"
 	"github.com/jlrosende/project-manager/internal/core/domain"
 	"github.com/jlrosende/project-manager/internal/core/ports"
 )
@@ -35,15 +39,18 @@ func (p *ProjectRepository) Get(name string) (*domain.Project, error) {
 
 	for _, section := range p.git.Raw.Sections {
 		if section.IsName("includeIf") {
+			slog.Debug(fmt.Sprintf("Section: %+v\n", section))
 			for _, sub := range section.Subsections {
-				if sub.HasOption("project") && sub.Option("project") == name {
-					path := strings.Split(sub.Name, ":")[1]
+				// TODO Read subsections and get path of the project
+				slog.Debug(fmt.Sprintf("\t - SubSection: %+v\n", sub))
 
-					return &domain.Project{
-						Name: sub.Option("project"),
-						Path: path,
-					}, nil
+				if path, ok := strings.CutPrefix(sub.Name, "gitdir/i:"); ok {
+					// TODO read in path .project
+					projetPath := filepath.Join(path, ".project.hcl")
+
+					return loadDotProject(projetPath)
 				}
+
 			}
 		}
 	}
@@ -58,10 +65,10 @@ func (p *ProjectRepository) List() ([]domain.Project, error) {
 		if section.IsName("includeIf") {
 			for _, sub := range section.Subsections {
 				if sub.HasOption("project") {
-					path := strings.Split(sub.Name, ":")[1]
+					// path := strings.Split(sub.Name, ":")[1]
 					projects = append(projects, domain.Project{
 						Name: sub.Option("project"),
-						Path: path,
+						// Path: path,
 					})
 				}
 			}
@@ -74,7 +81,14 @@ func (p *ProjectRepository) List() ([]domain.Project, error) {
 }
 
 func (p *ProjectRepository) Create(name, path, subproject string, envVars domain.EnvVars, gitConfig *domain.GitConfig) (*domain.Project, error) {
-	// Get the global config
+
+	// Check if the path is a directory
+
+	if info, err := os.Stat(path); err != nil {
+		return nil, err
+	} else if !info.IsDir() {
+		return nil, errors.New("the path must be a directory")
+	}
 
 	path, err := filepath.Abs(path)
 
@@ -86,11 +100,18 @@ func (p *ProjectRepository) Create(name, path, subproject string, envVars domain
 
 	gitdir := fmt.Sprintf("gitdir/i:%s/", filepath.Join(path))
 
-	// Create git this if not exist
-
+	// Create paths this if not exist
 	err = os.MkdirAll(path, 0755)
 	if err != nil {
 		log.Println(err)
+	}
+
+	// Check if the path is empty
+
+	if isEmpty, err := IsDirEmpty(path); err != nil {
+		return nil, err
+	} else if !isEmpty {
+		return nil, fmt.Errorf("directory %s, is not empty", path)
 	}
 
 	gitConfigName := fmt.Sprintf(".%s.gitconfig", name)
@@ -100,7 +121,8 @@ func (p *ProjectRepository) Create(name, path, subproject string, envVars domain
 	includeIf := p.git.Raw.Section("includeIf").Subsection(gitdir)
 
 	includeIf.SetOption("path", gitConfigPath)
-	includeIf.SetOption("project", name)
+	// TODO the project name is stored in a .project file
+	// includeIf.SetOption("project", name)
 
 	if subproject != "" {
 		includeIf.SetOption("subproject", subproject)
@@ -139,10 +161,14 @@ func (p *ProjectRepository) Create(name, path, subproject string, envVars domain
 
 	newConfig := config.NewConfig()
 
-	newConfig.User.Email = "test-3"
-	newConfig.User.Name = "test"
+	// TODO Check if values are correct or set
+	newConfig.User.Email = gitConfig.User.Email
+	newConfig.User.Name = gitConfig.User.Name
 
-	newConfig.Raw.AddOption("commit", "", "gpgsign", "true")
+	newConfig.Raw.AddOption("user", "", "signingkey", gitConfig.User.SigningKey)
+
+	newConfig.Raw.AddOption("commit", "", "gpgsign", strconv.FormatBool(gitConfig.Commit.GPGSign))
+	newConfig.Raw.AddOption("tag", "", "gpgsign", strconv.FormatBool(gitConfig.Tag.GPGSign))
 
 	newGitConf, err := newConfig.Marshal()
 
@@ -211,4 +237,32 @@ func (p *ProjectRepository) Create(name, path, subproject string, envVars domain
 func (p *ProjectRepository) Delete(name string) error {
 	return nil
 
+}
+
+func loadDotProject(path string) (*domain.Project, error) {
+	project := &domain.Project{}
+
+	err := hclsimple.DecodeFile(path, nil, project)
+	if err != nil {
+		return nil, err
+	}
+
+	return project, nil
+}
+
+func IsDirEmpty(path string) (bool, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return false, err
+	}
+	defer f.Close()
+
+	// read in ONLY one file
+	_, err = f.Readdir(1)
+
+	// and if the file is EOF... well, the dir is empty.
+	if err == io.EOF {
+		return true, nil
+	}
+	return false, err
 }

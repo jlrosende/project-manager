@@ -27,6 +27,6 @@ func NewShell(shell string, project Project) *Shell {
 	}
 	return &Shell{
 		Type: shellType,
-		Dir:  project.Path,
+		// Dir:  project.Path,
 	}
 }
