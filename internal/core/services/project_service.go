@@ -52,7 +52,7 @@ func (svc *ProjectService) Get(name string) (*domain.Project, error) {
 	return project, nil
 }
 
-func (svc *ProjectService) List() ([]domain.Project, error) {
+func (svc *ProjectService) List() ([]*domain.Project, error) {
 	return svc.project.List()
 }
 

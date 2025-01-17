@@ -43,10 +43,39 @@ func Execute() {
 
 func root(cmd *cobra.Command, args []string) error {
 
+	repoProject, err := repositories.NewProjectRepository()
+	if err != nil {
+		return err
+	}
+
+	repoEnvVars, err := repositories.NewEnvVarsRepository()
+	if err != nil {
+		return err
+	}
+
+	repoGitConfig, err := repositories.NewGitRepository()
+
+	if err != nil {
+		return err
+	}
+
+	svc := services.NewProjectService(repoProject, repoEnvVars, repoGitConfig)
+
 	if list, err := cmd.Flags().GetBool("list"); err != nil {
 		return err
 	} else if list {
 		fmt.Fprintln(cmd.OutOrStderr(), "Print list and return")
+		projects, err := svc.List()
+		if err != nil {
+			return err
+		}
+		for _, p := range projects {
+
+			fmt.Fprintln(cmd.OutOrStderr(), "---")
+			fmt.Fprintf(cmd.OutOrStderr(), "Name: %s\n", p.Name)
+			fmt.Fprintf(cmd.OutOrStderr(), "Description: %s\n", p.Name)
+			fmt.Fprintln(cmd.OutOrStderr(), "---")
+		}
 		return nil
 	}
 
@@ -72,24 +101,6 @@ func root(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		name = args[0]
 	}
-
-	repoProject, err := repositories.NewProjectRepository()
-	if err != nil {
-		return err
-	}
-
-	repoEnvVars, err := repositories.NewEnvVarsRepository()
-	if err != nil {
-		return err
-	}
-
-	repoGitConfig, err := repositories.NewGitRepository()
-
-	if err != nil {
-		return err
-	}
-
-	svc := services.NewProjectService(repoProject, repoEnvVars, repoGitConfig)
 
 	project, err := svc.Get(name)
 

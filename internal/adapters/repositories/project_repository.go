@@ -58,19 +58,24 @@ func (p *ProjectRepository) Get(name string) (*domain.Project, error) {
 	return nil, fmt.Errorf("project '%s' not found, projects are case sensitive", name)
 }
 
-func (p *ProjectRepository) List() ([]domain.Project, error) {
+func (p *ProjectRepository) List() ([]*domain.Project, error) {
 
-	projects := []domain.Project{}
+	projects := []*domain.Project{}
 	for _, section := range p.git.Raw.Sections {
 		if section.IsName("includeIf") {
 			for _, sub := range section.Subsections {
-				if sub.HasOption("project") {
-					// path := strings.Split(sub.Name, ":")[1]
-					projects = append(projects, domain.Project{
-						Name: sub.Option("project"),
-						// Path: path,
-					})
+
+				if path, ok := strings.CutPrefix(sub.Name, "gitdir/i:"); ok {
+					// TODO read in path .project
+					projetPath := filepath.Join(path, ".project.hcl")
+
+					project, err := loadDotProject(projetPath)
+					if err != nil {
+						return nil, err
+					}
+					projects = append(projects, project)
 				}
+
 			}
 
 		}
