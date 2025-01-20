@@ -1,7 +1,8 @@
 package services
 
 import (
-	"github.com/jlrosende/project-manager/internal/core/domain"
+	"os"
+
 	"github.com/jlrosende/project-manager/internal/core/ports"
 )
 
@@ -17,6 +18,10 @@ func NewShellService(repo ports.ShellRepository) *ShellService {
 	}
 }
 
-func (s *ShellService) Start(project domain.Project) error {
-	return s.repo.Start(project)
+func (s *ShellService) Start() (*os.Process, error) {
+	return s.repo.Start()
+}
+
+func (s *ShellService) Wait() (int, error) {
+	return s.repo.Wait()
 }

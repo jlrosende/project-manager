@@ -9,8 +9,8 @@ import (
 
 var (
 	NewCmd = &cobra.Command{
-		Use:   "new <project> [path]",
-		Short: "Create new projects",
+		Use:   "new <project> [<path>]",
+		Short: "Create new project",
 		Long:  `Create a new project and all the basic configuration files`,
 		Args:  cobra.MatchAll(cobra.RangeArgs(1, 2), cobra.OnlyValidArgs),
 		RunE:  new,
@@ -28,6 +28,8 @@ func init() {
 	NewCmd.Flags().Bool("tag.gpgsign", true, "git tag.gpgsign (default git --global)")
 
 	NewCmd.Flags().StringToString("env-vars", nil, "List of ENV_VARS to add to the environment")
+
+	NewCmd.Flags().String("shell", "", "Shell of the project, need be installed in the system) (default to $SHELL env var))")
 
 	// if err := NewCmd.MarkFlagRequired("name"); err != nil {
 	// 	log.Fatal(err)

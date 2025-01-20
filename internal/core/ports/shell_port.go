@@ -1,11 +1,13 @@
 package ports
 
-import "github.com/jlrosende/project-manager/internal/core/domain"
+import "os"
 
 type ShellService interface {
-	Start(project domain.Project) error
+	Start() (*os.Process, error)
+	Wait() (int, error)
 }
 
 type ShellRepository interface {
-	Start(project domain.Project) error
+	Start() (*os.Process, error)
+	Wait() (int, error)
 }

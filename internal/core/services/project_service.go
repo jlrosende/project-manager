@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"log/slog"
+	"path/filepath"
 
 	"github.com/jlrosende/project-manager/internal/core/domain"
 	"github.com/jlrosende/project-manager/internal/core/ports"
@@ -33,19 +34,24 @@ func (svc *ProjectService) Get(name string) (*domain.Project, error) {
 		return nil, err
 	}
 
+	envVarsPath := filepath.Join(project.Path, project.EnvVarsFile)
+
 	// load env vars
-	// project.EnvVars, err = svc.envVars.Load(project.Path)
+	project.EnvVars, err = svc.envVars.Load(envVarsPath)
 
-	// if err != nil {
-	// 	return nil, err
-	// }
+	if err != nil {
+		return nil, err
+	}
 
-	// // load git
-	// project.GitConfig, err = svc.git.Load(project.Path)
+	// Load environments EnvVars
+	for _, env := range project.Environments {
+		envVarsPath := filepath.Join(project.Path, env.EnvVarsFile)
+		env.EnvVars, err = svc.envVars.Load(envVarsPath)
 
-	// if err != nil {
-	// 	return nil, err
-	// }
+		if err != nil {
+			slog.Warn("EnvVars file not found", slog.String("env", env.Name), slog.String("path", envVarsPath))
+		}
+	}
 
 	slog.Info(fmt.Sprintf("%+v", project))
 

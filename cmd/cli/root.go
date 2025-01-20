@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
 
+	tea "github.com/charmbracelet/bubbletea"
 	cmdInit "github.com/jlrosende/project-manager/cmd/cli/init"
 	cmdNew "github.com/jlrosende/project-manager/cmd/cli/new"
 	"github.com/jlrosende/project-manager/internal"
+	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui"
 	"github.com/jlrosende/project-manager/internal/adapters/repositories"
 	"github.com/jlrosende/project-manager/internal/core/services"
 	"github.com/spf13/cobra"
@@ -16,11 +17,11 @@ import (
 
 var (
 	rootCmd = &cobra.Command{
-		Use:          "pm [project] [path]",
+		Use:          "pm [<project>] [<path>] [<env>]",
 		Short:        "pm is a tool to create and organize projects in your computer",
 		Long:         `A tool to manage the configuration and estructure of multiple projects inside your computer`,
 		Version:      internal.GetVersion(),
-		Args:         cobra.MaximumNArgs(2),
+		Args:         cobra.MaximumNArgs(3),
 		SilenceUsage: true,
 		RunE:         root,
 	}
@@ -73,7 +74,7 @@ func root(cmd *cobra.Command, args []string) error {
 
 			fmt.Fprintln(cmd.OutOrStderr(), "---")
 			fmt.Fprintf(cmd.OutOrStderr(), "Name: %s\n", p.Name)
-			fmt.Fprintf(cmd.OutOrStderr(), "Description: %s\n", p.Name)
+			fmt.Fprintf(cmd.OutOrStderr(), "Description: %s\n", p.Descrption)
 			fmt.Fprintln(cmd.OutOrStderr(), "---")
 		}
 		return nil
@@ -102,53 +103,57 @@ func root(cmd *cobra.Command, args []string) error {
 		name = args[0]
 	}
 
+	path := ""
+
+	if len(args) > 1 {
+		path = args[1]
+	}
+
+	env := ""
+
+	if len(args) > 2 {
+		env = args[2]
+	}
+
+	// Launch TUI if no args or project not exsit
+	if len(args) == 0 || name == "" {
+		p := tea.NewProgram(tui.Window{}, tea.WithAltScreen())
+		if _, err := p.Run(); err != nil {
+			return err
+		}
+		return nil
+	}
+
 	project, err := svc.Get(name)
 
 	if err != nil {
 		return err
 	}
 
-	// Launch TUI if project is empty
-	if project == nil {
-		log.Println("No project defined")
-		return nil
-	}
+	shellRepo, err := repositories.NewShellRepository(project, env, path)
 
-	if len(args) > 1 {
-		// project.Path = args[1]
-	}
-
-	// log.Printf("Start project %s shell in %s", project.Name, project.Path)
-
-	shell := exec.Command(os.Getenv("SHELL"))
-
-	// shell.Dir = filepath.Dir(project.Path)
-
-	shell.Env = append(
-		os.Environ(),
-		// project.EnvVars.ToSlice()...,
-	)
-
-	shell.Env = append(
-		shell.Env,
-		fmt.Sprintf("PM_ACTIVE_PROJECT=%s", project.Name),
-	)
-
-	shell.Stdin = os.Stdin
-	shell.Stdout = os.Stdout
-	shell.Stderr = os.Stderr
-
-	if err := shell.Start(); err != nil {
+	if err != nil {
 		return err
 	}
 
-	log.Printf("New SHELL PID: %d\n", shell.Process.Pid)
+	shellSvc := services.NewShellService(shellRepo)
 
-	if err := shell.Wait(); err != nil {
-		log.Println(err)
+	process, err := shellSvc.Start()
+
+	if err != nil {
+		return err
 	}
 
-	log.Printf("End project session %s shell, (PID: %d)", project.Name, shell.Process.Pid)
+	log.Printf("New SHELL PID: %d\n", process.Pid)
+
+	exitCode, err := shellSvc.Wait()
+	if err != nil {
+		log.Printf("cmd.Wait: %v", err)
+	}
+
+	log.Printf("Exit Status: %d", exitCode)
+
+	log.Printf("End project session %s shell, (PID: %d)", project.Name, process.Pid)
 
 	return nil
 }

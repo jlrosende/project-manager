@@ -41,14 +41,26 @@ func (p *ProjectRepository) Get(name string) (*domain.Project, error) {
 		if section.IsName("includeIf") {
 			slog.Debug(fmt.Sprintf("Section: %+v\n", section))
 			for _, sub := range section.Subsections {
-				// TODO Read subsections and get path of the project
+				// Read subsections and get path of the project
 				slog.Debug(fmt.Sprintf("\t - SubSection: %+v\n", sub))
 
 				if path, ok := strings.CutPrefix(sub.Name, "gitdir/i:"); ok {
-					// TODO read in path .project
+					// read in path .project
 					projetPath := filepath.Join(path, ".project.hcl")
 
-					return loadDotProject(projetPath)
+					project, err := loadDotProject(projetPath)
+
+					if err != nil {
+						return nil, err
+					}
+
+					if project.Name != name {
+						continue
+					}
+
+					project.Path = path
+
+					return project, nil
 				}
 
 			}
@@ -66,13 +78,16 @@ func (p *ProjectRepository) List() ([]*domain.Project, error) {
 			for _, sub := range section.Subsections {
 
 				if path, ok := strings.CutPrefix(sub.Name, "gitdir/i:"); ok {
-					// TODO read in path .project
+
 					projetPath := filepath.Join(path, ".project.hcl")
 
 					project, err := loadDotProject(projetPath)
 					if err != nil {
 						return nil, err
 					}
+
+					project.Path = path
+
 					projects = append(projects, project)
 				}
 
@@ -85,6 +100,14 @@ func (p *ProjectRepository) List() ([]*domain.Project, error) {
 
 }
 
+/*
+TODO
+  - Create directory if not exist
+  - Create .env .project.hcl and .<project>.gitconfig files
+  - If .env exist warn and continue
+  - If .<project>.gitconfig exist warn and continue
+  - If .project.hcl exist
+*/
 func (p *ProjectRepository) Create(name, path, subproject string, envVars domain.EnvVars, gitConfig *domain.GitConfig) (*domain.Project, error) {
 
 	// Check if the path is a directory
