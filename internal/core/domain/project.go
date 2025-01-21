@@ -2,7 +2,7 @@ package domain
 
 type Project struct {
 	Name         string `hcl:"name"`
-	Descrption   string `hcl:"description"`
+	Description  string `hcl:"description"`
 	Path         string
 	Shell        string         `hcl:"shell,optional"`
 	EnvVarsFile  string         `hcl:"env_vars_file"`

@@ -1,4 +1,4 @@
-.PHONY: build
+.PHONY: build run run-build
 
 MAYOR ?= 0
 MINOR ?= 0
@@ -16,3 +16,9 @@ build:
 		" \
 		-o dist/pm \
 		./cmd/main.go
+
+run: 
+	go run cmd/main.go
+
+run-build: build
+	./dist/pm

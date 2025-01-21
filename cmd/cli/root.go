@@ -74,7 +74,7 @@ func root(cmd *cobra.Command, args []string) error {
 
 			fmt.Fprintln(cmd.OutOrStderr(), "---")
 			fmt.Fprintf(cmd.OutOrStderr(), "Name: %s\n", p.Name)
-			fmt.Fprintf(cmd.OutOrStderr(), "Description: %s\n", p.Descrption)
+			fmt.Fprintf(cmd.OutOrStderr(), "Description: %s\n", p.Description)
 			fmt.Fprintln(cmd.OutOrStderr(), "---")
 		}
 		return nil
@@ -117,7 +117,11 @@ func root(cmd *cobra.Command, args []string) error {
 
 	// Launch TUI if no args or project not exsit
 	if len(args) == 0 || name == "" {
-		p := tea.NewProgram(tui.Window{}, tea.WithAltScreen())
+		window, err := tui.NewWindow(svc)
+		if err != nil {
+			return err
+		}
+		p := tea.NewProgram(window, tea.WithAltScreen())
 		if _, err := p.Run(); err != nil {
 			return err
 		}
