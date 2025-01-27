@@ -18,8 +18,8 @@ func DefaultStyles() Styles {
 		Subtitle: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("42")).
 			Padding(0, 2),
-		Border: lipgloss.NewStyle().
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("lightgrey")),
+		// Border: lipgloss.NewStyle().
+		// 	BorderStyle(lipgloss.NormalBorder()).
+		// 	BorderForeground(lipgloss.Color("lightgrey")),
 	}
 }

@@ -38,9 +38,9 @@ func (m Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Window) View() string {
 
 	docStyle := lipgloss.NewStyle().
-		Padding(0, 2).
+		Padding(0, 2) /*.
 		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("grey"))
+		BorderForeground(lipgloss.Color("grey"))*/
 
 	var cards []string
 

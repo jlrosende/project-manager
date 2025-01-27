@@ -3,7 +3,10 @@ package cli
 import (
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
+	"syscall"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	cmdInit "github.com/jlrosende/project-manager/cmd/cli/init"
@@ -24,6 +27,51 @@ var (
 		Args:         cobra.MaximumNArgs(3),
 		SilenceUsage: true,
 		RunE:         root,
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			logLevel, err := cmd.PersistentFlags().GetString("log-level")
+			if err != nil {
+				return err
+			}
+
+			level := slog.LevelVar{}
+			err = level.UnmarshalText([]byte(logLevel))
+
+			if err != nil {
+				return err
+			}
+
+			// cache, err := os.UserCacheDir()
+
+			// if err != nil {
+			// 	return err
+			// }
+
+			// fp, err := os.OpenFile(filepath.Join(cache, "pm.log"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+
+			// if err != nil {
+			// 	return err
+			// }
+
+			// logger := slog.New(slog.NewTextHandler(fp, &slog.HandlerOptions{
+			// 	Level: level.Level(),
+			// }))
+
+			logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+				Level: level.Level(),
+			}))
+
+			logger = logger.With(
+				slog.Group("ps",
+					slog.Int("pid", os.Getpid()),
+					slog.Int("ppid", os.Getppid()),
+					slog.String("project", os.Getenv("PM_ACTIVE_PROJECT")),
+				),
+			)
+
+			slog.SetDefault(logger)
+
+			return nil
+		},
 	}
 )
 
@@ -31,13 +79,16 @@ func init() {
 
 	rootCmd.Flags().BoolP("list", "l", false, "List all the projects.")
 
+	rootCmd.PersistentFlags().String("log-level", "info", "Change the log level (debug, info, warn, error)")
+
 	rootCmd.AddCommand(cmdInit.InitCmd)
 	rootCmd.AddCommand(cmdNew.NewCmd)
+
 }
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		// fmt.Fprintln(os.Stderr, err)
+		slog.Error("somethin wrong happend", slog.Any("err", err))
 		os.Exit(1)
 	}
 }
@@ -80,20 +131,21 @@ func root(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	log.Printf("PID: %d PPID: %d PM_ACTIVE_PROJECT: %s", os.Getpid(), os.Getppid(), os.Getenv("PM_ACTIVE_PROJECT"))
-
+	// TODO Signal the wating pm process to kill session shell
 	if os.Getenv("PM_ACTIVE_PROJECT") != "" {
 
-		log.Println("Interrupt parent process")
+		slog.Warn("Interrupt parent process")
 
 		p, err := os.FindProcess(os.Getppid())
 		if err != nil {
 			return err
 		}
 
-		if err := p.Kill(); err != nil {
+		if err := p.Signal(syscall.SIGINT); err != nil {
 			return err
 		}
+
+		slog.Warn("----------------------KILLED----------------------\n")
 		return nil
 	}
 
@@ -128,6 +180,7 @@ func root(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+RUN:
 	project, err := svc.Get(name)
 
 	if err != nil {
@@ -139,8 +192,9 @@ func root(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-
 	shellSvc := services.NewShellService(shellRepo)
+
+	time.Sleep(3 * time.Second)
 
 	process, err := shellSvc.Start()
 
@@ -148,16 +202,26 @@ func root(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	log.Printf("New SHELL PID: %d\n", process.Pid)
+	slog.Info("new project shell started", slog.Int("pid", process.Pid))
 
 	exitCode, err := shellSvc.Wait()
 	if err != nil {
 		log.Printf("cmd.Wait: %v", err)
 	}
 
-	log.Printf("Exit Status: %d", exitCode)
+	slog.Info(
+		"End project session",
+		slog.Int("exit_code", exitCode),
+		slog.String("shell", project.Name),
+		slog.Int("PID", process.Pid),
+	)
 
-	log.Printf("End project session %s shell, (PID: %d)", project.Name, process.Pid)
+	// TODO other execution kill the process, if the process is kiled by other pm check the arguments from the child process
 
-	return nil
+	if exitCode == 0 || exitCode == 130 {
+		return nil
+	}
+
+	goto RUN
+
 }

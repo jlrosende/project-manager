@@ -26,7 +26,7 @@ func (m Card) View() string {
 	view = lipgloss.JoinVertical(
 		lipgloss.Left,
 		m.Styles.Title.Render(m.Title),
-		m.Styles.Subtitle.Render(m.SubTitle),
+		m.Styles.Subtitle.Render(ellipsis(m.SubTitle, 100)),
 	)
 
 	view = m.Styles.Border.Render(view)
@@ -43,4 +43,15 @@ func NewCard(title, subtitle string) Card {
 		SubTitle: subtitle,
 		Styles:   styles,
 	}
+}
+
+func ellipsis(s string, maxLen int) string {
+	runes := []rune(s)
+	if len(runes) <= maxLen {
+		return s
+	}
+	if maxLen < 3 {
+		maxLen = 3
+	}
+	return string(runes[0:maxLen-3]) + "..."
 }

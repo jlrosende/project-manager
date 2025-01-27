@@ -9,15 +9,17 @@ require (
 	github.com/go-git/go-git/v5 v5.12.0
 	github.com/go-viper/mapstructure/v2 v2.2.1
 	github.com/hashicorp/hcl/v2 v2.23.0
+	github.com/james-barrow/golang-ipc v1.2.4
 	github.com/joho/godotenv v1.5.1
 	github.com/lucasb-eyer/go-colorful v1.2.0
 	github.com/muesli/gamut v0.3.1
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
-	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
+	golang.org/x/term v0.8.0
 )
 
 require (
+	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/agext/levenshtein v1.2.1 // indirect
 	github.com/apparentlymart/go-textseg/v13 v13.0.0 // indirect
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect

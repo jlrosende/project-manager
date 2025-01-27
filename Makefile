@@ -18,7 +18,7 @@ build:
 		./cmd/main.go
 
 run: 
-	go run cmd/main.go
+	go run cmd/main.go $(args)
 
 run-build: build
-	./dist/pm
+	./dist/pm $(args)

@@ -1,7 +1,6 @@
 package services
 
 import (
-	"fmt"
 	"log/slog"
 	"path/filepath"
 
@@ -34,7 +33,13 @@ func (svc *ProjectService) Get(name string) (*domain.Project, error) {
 		return nil, err
 	}
 
-	envVarsPath := filepath.Join(project.Path, project.EnvVarsFile)
+	var envVarsPath string
+
+	if filepath.IsAbs(project.EnvVarsFile) {
+		envVarsPath = project.EnvVarsFile
+	} else {
+		envVarsPath = filepath.Join(project.Path, project.EnvVarsFile)
+	}
 
 	// load env vars
 	project.EnvVars, err = svc.envVars.Load(envVarsPath)
@@ -45,7 +50,14 @@ func (svc *ProjectService) Get(name string) (*domain.Project, error) {
 
 	// Load environments EnvVars
 	for _, env := range project.Environments {
-		envVarsPath := filepath.Join(project.Path, env.EnvVarsFile)
+		var envVarsPath string
+
+		if filepath.IsAbs(project.EnvVarsFile) {
+			envVarsPath = env.EnvVarsFile
+		} else {
+			envVarsPath = filepath.Join(project.Path, env.EnvVarsFile)
+		}
+
 		env.EnvVars, err = svc.envVars.Load(envVarsPath)
 
 		if err != nil {
@@ -53,7 +65,7 @@ func (svc *ProjectService) Get(name string) (*domain.Project, error) {
 		}
 	}
 
-	slog.Info(fmt.Sprintf("%+v", project))
+	slog.Debug("project service get", slog.Any("project", project))
 
 	return project, nil
 }

@@ -68,13 +68,13 @@ func LoadConfig(cfgFile string) (*viper.Viper, error) {
 		v.SetConfigFile(cfgFile)
 	} else {
 
-		home, err := os.UserHomeDir()
+		config, err := os.UserConfigDir()
 
 		if err != nil {
 			return nil, err
 		}
 
-		v.AddConfigPath(path.Join(home, ".config/pm/"))
+		v.AddConfigPath(path.Join(config, "pm/"))
 		v.SetConfigName("config")
 		v.SetConfigType("hcl")
 	}
