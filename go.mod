@@ -10,9 +10,10 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.2.1
 	github.com/hashicorp/hcl/v2 v2.23.0
 	github.com/james-barrow/golang-ipc v1.2.4
-	github.com/joho/godotenv v1.5.1
+	github.com/joho/godotenv v1.6.0-pre.2
 	github.com/lucasb-eyer/go-colorful v1.2.0
 	github.com/muesli/gamut v0.3.1
+	github.com/sagikazarmark/slog-shim v0.1.0
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
 	golang.org/x/term v0.8.0
@@ -50,7 +51,6 @@ require (
 	github.com/pjbgf/sha1cd v0.3.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
-	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/sahilm/fuzzy v0.1.1 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect

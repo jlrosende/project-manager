@@ -5,8 +5,8 @@ import (
 	"log"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"syscall"
-	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	cmdInit "github.com/jlrosende/project-manager/cmd/cli/init"
@@ -40,25 +40,25 @@ var (
 				return err
 			}
 
-			// cache, err := os.UserCacheDir()
+			cache, err := os.UserCacheDir()
 
-			// if err != nil {
-			// 	return err
-			// }
+			if err != nil {
+				return err
+			}
 
-			// fp, err := os.OpenFile(filepath.Join(cache, "pm.log"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+			fp, err := os.OpenFile(filepath.Join(cache, "pm.log"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 
-			// if err != nil {
-			// 	return err
-			// }
+			if err != nil {
+				return err
+			}
 
-			// logger := slog.New(slog.NewTextHandler(fp, &slog.HandlerOptions{
-			// 	Level: level.Level(),
-			// }))
-
-			logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+			logger := slog.New(slog.NewTextHandler(fp, &slog.HandlerOptions{
 				Level: level.Level(),
 			}))
+
+			// logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+			// 	Level: level.Level(),
+			// }))
 
 			logger = logger.With(
 				slog.Group("ps",
@@ -69,6 +69,8 @@ var (
 			)
 
 			slog.SetDefault(logger)
+
+			slog.Info("----------------------------------------------------------------------")
 
 			return nil
 		},
@@ -193,8 +195,6 @@ RUN:
 		return err
 	}
 	shellSvc := services.NewShellService(shellRepo)
-
-	time.Sleep(3 * time.Second)
 
 	process, err := shellSvc.Start()
 
