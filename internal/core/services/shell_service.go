@@ -25,3 +25,7 @@ func (s *ShellService) Start() (*os.Process, error) {
 func (s *ShellService) Wait() (int, error) {
 	return s.repo.Wait()
 }
+
+func (s *ShellService) Kill() error {
+	return s.repo.Kill()
+}

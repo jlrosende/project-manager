@@ -1,4 +1,4 @@
-package repositories
+package shells
 
 import (
 	"errors"
@@ -106,4 +106,8 @@ func (s *ShellRepository) Wait() (int, error) {
 	}
 
 	return 0, nil
+}
+
+func (s *ShellRepository) Kill() error {
+	return s.cmd.Process.Kill()
 }

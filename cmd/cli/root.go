@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"syscall"
 
 	tea "github.com/charmbracelet/bubbletea"
 	cmdInit "github.com/jlrosende/project-manager/cmd/cli/init"
@@ -14,6 +13,7 @@ import (
 	"github.com/jlrosende/project-manager/internal"
 	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui"
 	"github.com/jlrosende/project-manager/internal/adapters/repositories"
+	"github.com/jlrosende/project-manager/internal/adapters/repositories/shells"
 	"github.com/jlrosende/project-manager/internal/core/services"
 	"github.com/spf13/cobra"
 )
@@ -134,22 +134,22 @@ func root(cmd *cobra.Command, args []string) error {
 	}
 
 	// TODO Signal the wating pm process to kill session shell
-	if os.Getenv("PM_ACTIVE_PROJECT") != "" {
+	// if os.Getenv("PM_ACTIVE_PROJECT") != "" {
 
-		slog.Warn("Interrupt parent process")
+	// 	slog.Warn("Interrupt parent process")
 
-		p, err := os.FindProcess(os.Getppid())
-		if err != nil {
-			return err
-		}
+	// 	p, err := os.FindProcess(os.Getppid())
+	// 	if err != nil {
+	// 		return err
+	// 	}
 
-		if err := p.Signal(syscall.SIGINT); err != nil {
-			return err
-		}
+	// 	if err := p.Signal(syscall.SIGINT); err != nil {
+	// 		return err
+	// 	}
 
-		slog.Warn("----------------------KILLED----------------------\n")
-		return nil
-	}
+	// 	slog.Warn("----------------------KILLED----------------------\n")
+	// 	return nil
+	// }
 
 	name := ""
 
@@ -189,7 +189,7 @@ RUN:
 		return err
 	}
 
-	shellRepo, err := repositories.NewShellRepository(project, env, path)
+	shellRepo, err := shells.NewPseudoShellRepository(project, env, path)
 
 	if err != nil {
 		return err
@@ -203,6 +203,11 @@ RUN:
 	}
 
 	slog.Info("new project shell started", slog.Int("pid", process.Pid))
+
+	// go func() {
+	// 	time.Sleep(10 * time.Second)
+	// 	process.Kill()
+	// }()
 
 	exitCode, err := shellSvc.Wait()
 	if err != nil {
