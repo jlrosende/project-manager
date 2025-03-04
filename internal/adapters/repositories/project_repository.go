@@ -264,11 +264,15 @@ func (p *ProjectRepository) Create(name, path, subproject string, envVars domain
 
 func (p *ProjectRepository) Delete(name string) error {
 	return nil
-
 }
 
 func loadDotProject(path string) (*domain.Project, error) {
 	project := &domain.Project{}
+
+	if strings.HasPrefix(path, "~/") {
+		dirname, _ := os.UserHomeDir()
+		path = filepath.Join(dirname, path[2:])
+	}
 
 	err := hclsimple.DecodeFile(path, nil, project)
 	if err != nil {
