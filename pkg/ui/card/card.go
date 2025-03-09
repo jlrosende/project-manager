@@ -26,7 +26,7 @@ func (m Card) View() string {
 	view = lipgloss.JoinVertical(
 		lipgloss.Left,
 		m.Styles.Title.Render(m.Title),
-		m.Styles.Subtitle.Render(ellipsis(m.SubTitle, 100)),
+		m.Styles.Subtitle.Render(ellipsis(m.SubTitle, 15)),
 	)
 
 	view = m.Styles.Border.Render(view)

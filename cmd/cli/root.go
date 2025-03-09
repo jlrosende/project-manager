@@ -20,7 +20,7 @@ import (
 
 var (
 	rootCmd = &cobra.Command{
-		Use:          "pm [<project>] [<path>] [<env>]",
+		Use:          "pm [project] [path] [env]",
 		Short:        "pm is a tool to create and organize projects in your computer",
 		Long:         `A tool to manage the configuration and estructure of multiple projects inside your computer`,
 		Version:      internal.GetVersion(),
@@ -134,7 +134,10 @@ func root(cmd *cobra.Command, args []string) error {
 	}
 
 	// TODO Signal the wating pm process to kill session shell
-	// if os.Getenv("PM_ACTIVE_PROJECT") != "" {
+	if projet, ok := os.LookupEnv("PM_ACTIVE_PROJECT"); ok {
+		fmt.Fprintf(cmd.OutOrStderr(), "Already runnign pm, active project: %s\n", projet)
+		return nil
+	}
 
 	// 	slog.Warn("Interrupt parent process")
 

@@ -14,6 +14,24 @@ type Window struct {
 	height int
 }
 
+func NewWindow(projectSvc *services.ProjectService) (*Window, error) {
+	projects, err := projectSvc.List()
+
+	if err != nil {
+		return nil, err
+	}
+
+	projectCards := []card.Card{}
+
+	for _, project := range projects {
+		projectCards = append(projectCards, card.NewCard(project.Name, project.Description))
+	}
+
+	return &Window{
+		projects: projectCards,
+	}, nil
+}
+
 func (m Window) Init() tea.Cmd {
 	return nil
 }
@@ -38,41 +56,86 @@ func (m Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Window) View() string {
 
 	docStyle := lipgloss.NewStyle().
-		Padding(0, 2) /*.
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("grey"))*/
+		Width(m.width-2).
+		Height(m.height-2).
+		Padding(0, 2)
 
-	var cards []string
+	width := docStyle.GetWidth()
+	// height := docStyle.GetWidth()
 
-	for _, project := range m.projects {
-		cards = append(cards, project.View())
+	// Help Block
+	helpPanel := m.helpPanelRender()
+
+	historyA := "The Romans learned from the Greeks that quinces slowly cooked with honey would “set” when cool. The Apicius gives a recipe for preserving whole quinces, stems and leaves attached, in a bath of honey diluted with defrutum: Roman marmalade. Preserves of quince and lemon appear (along with rose, apple, plum and pear) in the Book of ceremonies of the Byzantine Emperor Constantine VII Porphyrogennetos."
+	historyB := "Medieval quince preserves, which went by the French name cotignac, produced in a clear version and a fruit pulp version, began to lose their medieval seasoning of spices in the 16th century. In the 17th century, La Varenne provided recipes for both thick and clear cotignac."
+
+	listBlockStyle := lipgloss.NewStyle().
+		Width(width/3).
+		//Height(height).
+		Align(lipgloss.Left).
+		Padding(0, 2)
+
+	viewBlockStyle := lipgloss.NewStyle().
+		Width((width/3)*2).
+		//Height(height).
+		Align(lipgloss.Left).
+		Padding(0, 2).
+		Foreground(lipgloss.Color("#fff"))
+
+	// TODO Debug
+	if false {
+		docStyle = docStyle.
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderForeground(lipgloss.Color("grey")).
+			Background(lipgloss.Color("#f0f"))
+		listBlockStyle = listBlockStyle.
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderForeground(lipgloss.Color("#f00"))
+
+		viewBlockStyle = viewBlockStyle.
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderForeground(lipgloss.Color("#0ff"))
 	}
 
-	return lipgloss.Place(
-		m.width, m.height,
-		lipgloss.Left, lipgloss.Top,
-		docStyle.
-			Width(m.width-2).
-			Height(m.height-2).
-			Render(lipgloss.JoinVertical(lipgloss.Left, cards...)),
+	bodyBlockStyle := lipgloss.JoinHorizontal(lipgloss.Top,
+		listBlockStyle.Render(historyA),
+		viewBlockStyle.Render(historyB),
 	)
+
+	main := lipgloss.JoinVertical(
+		lipgloss.Left,
+		titleBlockStyle.Render("Projects"),
+		bodyBlockStyle,
+		helpPanel,
+	)
+
+	return main
+
+	// return lipgloss.Place(
+	// 	m.width, m.height,
+	// 	lipgloss.Left, lipgloss.Top,
+
+	// return docStyle.
+	// 	Width(m.width - 2).
+	// 	Height(m.height - 2).
+	// 	Render("a")
+
 	// return docStyle.Render(lipgloss.JoinHorizontal(lipgloss.Center, cards...))
 }
 
-func NewWindow(projectSvc *services.ProjectService) (*Window, error) {
-	projects, err := projectSvc.List()
+func (w Window) helpPanelRender() string {
+	helpBlockStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#777777"))
 
-	if err != nil {
-		return nil, err
-	}
+	return helpBlockStyle.Render("help")
+}
 
-	projectCards := []card.Card{}
+func (w Window) sidebarPanelRender() string {
+	// Title block
+	titleBlockStyle := lipgloss.NewStyle().
+		Background(lipgloss.Color("#f0f")).
+		Padding(1, 2).
+		Render("Projects")
 
-	for _, project := range projects {
-		projectCards = append(projectCards, card.NewCard(project.Name, project.Description))
-	}
-
-	return &Window{
-		projects: projectCards,
-	}, nil
+	return helpBlockStyle.Render("help")
 }
