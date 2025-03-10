@@ -279,6 +279,14 @@ func loadDotProject(path string) (*domain.Project, error) {
 		return nil, err
 	}
 
+	if project.Shell == "" {
+		if shell, ok := os.LookupEnv("SHELL"); ok {
+			project.Shell = shell
+		} else {
+			return nil, fmt.Errorf("unable to load default shell. Add SHELL environment variable or set the `shell` variable inside your %s file", filepath.Join(path, ".project.hcl"))
+		}
+	}
+
 	return project, nil
 }
 

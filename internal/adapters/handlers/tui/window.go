@@ -33,7 +33,9 @@ func NewWindow(projectSvc *services.ProjectService) (*Window, error) {
 }
 
 func (m Window) Init() tea.Cmd {
-	return nil
+	return tea.Batch(
+		tea.SetWindowTitle("project manager"),
+	)
 }
 
 func (m Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -55,87 +57,89 @@ func (m Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m Window) View() string {
 
-	docStyle := lipgloss.NewStyle().
-		Width(m.width-2).
-		Height(m.height-2).
-		Padding(0, 2)
-
-	width := docStyle.GetWidth()
-	// height := docStyle.GetWidth()
-
 	// Help Block
 	helpPanel := m.helpPanelRender()
 
-	historyA := "The Romans learned from the Greeks that quinces slowly cooked with honey would “set” when cool. The Apicius gives a recipe for preserving whole quinces, stems and leaves attached, in a bath of honey diluted with defrutum: Roman marmalade. Preserves of quince and lemon appear (along with rose, apple, plum and pear) in the Book of ceremonies of the Byzantine Emperor Constantine VII Porphyrogennetos."
-	historyB := "Medieval quince preserves, which went by the French name cotignac, produced in a clear version and a fruit pulp version, began to lose their medieval seasoning of spices in the 16th century. In the 17th century, La Varenne provided recipes for both thick and clear cotignac."
-
-	listBlockStyle := lipgloss.NewStyle().
-		Width(width/3).
-		//Height(height).
-		Align(lipgloss.Left).
-		Padding(0, 2)
-
-	viewBlockStyle := lipgloss.NewStyle().
-		Width((width/3)*2).
-		//Height(height).
-		Align(lipgloss.Left).
-		Padding(0, 2).
-		Foreground(lipgloss.Color("#fff"))
-
-	// TODO Debug
-	if false {
-		docStyle = docStyle.
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("grey")).
-			Background(lipgloss.Color("#f0f"))
-		listBlockStyle = listBlockStyle.
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("#f00"))
-
-		viewBlockStyle = viewBlockStyle.
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("#0ff"))
-	}
-
-	bodyBlockStyle := lipgloss.JoinHorizontal(lipgloss.Top,
-		listBlockStyle.Render(historyA),
-		viewBlockStyle.Render(historyB),
+	// Sidebar
+	sidebarPanel := lipgloss.Place(
+		m.width/5,
+		m.height,
+		lipgloss.Left,
+		lipgloss.Top,
+		m.sidebarPanelRender(),
 	)
 
-	main := lipgloss.JoinVertical(
+	// View
+	viewPanel := lipgloss.Place(
+		(m.width/5)*4,
+		m.height,
 		lipgloss.Left,
-		titleBlockStyle.Render("Projects"),
-		bodyBlockStyle,
+		lipgloss.Top,
+		m.viewPanelRender(),
+	)
+
+	mainPanel := lipgloss.JoinHorizontal(lipgloss.Left,
+		sidebarPanel,
+		viewPanel,
+	)
+
+	// return mainPanel
+	view := lipgloss.JoinVertical(
+		lipgloss.Left,
+		mainPanel,
 		helpPanel,
 	)
 
-	return main
+	return view
 
-	// return lipgloss.Place(
-	// 	m.width, m.height,
-	// 	lipgloss.Left, lipgloss.Top,
-
-	// return docStyle.
-	// 	Width(m.width - 2).
-	// 	Height(m.height - 2).
-	// 	Render("a")
-
-	// return docStyle.Render(lipgloss.JoinHorizontal(lipgloss.Center, cards...))
 }
 
-func (w Window) helpPanelRender() string {
+func (m Window) helpPanelRender() string {
 	helpBlockStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#777777"))
 
-	return helpBlockStyle.Render("help")
+	return helpBlockStyle.Render("? help")
 }
 
-func (w Window) sidebarPanelRender() string {
+func (m Window) sidebarPanelRender() string {
+
+	var sidebarRender string
+
 	// Title block
 	titleBlockStyle := lipgloss.NewStyle().
-		Background(lipgloss.Color("#f0f")).
-		Padding(1, 2).
-		Render("Projects")
+		Width(m.width/5).
+		Foreground(lipgloss.Color("#0ff")).
+		Padding(1, 2, 0).
+		Bold(true).
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderBottom(true).
+		Render(" Projects")
 
-	return helpBlockStyle.Render("help")
+	projectsBlockStyle := lipgloss.NewStyle().
+		Padding(0, 2).
+		Render("[ ] - project 1")
+
+	sidebarRender = lipgloss.JoinVertical(
+		lipgloss.Left,
+		titleBlockStyle,
+		projectsBlockStyle,
+	)
+
+	return sidebarRender
+}
+
+func (m Window) viewPanelRender() string {
+
+	historyB := "Medieval quince preserves, which went by the French name cotignac, produced in a clear version and a fruit pulp version, began to lose their medieval seasoning of spices in the 16th century. In the 17th century, La Varenne provided recipes for both thick and clear cotignac.Medieval quince preserves, which went by the French name cotignac, produced in a clear version and a fruit pulp version, began to lose their medieval seasoning of spices in the 16th century. In the 17th century, La Varenne provided recipes for both thick and clear cotignac.	Medieval quince preserves, which went by the French name cotignac, produced in a clear version and a fruit pulp version, began to lose their medieval seasoning of spices in the 16th century. In the 17th century, La Varenne provided recipes for both thick and clear cotignac."
+
+	viewBlockStyle := lipgloss.NewStyle().
+		// Background(lipgloss.Color("#F00")).
+		Padding(1, 2).
+		Align(lipgloss.Left).
+		Width((m.width / 5) * 4).
+		Height(m.height).
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderLeft(true)
+
+	return viewBlockStyle.Render(historyB)
 }
