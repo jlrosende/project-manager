@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"log/slog"
 	"path/filepath"
 
@@ -24,50 +25,59 @@ func NewProjectService(project ports.ProjectRepository, envVars ports.EnvVarsRep
 	}
 }
 
-func (svc *ProjectService) Get(name string) (*domain.Project, error) {
+func (svc *ProjectService) Load(name string) (*domain.Project, error) {
 
-	// Get Project
-	project, err := svc.project.Get(name)
-
-	if err != nil {
-		return nil, err
-	}
-
-	var envVarsPath string
-
-	if filepath.IsAbs(project.EnvVarsFile) {
-		envVarsPath = project.EnvVarsFile
-	} else {
-		envVarsPath = filepath.Join(project.Path, project.EnvVarsFile)
-	}
-
-	// load env vars
-	project.EnvVars, err = svc.envVars.Load(envVarsPath)
+	projects, err := svc.project.List()
 
 	if err != nil {
 		return nil, err
 	}
 
-	// Load environments EnvVars
-	for _, env := range project.Environments {
+	for _, project := range projects {
+
+		// Check name if not continue
+		if project.Name != name {
+			continue
+		}
+
 		var envVarsPath string
 
 		if filepath.IsAbs(project.EnvVarsFile) {
-			envVarsPath = env.EnvVarsFile
+			envVarsPath = project.EnvVarsFile
 		} else {
-			envVarsPath = filepath.Join(project.Path, env.EnvVarsFile)
+			envVarsPath = filepath.Join(project.Path, project.EnvVarsFile)
 		}
 
-		env.EnvVars, err = svc.envVars.Load(envVarsPath)
+		// load env vars
+		project.EnvVars, err = svc.envVars.Load(envVarsPath)
 
 		if err != nil {
-			slog.Warn("EnvVars file not found", slog.String("env", env.Name), slog.String("path", envVarsPath))
+			return nil, err
 		}
+
+		// Load environments EnvVars
+		for _, env := range project.Environments {
+			var envVarsPath string
+
+			if filepath.IsAbs(project.EnvVarsFile) {
+				envVarsPath = env.EnvVarsFile
+			} else {
+				envVarsPath = filepath.Join(project.Path, env.EnvVarsFile)
+			}
+
+			env.EnvVars, err = svc.envVars.Load(envVarsPath)
+
+			if err != nil {
+				slog.Warn("EnvVars file not found", slog.String("env", env.Name), slog.String("path", envVarsPath))
+			}
+		}
+
+		slog.Debug("project loaded", slog.Any("project", project))
+
+		return project, nil
 	}
 
-	slog.Debug("project service get", slog.Any("project", project))
-
-	return project, nil
+	return nil, fmt.Errorf("project '%s' not found, projects are case sensitive", name)
 }
 
 func (svc *ProjectService) List() ([]*domain.Project, error) {

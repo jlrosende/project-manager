@@ -14,6 +14,7 @@ type Project struct {
 
 type Environment struct {
 	Name        string `hcl:"name,label"`
+	Color       string `hcl:"color,optional"`
 	EnvVarsMode string `hcl:"env_vars_mode"`
 	EnvVarsFile string `hcl:"env_vars_file"`
 	EnvVars     EnvVars

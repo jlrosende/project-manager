@@ -24,7 +24,8 @@
 				"ms-vscode.makefile-tools",
 				"golang.go",
 				"ms-azuretools.vscode-docker",
-				"HashiCorp.HCL"
+				"HashiCorp.HCL",
+				"tamasfe.even-better-toml"
 			],
 			"settings": {
 				"aws.telemetry": false,

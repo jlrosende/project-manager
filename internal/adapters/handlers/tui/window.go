@@ -3,6 +3,7 @@ package tui
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/lipgloss/list"
 	"github.com/jlrosende/project-manager/internal/core/services"
 	"github.com/jlrosende/project-manager/pkg/ui/card"
 )
@@ -13,6 +14,8 @@ type Window struct {
 	width  int
 	height int
 }
+
+var _ tea.Model = (*Window)(nil)
 
 func NewWindow(projectSvc *services.ProjectService) (*Window, error) {
 	projects, err := projectSvc.List()
@@ -108,11 +111,12 @@ func (m Window) sidebarPanelRender() string {
 	// Title block
 	titleBlockStyle := lipgloss.NewStyle().
 		Width(m.width/5).
-		Foreground(lipgloss.Color("#0ff")).
+		Foreground(lipgloss.Color("14")).
 		Padding(1, 2, 0).
 		Bold(true).
 		BorderStyle(lipgloss.NormalBorder()).
 		BorderBottom(true).
+		Align(lipgloss.Center).
 		Render(" Projects")
 
 	projectsBlockStyle := lipgloss.NewStyle().
@@ -130,16 +134,41 @@ func (m Window) sidebarPanelRender() string {
 
 func (m Window) viewPanelRender() string {
 
+	viewPanelStyle := lipgloss.NewStyle().
+		Padding(1, 2, 0).
+		Align(lipgloss.Left).
+		Border(lipgloss.NormalBorder(),
+			false, false, true, true,
+		)
+
+	descriptionTitle := viewPanelStyle.
+		Foreground(lipgloss.Color("10")).
+		Render("󰦪 Description")
+
 	historyB := "Medieval quince preserves, which went by the French name cotignac, produced in a clear version and a fruit pulp version, began to lose their medieval seasoning of spices in the 16th century. In the 17th century, La Varenne provided recipes for both thick and clear cotignac.Medieval quince preserves, which went by the French name cotignac, produced in a clear version and a fruit pulp version, began to lose their medieval seasoning of spices in the 16th century. In the 17th century, La Varenne provided recipes for both thick and clear cotignac.	Medieval quince preserves, which went by the French name cotignac, produced in a clear version and a fruit pulp version, began to lose their medieval seasoning of spices in the 16th century. In the 17th century, La Varenne provided recipes for both thick and clear cotignac."
 
-	viewBlockStyle := lipgloss.NewStyle().
-		// Background(lipgloss.Color("#F00")).
-		Padding(1, 2).
-		Align(lipgloss.Left).
+	descriptionText := viewPanelStyle.
 		Width((m.width / 5) * 4).
-		Height(m.height).
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderLeft(true)
+		BorderBottom(false).
+		Render(historyB)
 
-	return viewBlockStyle.Render(historyB)
+	envsTitle := viewPanelStyle.
+		Foreground(lipgloss.Color("11")).
+		Render("󱄑 Environments")
+
+	// envsList := viewPanelStyle.BorderBottom(false).PaddingTop(0)
+
+	viewBlockStyle := lipgloss.JoinVertical(
+		lipgloss.Left,
+		descriptionTitle,
+		descriptionText,
+		envsTitle,
+		list.New(
+			"dev",
+			"pre",
+			"pro",
+		).Enumerator(list.Roman).Value(),
+	)
+
+	return viewBlockStyle
 }

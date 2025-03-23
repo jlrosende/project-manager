@@ -83,7 +83,8 @@ func (p *ProjectRepository) List() ([]*domain.Project, error) {
 
 					project, err := loadDotProject(projetPath)
 					if err != nil {
-						return nil, err
+						slog.Error(err.Error())
+						continue
 					}
 
 					project.Path = path
