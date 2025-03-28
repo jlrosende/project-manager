@@ -210,14 +210,14 @@ func root(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	slog.Info("new project shell started", slog.Int("pid", process.Pid))
+	slog.Debug("new project shell started", slog.Int("pid", process.Pid))
 
 	exitCode, err := shellSvc.Wait()
 	if err != nil {
 		log.Printf("cmd.Wait: %v", err)
 	}
 
-	slog.Info(
+	slog.Debug(
 		"End project session",
 		slog.Int("exit_code", exitCode),
 		slog.String("shell", project.Name),

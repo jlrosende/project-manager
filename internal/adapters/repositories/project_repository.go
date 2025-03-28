@@ -87,11 +87,17 @@ func (p *ProjectRepository) List() ([]*domain.Project, error) {
 						continue
 					}
 
+					if strings.HasPrefix(path, "~/") {
+						dirname, _ := os.UserHomeDir()
+						path = filepath.Join(dirname, path[2:])
+					}
+
 					project.Path = path
+
+					slog.Debug("load project", "path", project.Path)
 
 					projects = append(projects, project)
 				}
-
 			}
 
 		}
@@ -180,7 +186,7 @@ func (p *ProjectRepository) Create(name, path, subproject string, envVars domain
 		return nil, err
 	}
 
-	slog.Info(fmt.Sprintf("%d Bytes written in %s", n_bytes, gitConfigPath))
+	slog.Debug(fmt.Sprintf("%d Bytes written in %s", n_bytes, gitConfigPath))
 
 	if err := p.git.Validate(); err != nil {
 		return nil, err
@@ -225,7 +231,7 @@ func (p *ProjectRepository) Create(name, path, subproject string, envVars domain
 		return nil, err
 	}
 
-	slog.Info(fmt.Sprintf("%d Bytes written in %s", n_bytes, gitConfigPath))
+	slog.Debug(fmt.Sprintf("%d Bytes written in %s", n_bytes, gitConfigPath))
 
 	if err := newConfig.Validate(); err != nil {
 		return nil, err
@@ -251,7 +257,7 @@ func (p *ProjectRepository) Create(name, path, subproject string, envVars domain
 		if err != nil {
 			return nil, err
 		}
-		slog.Info(fmt.Sprintf("%d Bytes written in %s", n_bytes_env, envPath))
+		slog.Debug(fmt.Sprintf("%d Bytes written in %s", n_bytes_env, envPath))
 
 	}
 

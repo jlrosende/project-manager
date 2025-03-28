@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -83,14 +84,11 @@ func NewPseudoShellRepository(project *domain.Project, env string, path string) 
 
 	if path == "" {
 		shell.cmd.Dir = project.Path
+		slog.Debug("Shell Path", "project.Path", shell.cmd.Dir)
 	} else {
 		shell.cmd.Dir = path
+		slog.Debug("Shell Path", "path", shell.cmd.Dir)
 	}
-
-	// set in/out/err
-	// shell.cmd.Stdin = os.Stdin
-	// shell.cmd.Stdout = os.Stdout
-	// shell.cmd.Stderr = os.Stderr
 
 	return shell, nil
 }

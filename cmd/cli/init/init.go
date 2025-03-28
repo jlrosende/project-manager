@@ -24,9 +24,9 @@ func init() {
 func initCommand(cmd *cobra.Command, args []string) error {
 	// TODO init pm config file and check requirements
 
-	slog.Info(viper.GetViper().ConfigFileUsed())
-	slog.Info(filepath.Dir(viper.GetViper().ConfigFileUsed()))
-	slog.Info(fmt.Sprintf("%+v", viper.AllSettings()))
+	slog.Debug(viper.GetViper().ConfigFileUsed())
+	slog.Debug(filepath.Dir(viper.GetViper().ConfigFileUsed()))
+	slog.Debug(fmt.Sprintf("%+v", viper.AllSettings()))
 
 	// if err := viper.SafeWriteConfigAs(viper.GetViper().ConfigFileUsed()); err != nil {
 	// 	return err
