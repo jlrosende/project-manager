@@ -5,10 +5,15 @@ import (
 	"log"
 	"log/slog"
 	"os"
+	"path/filepath"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	cmdEdit "github.com/jlrosende/project-manager/cmd/cli/edit"
 	cmdInit "github.com/jlrosende/project-manager/cmd/cli/init"
+	cmdList "github.com/jlrosende/project-manager/cmd/cli/list"
 	cmdNew "github.com/jlrosende/project-manager/cmd/cli/new"
+
 	"github.com/jlrosende/project-manager/internal"
 	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui"
 	"github.com/jlrosende/project-manager/internal/adapters/repositories"
@@ -27,54 +32,51 @@ var (
 		Args:         cobra.MaximumNArgs(3),
 		SilenceUsage: true,
 		RunE:         root,
-		// PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		// 	logLevel, err := cmd.PersistentFlags().GetString("log-level")
-		// 	if err != nil {
-		// 		return err
-		// 	}
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			logLevel, err := cmd.PersistentFlags().GetString("log-level")
+			if err != nil {
+				return err
+			}
 
-		// 	level := slog.LevelVar{}
-		// 	err = level.UnmarshalText([]byte(logLevel))
+			level := slog.LevelVar{}
+			err = level.UnmarshalText([]byte(logLevel))
 
-		// 	if err != nil {
-		// 		return err
-		// 	}
+			if err != nil {
+				return err
+			}
 
-		// 	cache, err := os.UserCacheDir()
+			cache, err := os.UserCacheDir()
 
-		// 	if err != nil {
-		// 		return err
-		// 	}
+			if err != nil {
+				return err
+			}
 
-		// 	fp, err := os.OpenFile(filepath.Join(cache, "pm.log"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+			fp, err := os.OpenFile(filepath.Join(cache, "pm.log"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 
-		// 	if err != nil {
-		// 		return err
-		// 	}
+			if err != nil {
+				return err
+			}
 
-		// 	logger := slog.New(slog.NewTextHandler(fp, &slog.HandlerOptions{
-		// 		Level: level.Level(),
-		// 	}))
+			logger := slog.New(slog.NewTextHandler(fp, &slog.HandlerOptions{
+				Level: level.Level(),
+			}))
 
-		// 	// logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-		// 	// 	Level: level.Level(),
-		// 	// }))
+			logger = logger.With(
+				slog.Group("ps",
+					slog.Int("pid", os.Getpid()),
+					slog.Int("ppid", os.Getppid()),
+					slog.String("project", os.Getenv("PM_ACTIVE_PROJECT")),
+				),
+			)
 
-		// 	logger = logger.With(
-		// 		slog.Group("ps",
-		// 			slog.Int("pid", os.Getpid()),
-		// 			slog.Int("ppid", os.Getppid()),
-		// 			slog.String("project", os.Getenv("PM_ACTIVE_PROJECT")),
-		// 		),
-		// 	)
+			slog.SetDefault(logger)
 
-		// 	slog.SetDefault(logger)
+			slog.Info("----------------------------------------------------------------------")
 
-		// 	slog.Info("----------------------------------------------------------------------")
-
-		// 	return nil
-		// },
+			return nil
+		},
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]cobra.Completion, cobra.ShellCompDirective) {
+
 			if len(args) >= 1 {
 				return nil, cobra.ShellCompDirectiveNoFileComp
 			}
@@ -91,6 +93,8 @@ func init() {
 
 	rootCmd.AddCommand(cmdInit.InitCmd)
 	rootCmd.AddCommand(cmdNew.NewCmd)
+	rootCmd.AddCommand(cmdList.ListCmd)
+	rootCmd.AddCommand(cmdEdit.EditCmd)
 
 }
 
@@ -100,6 +104,9 @@ func Execute() {
 		os.Exit(1)
 	}
 }
+
+// Root exposes the root command for tools like doc generators.
+func Root() *cobra.Command { return rootCmd }
 
 func root(cmd *cobra.Command, args []string) error {
 
@@ -120,24 +127,6 @@ func root(cmd *cobra.Command, args []string) error {
 	}
 
 	svc := services.NewProjectService(repoProject, repoEnvVars, repoGitConfig)
-
-	if list, err := cmd.Flags().GetBool("list"); err != nil {
-		return err
-	} else if list {
-		fmt.Fprintln(cmd.OutOrStderr(), "Print list and return")
-		projects, err := svc.List()
-		if err != nil {
-			return err
-		}
-		for _, p := range projects {
-
-			fmt.Fprintln(cmd.OutOrStderr(), "---")
-			fmt.Fprintf(cmd.OutOrStderr(), "Name: %s\n", p.Name)
-			fmt.Fprintf(cmd.OutOrStderr(), "Description: %s\n", p.Description)
-			fmt.Fprintln(cmd.OutOrStderr(), "---")
-		}
-		return nil
-	}
 
 	// TODO Signal the wating pm process to kill session shell
 	if projet, ok := os.LookupEnv("PM_ACTIVE_PROJECT"); ok {
