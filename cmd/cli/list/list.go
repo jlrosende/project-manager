@@ -76,6 +76,4 @@ func list(cmd *cobra.Command, args []string) error {
 		}
 	}
 	return nil
-
-	return nil
 }

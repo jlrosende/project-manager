@@ -1,0 +1,34 @@
+.nh
+.TH "PM" "1" "Sep 2025" "" ""
+
+.SH NAME
+pm - pm is a tool to create and organize projects in your computer
+
+
+.SH SYNOPSIS
+\fBpm [project] [env|[path]]  [flags]\fP
+
+
+.SH DESCRIPTION
+A tool to manage the configuration and estructure of multiple projects inside your computer
+
+
+.SH OPTIONS
+\fB-h\fP, \fB--help\fP[=false]
+	help for pm
+
+.PP
+\fB-l\fP, \fB--list\fP[=false]
+	List all the projects.
+
+.PP
+\fB--log-file\fP=""
+	Path to log file (default: $XDG_CACHE_HOME/pm.log)
+
+.PP
+\fB--log-level\fP="info"
+	Change the log level (debug, info, warn, error)
+
+
+.SH SEE ALSO
+\fBpm-edit(1)\fP, \fBpm-init(1)\fP, \fBpm-list(1)\fP, \fBpm-new(1)\fP

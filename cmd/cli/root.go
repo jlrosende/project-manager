@@ -5,7 +5,6 @@ import (
 	"log"
 	"log/slog"
 	"os"
-	"path/filepath"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -20,6 +19,7 @@ import (
 	"github.com/jlrosende/project-manager/internal/adapters/repositories/shells"
 	"github.com/jlrosende/project-manager/internal/core/domain"
 	"github.com/jlrosende/project-manager/internal/core/services"
+	"github.com/jlrosende/project-manager/internal/logger"
 	"github.com/spf13/cobra"
 )
 
@@ -37,41 +37,16 @@ var (
 			if err != nil {
 				return err
 			}
-
-			level := slog.LevelVar{}
-			err = level.UnmarshalText([]byte(logLevel))
+			logFile, err := cmd.PersistentFlags().GetString("log-file")
 
 			if err != nil {
 				return err
 			}
 
-			cache, err := os.UserCacheDir()
-
+			_, err = logger.Setup(logLevel, logFile)
 			if err != nil {
 				return err
 			}
-
-			fp, err := os.OpenFile(filepath.Join(cache, "pm.log"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
-
-			if err != nil {
-				return err
-			}
-
-			logger := slog.New(slog.NewTextHandler(fp, &slog.HandlerOptions{
-				Level: level.Level(),
-			}))
-
-			logger = logger.With(
-				slog.Group("ps",
-					slog.Int("pid", os.Getpid()),
-					slog.Int("ppid", os.Getppid()),
-					slog.String("project", os.Getenv("PM_ACTIVE_PROJECT")),
-				),
-			)
-
-			slog.SetDefault(logger)
-
-			slog.Info("----------------------------------------------------------------------")
 
 			return nil
 		},
@@ -89,7 +64,8 @@ func init() {
 
 	rootCmd.Flags().BoolP("list", "l", false, "List all the projects.")
 
-	// rootCmd.PersistentFlags().String("log-level", "info", "Change the log level (debug, info, warn, error)")
+	rootCmd.PersistentFlags().String("log-level", "info", "Change the log level (debug, info, warn, error)")
+	rootCmd.PersistentFlags().String("log-file", "", "Path to log file (default: $XDG_CACHE_HOME/pm.log)")
 
 	rootCmd.AddCommand(cmdInit.InitCmd)
 	rootCmd.AddCommand(cmdNew.NewCmd)
@@ -161,28 +137,40 @@ func root(cmd *cobra.Command, args []string) error {
 
 	// Launch TUI if no args or project not exsit
 	if len(args) == 0 || name == "" {
-		// window, err := tui.NewWindow(svc)
-		window, err := tui.NewSimpleWindow(svc)
+		window, err := tui.NewWindow(svc)
 		if err != nil {
 			return err
 		}
 		p := tea.NewProgram(window, tea.WithAltScreen())
-		if _, err := p.Run(); err != nil {
+		m, err := p.Run()
+		if err != nil {
 			return err
 		}
 
-		selected := window.SelectedProject()
+		var selected *domain.Project
+		var selEnv string
+		if w, ok := m.(*tui.Window); ok {
+			selected = w.SelectedProject()
+			selEnv = w.SelectedEnvironment()
+		}
 
 		if selected == nil {
 			return nil
 		}
-		// Get selected project
 		project = selected
+		if selEnv != "" {
+			env = selEnv
+		} else if selected.DefaultEnv != "" {
+			env = selected.DefaultEnv
+		}
 	} else {
 		project, err = svc.Load(name)
 
 		if err != nil {
 			return err
+		}
+		if env == "" && project.DefaultEnv != "" {
+			env = project.DefaultEnv
 		}
 	}
 

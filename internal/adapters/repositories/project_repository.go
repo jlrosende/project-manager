@@ -245,7 +245,7 @@ func (p *ProjectRepository) Create(name, path, subproject string, envVars domain
 		return nil, fmt.Errorf("%s already exists in directory %s", envPath, path)
 	}
 
-	fpEnv, err := os.OpenFile(envPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+	fpEnv, err := os.OpenFile(envPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o644)
 
 	if err != nil {
 		return nil, err
@@ -253,11 +253,11 @@ func (p *ProjectRepository) Create(name, path, subproject string, envVars domain
 	defer fpEnv.Close()
 
 	for key, value := range envVars {
-		n_bytes_env, err := fpEnv.WriteString(fmt.Sprintf("%s=%s\n", key, value))
+		n, err := fmt.Fprintf(fpEnv, "%s=%s\n", key, value)
 		if err != nil {
 			return nil, err
 		}
-		slog.Debug(fmt.Sprintf("%d Bytes written in %s", n_bytes_env, envPath))
+		slog.Debug("bytes written", "n", n, "path", envPath)
 
 	}
 
