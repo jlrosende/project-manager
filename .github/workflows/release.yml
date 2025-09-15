@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (no publish)'
+        required: false
+        default: 'false'
+        type: choice
+        options: ['false','true']
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: release-${{ github.ref_name }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: GoReleaser (dry run)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == 'true' }}
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: latest
+          args: release --snapshot --skip-publish --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: GoReleaser (release)
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run != 'true' }}
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -28,13 +28,7 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				envs := domain.EnvVars{}
 				if strings.TrimSpace(f.envVars.Value()) != "" {
-					pairs := strings.Split(f.envVars.Value(), ",")
-					for _, p := range pairs {
-						kv := strings.SplitN(strings.TrimSpace(p), "=", 2)
-						if len(kv) == 2 {
-							envs[kv[0]] = kv[1]
-						}
-					}
+					envs = parseEnvLines(f.envVars.Value())
 				}
 				commitSign := strings.ToLower(strings.TrimSpace(f.commitGPGSign.Value())) != "false"
 				tagSign := strings.ToLower(strings.TrimSpace(f.tagGPGSign.Value())) != "false"
@@ -101,18 +95,12 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				env := &domain.Environment{
 					Name:        name,
-					Color:       strings.TrimSpace(f.color.Value()),
+					Color:       normalizeColorInput(strings.TrimSpace(f.color.Value())),
 					EnvVarsMode: strings.TrimSpace(f.mode.Value()),
 				}
 				envs := domain.EnvVars{}
 				if strings.TrimSpace(f.envVars.Value()) != "" {
-					pairs := strings.Split(f.envVars.Value(), ",")
-					for _, p := range pairs {
-						kv := strings.SplitN(strings.TrimSpace(p), "=", 2)
-						if len(kv) == 2 {
-							envs[kv[0]] = kv[1]
-						}
-					}
+					envs = parseEnvLines(f.envVars.Value())
 				}
 				_ = m.projectSvc.AddEnvironment(m.envProjectName, env, envs)
 				projects, err := m.projectSvc.List()

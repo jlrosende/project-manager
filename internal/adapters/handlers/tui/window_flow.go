@@ -4,10 +4,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/jlrosende/project-manager/internal/core/domain"
+	"strconv"
 	"strings"
 )
-
-type kvLine struct{}
 
 func parseEnvLines(s string) domain.EnvVars {
 	res := domain.EnvVars{}
@@ -22,6 +21,45 @@ func parseEnvLines(s string) domain.EnvVars {
 		}
 	}
 	return res
+}
+
+var colorNameMap = map[string]string{
+	"black":  "0",
+	"white":  "15",
+	"red":    "196",
+	"green":  "46",
+	"blue":   "21",
+	"yellow": "226",
+	"magenta":"201",
+	"purple": "93",
+	"cyan":   "51",
+	"teal":   "30",
+	"orange": "208",
+	"pink":   "205",
+	"grey":   "240",
+	"gray":   "240",
+}
+
+func normalizeColorInput(s string) string {
+	ss := strings.ToLower(strings.TrimSpace(s))
+	if ss == "" || ss == "grey" || ss == "gray" { return "240" }
+	if strings.HasPrefix(ss, "#") { return ss }
+	if v, ok := colorNameMap[ss]; ok { return v }
+	return ss
+}
+
+func isValidColorInput(s string) bool {
+	ss := strings.ToLower(strings.TrimSpace(s))
+	if ss == "" { return false }
+	if strings.HasPrefix(ss, "#") {
+		h := ss[1:]
+		if len(h) != 3 && len(h) != 6 { return false }
+		if _, err := strconv.ParseUint(h, 16, 64); err != nil { return false }
+		return true
+	}
+	if _, ok := colorNameMap[ss]; ok { return true }
+	if n, err := strconv.Atoi(ss); err == nil && n >= 0 && n <= 255 { return true }
+	return false
 }
 
 func (m *Window) newProjectFlow() {

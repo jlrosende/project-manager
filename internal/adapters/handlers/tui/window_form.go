@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	bta "github.com/charmbracelet/bubbles/textarea"
@@ -25,6 +26,7 @@ type NewProjectForm struct {
 	focused       int
 	width         int
 	height        int
+	pathDirty     bool
 	submitted     bool
 	canceled      bool
 	err           string
@@ -32,42 +34,50 @@ type NewProjectForm struct {
 
 func NewProjectFormModel() *NewProjectForm {
 	ni := bti.New()
-	ni.Prompt = "Name: "
-	ni.Placeholder = "my-project"
-	ni.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
+	sc := lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
+	sr := lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
+	ni.Prompt = sc.Render("Name") + sr.Render("*") + sc.Render(": ")
+	ni.Placeholder = "my-awesome-app"
+	ni.PromptStyle = lipgloss.NewStyle()
 	ni.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 	ni.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("229"))
+	ni.Width = 40
 	ni.Focus()
 	pi := bti.New()
-	pi.Prompt = "Path: "
-	pi.Placeholder = "~/code/my-project"
-	pi.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
+	pi.Prompt = sc.Render("Path") + sr.Render("*") + sc.Render(": ")
+	pi.Placeholder = "~/my-awesome-app"
+	pi.PromptStyle = lipgloss.NewStyle()
 	pi.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 	pi.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("229"))
+	pi.Width = 40
 	spi := bti.New()
 	spi.Prompt = "Subproject: "
-	spi.Placeholder = ""
+	spi.Placeholder = "services/api"
 	spi.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
 	spi.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 	spi.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("229"))
+	spi.Width = 40
 	un := bti.New()
 	un.Prompt = "Git user.name: "
-	un.Placeholder = ""
+	un.Placeholder = "Jane Doe"
 	un.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
 	un.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 	un.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("229"))
+	un.Width = 40
 	uem := bti.New()
 	uem.Prompt = "Git user.email: "
-	uem.Placeholder = ""
+	uem.Placeholder = "jane@example.com"
 	uem.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
 	uem.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 	uem.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("229"))
+	uem.Width = 40
 	usk := bti.New()
 	usk.Prompt = "Git user.signingkey: "
-	usk.Placeholder = ""
+	usk.Placeholder = "0xDEADBEEF"
 	usk.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
 	usk.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 	usk.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("229"))
+	usk.Width = 40
 	csg := bti.New()
 	csg.Prompt = "commit.gpgsign (true/false): "
 	csg.Placeholder = "true"
@@ -75,6 +85,7 @@ func NewProjectFormModel() *NewProjectForm {
 	csg.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
 	csg.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 	csg.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("229"))
+	csg.Width = 40
 	tsg := bti.New()
 	tsg.Prompt = "tag.gpgsign (true/false): "
 	tsg.Placeholder = "true"
@@ -82,8 +93,11 @@ func NewProjectFormModel() *NewProjectForm {
 	tsg.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
 	tsg.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 	tsg.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("229"))
+	tsg.Width = 40
 	ev := bta.New()
-	ev.Placeholder = "# One per line (like .env)\nKEY=VALUE\nFOO=bar\n# comments allowed"
+	ev.Placeholder = "# One per line (like .env)\nAPP_ENV=development\nDATABASE_URL=postgres://user:pass@localhost:5432/app\n# comments allowed"
+	ev.SetHeight(6)
+	ev.SetWidth(60)
 	return &NewProjectForm{name: ni, path: pi, subproject: spi, userName: un, userEmail: uem, userSigningKey: usk, commitGPGSign: csg, tagGPGSign: tsg, envVars: ev, focused: 0}
 }
 
@@ -94,6 +108,17 @@ func (f *NewProjectForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		f.width = msg.Width
 		f.height = msg.Height
+		w := msg.Width - 10
+		if w < 20 { w = 20 }
+		f.name.Width = w
+		f.path.Width = w
+		f.subproject.Width = w
+		f.userName.Width = w
+		f.userEmail.Width = w
+		f.userSigningKey.Width = w
+		f.commitGPGSign.Width = w
+		f.tagGPGSign.Width = w
+		f.envVars.SetWidth(w + 10)
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "esc", "ctrl+c":
@@ -103,13 +128,13 @@ func (f *NewProjectForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "tab", "shift+tab":
 			if msg.String() == "tab" {
 				f.focused++
-				if f.focused > 8 {
+				if f.focused > 10 {
 					f.focused = 0
 				}
 			} else {
 				f.focused--
 				if f.focused < 0 {
-					f.focused = 8
+					f.focused = 10
 				}
 			}
 			f.blurAll()
@@ -121,8 +146,72 @@ func (f *NewProjectForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				f.blurAll()
 				f.focusCurrent()
 				return f, nil
+			} else if f.focused == 9 {
+				f.err = ""
+				if strings.TrimSpace(f.name.Value()) == "" {
+					f.err = "name is required"
+					return f, nil
+				}
+				if strings.TrimSpace(f.path.Value()) == "" {
+					f.err = "path is required"
+					return f, nil
+				}
+				if ok, reason := canCreatePath(f.path.Value()); !ok {
+					f.err = reason
+					return f, nil
+				}
+				cg := strings.ToLower(strings.TrimSpace(f.commitGPGSign.Value()))
+				if cg != "" && cg != "true" && cg != "false" {
+					f.err = "commit.gpgsign must be true or false"
+					return f, nil
+				}
+				tg := strings.ToLower(strings.TrimSpace(f.tagGPGSign.Value()))
+				if tg != "" && tg != "true" && tg != "false" {
+					f.err = "tag.gpgsign must be true or false"
+					return f, nil
+				}
+				f.submitted = true
+				f.canceled = false
+				return f, nil
+			} else if f.focused == 10 {
+				f.canceled = true
+				f.submitted = false
+				return f, nil
 			}
-			// let textarea handle newline when focused on env vars
+		case "up":
+			if f.focused != 8 {
+				f.focused--
+				if f.focused < 0 {
+					f.focused = 10
+				}
+				f.blurAll()
+				f.focusCurrent()
+				return f, nil
+			}
+		case "down":
+			if f.focused != 8 {
+				f.focused++
+				if f.focused > 10 {
+					f.focused = 0
+				}
+				f.blurAll()
+				f.focusCurrent()
+				return f, nil
+			}
+		case "left":
+			if f.focused == 10 {
+				f.focused = 9
+				f.blurAll()
+				f.focusCurrent()
+				return f, nil
+			}
+		case "right":
+			if f.focused == 9 {
+				f.focused = 10
+				f.blurAll()
+				f.focusCurrent()
+				return f, nil
+			}
 		case "ctrl+s":
 			f.err = ""
 			if strings.TrimSpace(f.name.Value()) == "" {
@@ -155,9 +244,30 @@ func (f *NewProjectForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch f.focused {
 	case 0:
+		oldName := f.name.Value()
 		f.name, cmd = f.name.Update(msg)
+		if f.name.Value() != oldName && !f.pathDirty {
+			slug := slugify(strings.TrimSpace(f.name.Value()))
+			if slug != "" {
+				cur := strings.TrimSpace(f.path.Value())
+				var newPath string
+				if cur == "" {
+					newPath = filepath.Join("~/", slug)
+				} else if strings.HasSuffix(cur, string(os.PathSeparator)) {
+					newPath = cur + slug
+				} else {
+					dir := filepath.Dir(cur)
+					newPath = filepath.Join(dir, slug)
+				}
+				f.path.SetValue(newPath)
+			}
+		}
 	case 1:
+		prev := f.path.Value()
 		f.path, cmd = f.path.Update(msg)
+		if f.path.Value() != prev {
+			f.pathDirty = true
+		}
 	case 2:
 		f.subproject, cmd = f.subproject.Update(msg)
 	case 3:
@@ -172,6 +282,10 @@ func (f *NewProjectForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		f.tagGPGSign, cmd = f.tagGPGSign.Update(msg)
 	case 8:
 		f.envVars, cmd = f.envVars.Update(msg)
+	case 9:
+		// save button: nothing to update
+	case 10:
+		// cancel button: nothing to update
 	}
 	return f, cmd
 }
@@ -213,9 +327,14 @@ func (f *NewProjectForm) focusCurrent() {
 
 func (f *NewProjectForm) View() string {
 	box := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("240")).Padding(1, 2)
-	help := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render("Tab switch  Enter next/submit  Esc cancel")
+	help := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render("Tab/↑/↓ move  ←/→ buttons  Enter next/newline  Ctrl+S save  Esc cancel")
 	errStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
+	styleSel := lipgloss.NewStyle().Foreground(lipgloss.Color("229")).Background(lipgloss.Color("57")).Padding(0, 1)
+	styleDef := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Padding(0, 1)
+	styleTitle := lipgloss.NewStyle().Foreground(lipgloss.Color("14")).Align(lipgloss.Center).Border(lipgloss.NormalBorder(), false, false, true).Padding(0, 1)
 	b := strings.Builder{}
+	b.WriteString(styleTitle.Render("New project"))
+	b.WriteString("\n")
 	b.WriteString(f.name.View())
 	b.WriteString("\n")
 	b.WriteString(f.path.View())
@@ -232,7 +351,15 @@ func (f *NewProjectForm) View() string {
 	b.WriteString("\n")
 	b.WriteString(f.tagGPGSign.View())
 	b.WriteString("\n")
+	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render("Env vars (.env format): one KEY=VALUE per line; '#' comments allowed"))
+	b.WriteString("\n")
 	b.WriteString(f.envVars.View())
+	b.WriteString("\n")
+	btnSave := styleDef.Render("Save")
+	if f.focused == 9 { btnSave = styleSel.Render("Save") }
+	btnCancel := styleDef.Render("Cancel")
+	if f.focused == 10 { btnCancel = styleSel.Render("Cancel") }
+	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Left, btnSave, "  ", btnCancel))
 	b.WriteString("\n\n")
 	if f.err != "" {
 		b.WriteString(errStyle.Render(f.err))
@@ -253,6 +380,20 @@ func isDirEmpty(path string) (bool, error) {
 		return true, nil
 	}
 	return false, err
+}
+
+func slugify(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	if s == "" {
+		return ""
+	}
+	s = strings.ReplaceAll(s, " ", "-")
+	re := regexp.MustCompile(`[^a-z0-9-_]+`)
+	s = re.ReplaceAllString(s, "-")
+	re2 := regexp.MustCompile(`-+`)
+	s = re2.ReplaceAllString(s, "-")
+	s = strings.Trim(s, "-_")
+	return s
 }
 
 func canCreatePath(p string) (bool, string) {
