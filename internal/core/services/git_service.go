@@ -11,7 +11,7 @@ type GitService struct {
 
 var _ ports.GitService = (*GitService)(nil)
 
-func NewGiService(repo ports.GitRepository) *GitService {
+func NewGitService(repo ports.GitRepository) *GitService {
 	return &GitService{
 		repo: repo,
 	}

@@ -17,7 +17,11 @@ type ProjectService struct {
 
 var _ ports.ProjectService = (*ProjectService)(nil)
 
-func NewProjectService(project ports.ProjectRepository, envVars ports.EnvVarsRepository, git ports.GitRepository) *ProjectService {
+func NewProjectService(
+	project ports.ProjectRepository,
+	envVars ports.EnvVarsRepository,
+	git ports.GitRepository,
+) *ProjectService {
 	return &ProjectService{
 		project: project,
 		envVars: envVars,
@@ -26,15 +30,12 @@ func NewProjectService(project ports.ProjectRepository, envVars ports.EnvVarsRep
 }
 
 func (svc *ProjectService) Load(name string) (*domain.Project, error) {
-
 	projects, err := svc.project.List()
-
 	if err != nil {
 		return nil, err
 	}
 
 	for _, project := range projects {
-
 		// Check name if not continue
 		if project.Name != name {
 			continue
@@ -50,7 +51,6 @@ func (svc *ProjectService) Load(name string) (*domain.Project, error) {
 
 		// load env vars
 		project.EnvVars, err = svc.envVars.Load(envVarsPath)
-
 		if err != nil {
 			return nil, err
 		}
@@ -59,14 +59,13 @@ func (svc *ProjectService) Load(name string) (*domain.Project, error) {
 		for _, env := range project.Environments {
 			var envVarsPath string
 
-			if filepath.IsAbs(project.EnvVarsFile) {
+			if filepath.IsAbs(env.EnvVarsFile) {
 				envVarsPath = env.EnvVarsFile
 			} else {
 				envVarsPath = filepath.Join(project.Path, env.EnvVarsFile)
 			}
 
 			env.EnvVars, err = svc.envVars.Load(envVarsPath)
-
 			if err != nil {
 				slog.Warn("EnvVars file not found", slog.String("env", env.Name), slog.String("path", envVarsPath))
 			}
@@ -84,12 +83,24 @@ func (svc *ProjectService) List() ([]*domain.Project, error) {
 	return svc.project.List()
 }
 
-func (svc *ProjectService) Create(name, path, subproject string, envVars domain.EnvVars, gitConfig *domain.GitConfig) (*domain.Project, error) {
+func (svc *ProjectService) Create(
+	name, path, subproject string,
+	envVars domain.EnvVars,
+	gitConfig *domain.GitConfig,
+) (*domain.Project, error) {
 	return svc.project.Create(name, path, subproject, envVars, gitConfig)
 }
 
 func (svc *ProjectService) AddEnvironment(projectName string, env *domain.Environment, envVars domain.EnvVars) error {
 	return svc.project.AddEnvironment(projectName, env, envVars)
+}
+
+func (svc *ProjectService) UpdateProject(project *domain.Project) error {
+	return svc.project.UpdateProject(project)
+}
+
+func (svc *ProjectService) UpdateEnvironment(projectName, originalEnvName string, env *domain.Environment) error {
+	return svc.project.UpdateEnvironment(projectName, originalEnvName, env)
 }
 
 func (svc *ProjectService) Delete(name string) error {

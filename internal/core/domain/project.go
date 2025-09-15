@@ -13,7 +13,6 @@ type Project struct {
 	DefaultEnv   string `hcl:"default_env,optional"`
 }
 
-
 type Environment struct {
 	Name        string `hcl:"name,label"`
 	Color       string `hcl:"color,optional"`

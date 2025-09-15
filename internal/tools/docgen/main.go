@@ -33,9 +33,17 @@ func main() {
 				base := filepath.Base(filename)
 				name := strings.TrimSuffix(base, filepath.Ext(base))
 				title := strings.ReplaceAll(name, "_", " ")
-				return fmt.Sprintf("---\ntitle: %q\nslug: %q\ndescription: \"CLI reference for %s\"\n---\n\n", title, name, title)
+
+				return fmt.Sprintf(
+					"---\ntitle: %q\nslug: %q\ndescription: \"CLI reference for %s\"\n---\n\n",
+					title,
+					name,
+					title,
+				)
 			}
-			link := func(name string) string { return strings.ToLower(name) }
+
+			link := strings.ToLower
+
 			if err := doc.GenMarkdownTreeCustom(root, *out, prep, link); err != nil {
 				log.Fatal(err)
 			}

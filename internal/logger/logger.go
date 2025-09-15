@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 )
 
-func Setup(levelText string, filePath string) (*slog.Logger, error) {
+func Setup(levelText, filePath string) (*slog.Logger, error) {
 	var lv slog.LevelVar
 
 	if levelText == "" {
@@ -22,11 +22,11 @@ func Setup(levelText string, filePath string) (*slog.Logger, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		filePath = filepath.Join(cache, "pm.log")
 	}
 
-	fp, err := os.OpenFile(filePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
-
+	fp, err := os.OpenFile(filePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o644)
 	if err != nil {
 		return nil, err
 	}

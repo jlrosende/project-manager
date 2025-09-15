@@ -18,12 +18,10 @@ var InitCmd = &cobra.Command{
 }
 
 func init() {
-
 }
 
-func initCommand(cmd *cobra.Command, args []string) error {
-	// TODO init pm config file and check requirements
-
+func initCommand(_ *cobra.Command, _ []string) error {
+	// NOTE: init pm config file and check requirements
 	slog.Debug(viper.GetViper().ConfigFileUsed())
 	slog.Debug(filepath.Dir(viper.GetViper().ConfigFileUsed()))
 	slog.Debug(fmt.Sprintf("%+v", viper.AllSettings()))

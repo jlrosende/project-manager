@@ -3,20 +3,19 @@ package list
 import (
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/jlrosende/project-manager/internal/adapters/repositories"
 	"github.com/jlrosende/project-manager/internal/core/services"
-	"github.com/spf13/cobra"
 )
 
-var (
-	ListCmd = &cobra.Command{
-		Use:   "list <project>",
-		Short: "list projects",
-		Long:  `List all projects`,
-		Args:  cobra.MatchAll(cobra.RangeArgs(0, 1), cobra.OnlyValidArgs),
-		RunE:  list,
-	}
-)
+var ListCmd = &cobra.Command{
+	Use:   "list <project>",
+	Short: "list projects",
+	Long:  `List all projects`,
+	Args:  cobra.MatchAll(cobra.RangeArgs(0, 1), cobra.OnlyValidArgs),
+	RunE:  list,
+}
 
 func init() {
 	ListCmd.Flags().String("format", "", "output format")
@@ -30,16 +29,15 @@ func init() {
 
 	ListCmd.Flags().StringToString("env-vars", nil, "List of ENV_VARS to add to the environment")
 
-	ListCmd.Flags().String("shell", "", "Shell of the project, need be installed in the system) (default to $SHELL env var))")
+	ListCmd.Flags().
+		String("shell", "", "Shell of the project, need be installed in the system) (default to $SHELL env var))")
 
-	// if err := ListCmd.MarkFlagRequired("name"); err != nil {
-	// 	log.Fatal(err)
-	// }
-
+	//	if err := ListCmd.MarkFlagRequired("name"); err != nil {
+	//		log.Fatal(err)
+	//	}
 }
 
-func list(cmd *cobra.Command, args []string) error {
-
+func list(cmd *cobra.Command, _ []string) error {
 	repoProject, err := repositories.NewProjectRepository()
 	if err != nil {
 		return err
@@ -51,7 +49,6 @@ func list(cmd *cobra.Command, args []string) error {
 	}
 
 	repoGitConfig, err := repositories.NewGitRepository()
-
 	if err != nil {
 		return err
 	}
@@ -66,14 +63,16 @@ func list(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	for i, p := range projects {
 
+	for i, p := range projects {
 		fmt.Fprintln(cmd.OutOrStderr(), "---")
 		fmt.Fprintf(cmd.OutOrStderr(), "Name: %s\n", p.Name)
 		fmt.Fprintf(cmd.OutOrStderr(), "Description: %s\n", p.Description)
+
 		if len(projects)-1 == i {
 			fmt.Fprintln(cmd.OutOrStderr(), "---")
 		}
 	}
+
 	return nil
 }

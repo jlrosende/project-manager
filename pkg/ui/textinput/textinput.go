@@ -17,6 +17,7 @@ func NewTextInput(prompt, sugestion string) *TextInput {
 	ti.Placeholder = sugestion
 	ti.Prompt = prompt
 	ti.Focus()
+
 	return &TextInput{
 		textInput: ti,
 		err:       nil,
@@ -44,10 +45,12 @@ func (m *TextInput) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// We handle errors just like any other message
 	case error:
 		m.err = msg
+
 		return m, nil
 	}
 
 	m.textInput, cmd = m.textInput.Update(msg)
+
 	return m, cmd
 }
 

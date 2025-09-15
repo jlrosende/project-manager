@@ -1,21 +1,20 @@
-package new
+package newcmd
 
 import (
+	"github.com/spf13/cobra"
+
 	"github.com/jlrosende/project-manager/internal/adapters/repositories"
 	"github.com/jlrosende/project-manager/internal/core/domain"
 	"github.com/jlrosende/project-manager/internal/core/services"
-	"github.com/spf13/cobra"
 )
 
-var (
-	NewCmd = &cobra.Command{
-		Use:   "new <project> [<path>]",
-		Short: "Create new project",
-		Long:  `Create a new project and all the basic configuration files`,
-		Args:  cobra.MatchAll(cobra.RangeArgs(1, 2), cobra.OnlyValidArgs),
-		RunE:  new,
-	}
-)
+var NewCmd = &cobra.Command{
+	Use:   "new <project> [<path>]",
+	Short: "Create new project",
+	Long:  `Create a new project and all the basic configuration files`,
+	Args:  cobra.MatchAll(cobra.RangeArgs(1, 2), cobra.OnlyValidArgs),
+	RunE:  run,
+}
 
 func init() {
 	NewCmd.Flags().String("subproject", "", "Set this new project as subproject")
@@ -29,28 +28,25 @@ func init() {
 
 	NewCmd.Flags().StringToString("env-vars", nil, "List of ENV_VARS to add to the environment")
 
-	NewCmd.Flags().String("shell", "", "Shell of the project, need be installed in the system) (default to $SHELL env var))")
+	NewCmd.Flags().
+		String("shell", "", "Shell of the project, need be installed in the system) (default to $SHELL env var))")
 
-	// if err := NewCmd.MarkFlagRequired("name"); err != nil {
-	// 	log.Fatal(err)
-	// }
-
+	//	if err := NewCmd.MarkFlagRequired("name"); err != nil {
+	//		log.Fatal(err)
+	//	}
 }
 
-func new(cmd *cobra.Command, args []string) error {
-
+func run(cmd *cobra.Command, args []string) error {
 	// ask for a name if not set
 	name := args[0]
 	path := ""
 
 	subproject, err := cmd.Flags().GetString("subproject")
-
 	if err != nil {
 		return err
 	}
 
 	envVars, err := cmd.Flags().GetStringToString("env-vars")
-
 	if err != nil {
 		return err
 	}
@@ -70,7 +66,6 @@ func new(cmd *cobra.Command, args []string) error {
 	}
 
 	repoGitConfig, err := repositories.NewGitRepository()
-
 	if err != nil {
 		return err
 	}
@@ -78,25 +73,21 @@ func new(cmd *cobra.Command, args []string) error {
 	svc := services.NewProjectService(repoProject, repoEnvVars, repoGitConfig)
 
 	gitUserName, err := cmd.Flags().GetString("user.name")
-
 	if err != nil {
 		return err
 	}
 
 	gitUserEmail, err := cmd.Flags().GetString("user.email")
-
 	if err != nil {
 		return err
 	}
 
 	gitUserSigningKey, err := cmd.Flags().GetString("user.signingkey")
-
 	if err != nil {
 		return err
 	}
 
 	gitCommitGPGsign, err := cmd.Flags().GetBool("commit.gpgsign")
-
 	if err != nil {
 		return err
 	}
@@ -114,7 +105,6 @@ func new(cmd *cobra.Command, args []string) error {
 			domain.WithTagSign(gitCommitGPGsign),
 		),
 	)
-
 	if err != nil {
 		return err
 	}

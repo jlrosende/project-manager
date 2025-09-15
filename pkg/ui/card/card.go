@@ -16,8 +16,8 @@ func (m Card) Init() tea.Cmd {
 	return nil
 }
 
-func (m Card) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	return nil, nil
+func (m Card) Update(_ tea.Msg) (tea.Model, tea.Cmd) {
+	return m, nil
 }
 
 func (m Card) View() string {
@@ -35,7 +35,6 @@ func (m Card) View() string {
 }
 
 func NewCard(title, subtitle string) Card {
-
 	styles := DefaultStyles()
 
 	return Card{
@@ -50,8 +49,10 @@ func ellipsis(s string, maxLen int) string {
 	if len(runes) <= maxLen {
 		return s
 	}
+
 	if maxLen < 3 {
 		maxLen = 3
 	}
-	return string(runes[0:maxLen-3]) + "..."
+
+	return string(runes[:maxLen-3]) + "..."
 }

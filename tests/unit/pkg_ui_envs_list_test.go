@@ -1,8 +1,9 @@
 package unit
 
 import (
-	list "github.com/jlrosende/project-manager/pkg/ui/list"
 	"testing"
+
+	list "github.com/jlrosende/project-manager/pkg/ui/list"
 )
 
 func TestRenderNames(t *testing.T) {

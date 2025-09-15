@@ -36,7 +36,9 @@ func (m List) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	var cmd tea.Cmd
+
 	m.list, cmd = m.list.Update(msg)
+
 	return m, cmd
 }
 
@@ -49,6 +51,7 @@ func NewList(title string, items []Item) List {
 	for _, item := range items {
 		i = append(i, item)
 	}
+
 	l := List{list: list.New(i, list.NewDefaultDelegate(), 0, 0)}
 
 	l.list.Title = title

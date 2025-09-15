@@ -1,6 +1,7 @@
 package shells
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -17,16 +18,14 @@ type ShellRepository struct {
 
 var _ ports.ShellRepository = (*ShellRepository)(nil)
 
-func NewShellRepository(project *domain.Project, env string, path string) (*ShellRepository, error) {
-
+func NewShellRepository(project *domain.Project, env, path string) (*ShellRepository, error) {
 	shellPath, err := exec.LookPath(project.Shell)
-
 	if err != nil {
 		return nil, err
 	}
 
 	shell := &ShellRepository{
-		cmd: exec.Command(shellPath),
+		cmd: exec.CommandContext(context.Background(), shellPath),
 	}
 
 	// load env vars
@@ -43,7 +42,7 @@ func NewShellRepository(project *domain.Project, env string, path string) (*Shel
 	} else {
 		for _, e := range project.Environments {
 			if e.Name == env {
-				if e.EnvVarsMode == domain.ENV_VARS_MODE_MERGE {
+				if e.EnvVarsMode == domain.EnvVarsModeMerge {
 					shell.cmd.Env = append(
 						shell.cmd.Env,
 						project.EnvVars.ToSlice()...,
@@ -58,6 +57,7 @@ func NewShellRepository(project *domain.Project, env string, path string) (*Shel
 						e.EnvVars.ToSlice()...,
 					)
 				}
+
 				break
 			}
 		}
@@ -67,6 +67,7 @@ func NewShellRepository(project *domain.Project, env string, path string) (*Shel
 	if err != nil {
 		return nil, err
 	}
+
 	if info, err := os.Stat(absPath); err != nil {
 		return nil, err
 	} else if !info.IsDir() {
@@ -88,7 +89,6 @@ func NewShellRepository(project *domain.Project, env string, path string) (*Shel
 }
 
 func (s *ShellRepository) Start() (*os.Process, error) {
-
 	if err := s.cmd.Start(); err != nil {
 		return nil, err
 	}
@@ -100,9 +100,8 @@ func (s *ShellRepository) Wait() (int, error) {
 	if err := s.cmd.Wait(); err != nil {
 		if exiterr, ok := err.(*exec.ExitError); ok {
 			return exiterr.ExitCode(), nil
-		} else {
-			return 0, err
 		}
+		return 0, err
 	}
 
 	return 0, nil

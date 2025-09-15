@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"strconv"
 
 	"github.com/go-git/go-git/v5/config"
+
 	"github.com/jlrosende/project-manager/internal/core/domain"
 	"github.com/jlrosende/project-manager/internal/core/ports"
 )
@@ -25,9 +25,7 @@ func NewGitRepository() (*GitRepository, error) {
 }
 
 func (g *GitRepository) Load(path string) (*domain.GitConfig, error) {
-
 	gitFileContent, err := os.ReadFile(path)
-
 	if err != nil {
 		return nil, err
 	}
@@ -41,12 +39,11 @@ func (g *GitRepository) Load(path string) (*domain.GitConfig, error) {
 	}
 
 	tagGPGSing, err := strconv.ParseBool(g.git.Raw.Section("tag").Option("gpgsign"))
-
 	if err != nil {
 		return nil, err
 	}
 
-	commitGPGSing, err := strconv.ParseBool(g.git.Raw.Section("tag").Option("gpgsign"))
+	commitGPGSing, err := strconv.ParseBool(g.git.Raw.Section("commit").Option("gpgsign"))
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +64,6 @@ func (g *GitRepository) Load(path string) (*domain.GitConfig, error) {
 }
 
 func (g *GitRepository) Save(path string, gitConfig *domain.GitConfig) error {
-
 	g.git.User.Email = gitConfig.User.Email
 	g.git.User.Name = gitConfig.User.Name
 	g.git.Raw.AddOption("user", "", "signingkey", gitConfig.User.SigningKey)
@@ -76,29 +72,24 @@ func (g *GitRepository) Save(path string, gitConfig *domain.GitConfig) error {
 	g.git.Raw.AddOption("commit", "", "gpgsign", "true")
 
 	newGitConf, err := g.git.Marshal()
-
 	if err != nil {
 		return err
 	}
 
-	_, err = os.Stat(path)
+	_, _ = os.Stat(path)
 
-	if !os.IsNotExist(err) {
-		return fmt.Errorf("%s already exists in directory %s", path, filepath.Dir(path))
-	}
-
-	fp, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+	fp, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o644)
 	if err != nil {
 		return err
 	}
 	defer fp.Close()
 
-	n_bytes, err := fp.Write(newGitConf)
+	nBytes, err := fp.Write(newGitConf)
 	if err != nil {
 		return err
 	}
 
-	slog.Debug(fmt.Sprintf("%d Bytes written in %s", n_bytes, path))
+	slog.Debug(fmt.Sprintf("%d Bytes written in %s", nBytes, path))
 
 	return nil
 }

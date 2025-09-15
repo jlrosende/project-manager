@@ -13,5 +13,13 @@ var (
 )
 
 func GetVersion() string {
-	return fmt.Sprintf("%s (%s) [by=%s os=%s arch=%s date=%s]", version, commit, builtBy, runtime.GOARCH, runtime.GOOS, date)
+	return fmt.Sprintf(
+		"%s (%s) [by=%s os=%s arch=%s date=%s]",
+		version,
+		commit,
+		builtBy,
+		runtime.GOARCH,
+		runtime.GOOS,
+		date,
+	)
 }

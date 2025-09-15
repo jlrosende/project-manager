@@ -1,8 +1,9 @@
 package unit
 
 import (
-	"github.com/jlrosende/project-manager/pkg/ui/styles"
 	"testing"
+
+	"github.com/jlrosende/project-manager/pkg/ui/styles"
 )
 
 func TestDefaultStyleWidth(t *testing.T) {

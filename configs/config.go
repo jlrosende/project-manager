@@ -17,9 +17,7 @@ import (
 //go:embed config.default.hcl
 var defaultConfig []byte
 
-var (
-	ErrConfigNotFound = errors.New("config file not found")
-)
+var ErrConfigNotFound = errors.New("config file not found")
 
 type Config struct {
 	Theme      string             `mapstructure:"theme"`
@@ -43,17 +41,15 @@ type Environment struct {
 }
 
 func GetConfig(cfgFile string) (*Config, error) {
-
 	v, err := LoadConfig(cfgFile)
-
 	if err != nil {
 		return nil, err
 	}
 
 	config, err := ParseConfig(v)
-
 	if err != nil {
 		slog.Debug("unable to parse config", slog.Any("err", err))
+
 		return nil, err
 	}
 
@@ -67,9 +63,7 @@ func LoadConfig(cfgFile string) (*viper.Viper, error) {
 		// Use config file from the flag.
 		v.SetConfigFile(cfgFile)
 	} else {
-
 		config, err := os.UserConfigDir()
-
 		if err != nil {
 			return nil, err
 		}
@@ -84,11 +78,14 @@ func LoadConfig(cfgFile string) (*viper.Viper, error) {
 	err := v.ReadInConfig()
 	if err != nil {
 		slog.Debug(fmt.Sprintf("Unable to read config: %v", err))
+
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
 			return DefaultConfig()
 		}
+
 		return nil, err
 	}
+
 	return v, nil
 }
 
@@ -102,7 +99,6 @@ func ParseConfig(v *viper.Viper) (*Config, error) {
 	))
 
 	err := v.Unmarshal(&cfg, configOption)
-
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse config: %w", err)
 	}
@@ -114,7 +110,6 @@ func DefaultConfig() (*viper.Viper, error) {
 	v := viper.New()
 
 	err := v.ReadConfig(bytes.NewReader(defaultConfig))
-
 	if err != nil {
 		return nil, err
 	}
@@ -122,29 +117,35 @@ func DefaultConfig() (*viper.Viper, error) {
 	return v, nil
 }
 
-// sliceOfMapsToMapHookFunc merges a slice of maps to a map
+// sliceOfMapsToMapHookFunc merges a slice of maps to a map.
 func sliceOfMapsToMapHookFunc() mapstructure.DecodeHookFunc {
-	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
-		if from.Kind() == reflect.Slice && from.Elem().Kind() == reflect.Map && (to.Kind() == reflect.Struct || to.Kind() == reflect.Map) {
+	return func(from, to reflect.Type, data interface{}) (interface{}, error) {
+		if from.Kind() == reflect.Slice && from.Elem().Kind() == reflect.Map &&
+			(to.Kind() == reflect.Struct || to.Kind() == reflect.Map) {
 			source, ok := data.([]map[string]interface{})
 			if !ok {
 				return data, nil
 			}
+
 			if len(source) == 0 {
 				return data, nil
 			}
+
 			if len(source) == 1 {
 				return source[0], nil
 			}
 			// flatten the slice into one map
 			convert := make(map[string]interface{})
+
 			for _, mapItem := range source {
 				for key, value := range mapItem {
 					convert[key] = value
 				}
 			}
+
 			return convert, nil
 		}
+
 		return data, nil
 	}
 }
