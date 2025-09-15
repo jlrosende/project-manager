@@ -3,8 +3,26 @@ package tui
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/jlrosende/project-manager/internal/core/domain"
 	"strings"
 )
+
+type kvLine struct{}
+
+func parseEnvLines(s string) domain.EnvVars {
+	res := domain.EnvVars{}
+	for _, line := range strings.Split(s, "\n") {
+		l := strings.TrimSpace(line)
+		if l == "" || strings.HasPrefix(l, "#") {
+			continue
+		}
+		kv := strings.SplitN(l, "=", 2)
+		if len(kv) == 2 {
+			res[strings.TrimSpace(kv[0])] = kv[1]
+		}
+	}
+	return res
+}
 
 func (m *Window) newProjectFlow() {
 	m.form = NewProjectFormModel()

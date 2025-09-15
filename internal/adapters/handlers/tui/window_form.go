@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	bta "github.com/charmbracelet/bubbles/textarea"
 	bti "github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -20,7 +21,7 @@ type NewProjectForm struct {
 	userSigningKey bti.Model
 	commitGPGSign bti.Model
 	tagGPGSign    bti.Model
-	envVars       bti.Model
+	envVars       bta.Model
 	focused       int
 	width         int
 	height        int
@@ -81,12 +82,8 @@ func NewProjectFormModel() *NewProjectForm {
 	tsg.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
 	tsg.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 	tsg.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("229"))
-	ev := bti.New()
-	ev.Prompt = "Env vars (K=V,K2=V2): "
-	ev.Placeholder = ""
-	ev.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
-	ev.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	ev.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("229"))
+	ev := bta.New()
+	ev.Placeholder = "# One per line (like .env)\nKEY=VALUE\nFOO=bar\n# comments allowed"
 	return &NewProjectForm{name: ni, path: pi, subproject: spi, userName: un, userEmail: uem, userSigningKey: usk, commitGPGSign: csg, tagGPGSign: tsg, envVars: ev, focused: 0}
 }
 
@@ -125,6 +122,8 @@ func (f *NewProjectForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				f.focusCurrent()
 				return f, nil
 			}
+			// let textarea handle newline when focused on env vars
+		case "ctrl+s":
 			f.err = ""
 			if strings.TrimSpace(f.name.Value()) == "" {
 				f.err = "name is required"

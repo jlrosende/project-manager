@@ -3,6 +3,7 @@ package tui
 import (
 	"strings"
 
+	bta "github.com/charmbracelet/bubbles/textarea"
 	bti "github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -13,7 +14,7 @@ type NewEnvironmentForm struct {
 	name       bti.Model
 	color      bti.Model
 	mode       bti.Model
-	envVars    bti.Model
+	envVars    bta.Model
 	focused    int
 	submitted  bool
 	canceled   bool
@@ -41,11 +42,8 @@ func NewEnvironmentFormModel() *NewEnvironmentForm {
 	mode.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
 	mode.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 	mode.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("229"))
-	env := bti.New()
-	env.Prompt = "Env vars (K=V,K2=V2): "
-	env.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
-	env.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	env.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("229"))
+	env := bta.New()
+	env.Placeholder = "# One per line (like .env)\nKEY=VALUE\nFOO=bar\n# comments allowed"
 	return &NewEnvironmentForm{name: name, color: color, mode: mode, envVars: env}
 }
 
