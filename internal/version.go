@@ -6,12 +6,12 @@ import (
 )
 
 var (
-	mayor = "0"
-	minor = "0"
-	patch = "0"
-	build = ""
+	version = ""
+	commit  = ""
+	date    = ""
+	builtBy = ""
 )
 
 func GetVersion() string {
-	return fmt.Sprintf("%s.%s.%s build=%s os=%s arch=%s", mayor, minor, patch, build, runtime.GOARCH, runtime.GOOS)
+	return fmt.Sprintf("%s (%s) [by=%s os=%s arch=%s date=%s]", version, commit, builtBy, runtime.GOARCH, runtime.GOOS, date)
 }

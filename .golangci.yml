@@ -3,7 +3,6 @@ run:
   concurrency: 4
 linters:
   enable:
-    - wsl
   exclusions:
     generated: lax
     presets:

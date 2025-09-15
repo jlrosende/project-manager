@@ -1,0 +1,34 @@
+{
+    "mcpServers": {
+        "serena": {
+            "type": "stdio",
+            "command": "uvx",
+            "args": [
+                "--from",
+                "git+https://github.com/oraios/serena",
+                "serena",
+                "start-mcp-server",
+                "--context",
+                "ide-assistant",
+                "--project",
+                "${PWD}"
+            ],
+            "env": {}
+        },
+        "github": {
+            "type": "http",
+            "url": "https://api.githubcopilot.com/mcp/readonly",
+            "headers": {
+                "Authorization": "Bearer ${GH_TOKEN}"
+            }
+        },
+        "Context7": {
+            "type": "stdio",
+            "command": "npx",
+            "args": [
+                "-y",
+                "@upstash/context7-mcp@latest"
+            ]
+        }
+    }
+}

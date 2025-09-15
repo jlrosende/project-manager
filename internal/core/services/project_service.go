@@ -88,6 +88,10 @@ func (svc *ProjectService) Create(name, path, subproject string, envVars domain.
 	return svc.project.Create(name, path, subproject, envVars, gitConfig)
 }
 
+func (svc *ProjectService) AddEnvironment(projectName string, env *domain.Environment, envVars domain.EnvVars) error {
+	return svc.project.AddEnvironment(projectName, env, envVars)
+}
+
 func (svc *ProjectService) Delete(name string) error {
 	return svc.project.Delete(name)
 }

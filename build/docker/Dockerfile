@@ -1,6 +1,5 @@
-# syntax=docker/dockerfile:1
 
-ARG GO_VERSION=1.23.4-alpine
+ARG GO_VERSION=1.25.1-alpine
 
 FROM golang:${GO_VERSION} as build
 
@@ -17,7 +16,7 @@ RUN --mount=type=cache,target="$GOMODCACHE" \
     --mount=type=bind,source=go.mod,target=go.mod \
     go mod download -x
 
-ARG TARGETOS TARGETARCH 
+ARG TARGETOS TARGETARCH
 
 RUN --mount=type=cache,target="$GOMODCACHE" \
     --mount=type=cache,target="$GOCACHE" \

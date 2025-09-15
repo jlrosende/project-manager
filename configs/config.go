@@ -5,7 +5,6 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
-	"log"
 	"log/slog"
 	"os"
 	"path"
@@ -19,7 +18,7 @@ import (
 var defaultConfig []byte
 
 var (
-	NotFoundErr = errors.New("config file not found")
+	ErrConfigNotFound = errors.New("config file not found")
 )
 
 type Config struct {
@@ -34,6 +33,7 @@ type Project struct {
 	EnvVars      map[string]string      `mapstructure:"env_vars"`
 	EnvVarsFile  string                 `mapstructure:"env_vars_file"`
 	Environments map[string]Environment `mapstructure:"environment"`
+	DefaultEnv   string                 `mapstructure:"default_env"`
 }
 
 type Environment struct {
@@ -53,7 +53,7 @@ func GetConfig(cfgFile string) (*Config, error) {
 	config, err := ParseConfig(v)
 
 	if err != nil {
-		log.Printf("Unable to parse config: %v", err)
+		slog.Debug("unable to parse config", slog.Any("err", err))
 		return nil, err
 	}
 
@@ -104,7 +104,7 @@ func ParseConfig(v *viper.Viper) (*Config, error) {
 	err := v.Unmarshal(&cfg, configOption)
 
 	if err != nil {
-		return nil, fmt.Errorf("Unable to parse config: %w", err)
+		return nil, fmt.Errorf("unable to parse config: %w", err)
 	}
 
 	return &cfg, nil

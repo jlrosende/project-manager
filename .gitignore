@@ -28,4 +28,7 @@ dist
 temp
 .vscode
 
-.aider*
+.serena
+
+# Added by goreleaser init:
+dist/
