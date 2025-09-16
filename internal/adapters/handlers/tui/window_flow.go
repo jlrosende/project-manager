@@ -117,23 +117,39 @@ func (p *postCreatePrompt) Init() tea.Cmd { return nil }
 func (p *postCreatePrompt) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m := msg.(type) {
 	case tea.KeyMsg:
-		switch m.String() {
-		case keyUp, "k":
+		switch m.Type {
+		case tea.KeyUp:
 			if p.idx > 0 {
 				p.idx--
 			}
-		case keyDown, "j":
+		case tea.KeyDown:
 			if p.idx < 2 {
 				p.idx++
 			}
-		case keyEnter:
+		case tea.KeyEnter:
 			p.choice = p.idx
 
 			return p, tea.Quit
-		case keyEsc, "q", keyCtrlC:
+		case tea.KeyEsc, tea.KeyCtrlC:
 			p.choice = 0
 
 			return p, tea.Quit
+		}
+
+		if m.Type == tea.KeyRunes {
+			switch string(m.Runes) {
+			case "k":
+				if p.idx > 0 {
+					p.idx--
+				}
+			case "j":
+				if p.idx < 2 {
+					p.idx++
+				}
+			case "q":
+				p.choice = 0
+				return p, tea.Quit
+			}
 		}
 	case tea.WindowSizeMsg:
 		return p, nil

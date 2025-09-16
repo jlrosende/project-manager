@@ -12,16 +12,6 @@ import (
 )
 
 const (
-	keyEsc           = "esc"
-	keyCtrlC         = "ctrl+c"
-	keyTab           = "tab"
-	keyShiftTab      = "shift+tab"
-	keyEnter         = "enter"
-	keyUp            = "up"
-	keyDown          = "down"
-	keyLeft          = "left"
-	keyRight         = "right"
-	keyCtrlS         = "ctrl+s"
 	errNameRequired  = "name is required"
 	errModeMustBeVal = "mode must be merge or replace"
 )
@@ -80,6 +70,7 @@ func NewEnvironmentEditFormModel(e *domain.Environment) *NewEnvironmentForm {
 	f.name.SetValue(e.Name)
 	f.color.SetValue(e.Color)
 	f.mode.SetValue(e.EnvVarsMode)
+
 	return f
 }
 
@@ -91,20 +82,22 @@ func (f *NewEnvironmentForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if w < 30 {
 			w = 30
 		}
+
 		f.name.Width = w
 		f.color.Width = w
 		f.mode.Width = w
 		f.envVars.SetWidth(w + 10)
 	}
+
 	if m, ok := msg.(tea.KeyMsg); ok {
-		switch m.String() {
-		case keyEsc, keyCtrlC:
+		switch m.Type {
+		case tea.KeyEsc, tea.KeyCtrlC:
 			f.canceled = true
 			f.submitted = false
 
 			return f, nil
-		case keyTab, keyShiftTab:
-			if m.String() == keyTab {
+		case tea.KeyTab, tea.KeyShiftTab:
+			if m.Type == tea.KeyTab {
 				f.focused = (f.focused + 1) % 6
 			} else {
 				f.focused = (f.focused + 5) % 6
@@ -114,12 +107,13 @@ func (f *NewEnvironmentForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			f.focusCurrent()
 
 			return f, nil
-		case keyEnter:
+		case tea.KeyEnter:
 			switch {
 			case f.focused < 3:
 				f.focused = (f.focused + 1) % 6
 				f.blurAll()
 				f.focusCurrent()
+
 				return f, nil
 			case f.focused == 4:
 				f.err = ""
@@ -127,20 +121,24 @@ func (f *NewEnvironmentForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					f.err = errNameRequired
 					return f, nil
 				}
+
 				if strings.TrimSpace(f.mode.Value()) != domain.EnvVarsModeMerge &&
 					strings.TrimSpace(f.mode.Value()) != domain.EnvVarsModeReplace {
 					f.err = errModeMustBeVal
 					return f, nil
 				}
+
 				f.submitted = true
 				f.canceled = false
+
 				return f, nil
 			case f.focused == 5:
 				f.canceled = true
 				f.submitted = false
+
 				return f, nil
 			}
-		case keyUp:
+		case tea.KeyUp:
 			if f.focused != 3 {
 				f.focused--
 				if f.focused < 0 {
@@ -152,7 +150,7 @@ func (f *NewEnvironmentForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				return f, nil
 			}
-		case keyDown:
+		case tea.KeyDown:
 			if f.focused != 3 {
 				f.focused++
 				if f.focused > 5 {
@@ -164,7 +162,7 @@ func (f *NewEnvironmentForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				return f, nil
 			}
-		case keyLeft:
+		case tea.KeyLeft:
 			if f.focused == 5 {
 				f.focused = 4
 				f.blurAll()
@@ -172,7 +170,7 @@ func (f *NewEnvironmentForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				return f, nil
 			}
-		case keyRight:
+		case tea.KeyRight:
 			if f.focused == 4 {
 				f.focused = 5
 				f.blurAll()
@@ -180,19 +178,16 @@ func (f *NewEnvironmentForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				return f, nil
 			}
-			// when textarea focused, let Enter insert newline
-		case keyCtrlS:
+		case tea.KeyCtrlS:
 			f.err = ""
 			if strings.TrimSpace(f.name.Value()) == "" {
 				f.err = errNameRequired
-
 				return f, nil
 			}
 
 			if strings.TrimSpace(f.mode.Value()) != domain.EnvVarsModeMerge &&
 				strings.TrimSpace(f.mode.Value()) != domain.EnvVarsModeReplace {
 				f.err = "mode must be merge or replace"
-
 				return f, nil
 			}
 
@@ -269,10 +264,12 @@ Next/Newline: Enter  Save: Ctrl+S  Cancel: Esc`)
 	btnDef := lipgloss.NewStyle().Foreground(c("buttonDefFg")).Background(c("buttonDefBg")).Padding(0, 2)
 	btnSel := lipgloss.NewStyle().Foreground(c("buttonSelFg")).Background(c("buttonSelBg")).Padding(0, 2)
 	b := strings.Builder{}
+
 	title := "New environment"
 	if f.isEdit {
 		title = "Edit environment"
 	}
+
 	b.WriteString(styleTitle.Render(title))
 	b.WriteString("\n")
 	b.WriteString(styleSection.Render("Environment details"))

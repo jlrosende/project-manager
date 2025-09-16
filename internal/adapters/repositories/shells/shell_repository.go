@@ -101,6 +101,7 @@ func (s *ShellRepository) Wait() (int, error) {
 		if exiterr, ok := err.(*exec.ExitError); ok {
 			return exiterr.ExitCode(), nil
 		}
+
 		return 0, err
 	}
 

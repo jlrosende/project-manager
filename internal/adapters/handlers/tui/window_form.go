@@ -157,14 +157,14 @@ func (f *NewProjectForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		f.tagGPGSign.Width = w
 		f.envVars.SetWidth(w + 10)
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "esc", "ctrl+c":
+		switch msg.Type {
+		case tea.KeyEsc, tea.KeyCtrlC:
 			f.canceled = true
 			f.submitted = false
 
 			return f, nil
-		case keyTab, keyShiftTab:
-			if msg.String() == keyTab {
+		case tea.KeyTab, tea.KeyShiftTab:
+			if msg.Type == tea.KeyTab {
 				f.focused++
 				if f.focused > 11 {
 					f.focused = 0
@@ -175,8 +175,9 @@ func (f *NewProjectForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					f.focused = 11
 				}
 			}
+
 			if f.isEdit && f.focused == 1 {
-				if msg.String() == "tab" {
+				if msg.Type == tea.KeyTab {
 					f.focused++
 				} else {
 					f.focused--
@@ -187,15 +188,17 @@ func (f *NewProjectForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			f.focusCurrent()
 
 			return f, nil
-		case "enter":
+		case tea.KeyEnter:
 			switch {
 			case f.focused < 9:
 				if f.isEdit && f.focused == 1 {
 					f.focused++
 				}
+
 				f.focused++
 				f.blurAll()
 				f.focusCurrent()
+
 				return f, nil
 			case f.focused == 10:
 				f.err = ""
@@ -203,40 +206,48 @@ func (f *NewProjectForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					f.err = "name is required"
 					return f, nil
 				}
+
 				if !f.isEdit {
 					if strings.TrimSpace(f.path.Value()) == "" {
 						f.err = errPathRequired
 						return f, nil
 					}
+
 					if ok, reason := canCreatePath(f.path.Value()); !ok {
 						f.err = reason
 						return f, nil
 					}
 				}
+
 				cg := strings.ToLower(strings.TrimSpace(f.commitGPGSign.Value()))
 				if cg != "" && cg != strTrue && cg != strFalse {
 					f.err = "commit.gpgsign must be true or false"
 					return f, nil
 				}
+
 				tg := strings.ToLower(strings.TrimSpace(f.tagGPGSign.Value()))
 				if tg != "" && tg != strTrue && tg != strFalse {
 					f.err = "tag.gpgsign must be true or false"
 					return f, nil
 				}
+
 				f.submitted = true
 				f.canceled = false
+
 				return f, nil
 			case f.focused == 11:
 				f.canceled = true
 				f.submitted = false
+
 				return f, nil
 			}
-		case "up":
+		case tea.KeyUp:
 			if f.focused != 9 {
 				f.focused--
 				if f.isEdit && f.focused == 1 {
 					f.focused--
 				}
+
 				if f.focused < 0 {
 					f.focused = 11
 				}
@@ -246,12 +257,13 @@ func (f *NewProjectForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				return f, nil
 			}
-		case "down":
+		case tea.KeyDown:
 			if f.focused != 9 {
 				f.focused++
 				if f.isEdit && f.focused == 1 {
 					f.focused++
 				}
+
 				if f.focused > 11 {
 					f.focused = 0
 				}
@@ -261,7 +273,7 @@ func (f *NewProjectForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				return f, nil
 			}
-		case "left":
+		case tea.KeyLeft:
 			if f.focused == 11 {
 				f.focused = 10
 				f.blurAll()
@@ -269,7 +281,7 @@ func (f *NewProjectForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				return f, nil
 			}
-		case "right":
+		case tea.KeyRight:
 			if f.focused == 10 {
 				f.focused = 11
 				f.blurAll()
@@ -277,7 +289,7 @@ func (f *NewProjectForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				return f, nil
 			}
-		case "ctrl+s":
+		case tea.KeyCtrlS:
 			f.err = ""
 			if strings.TrimSpace(f.name.Value()) == "" {
 				f.err = "name is required"
@@ -352,6 +364,7 @@ func (f *NewProjectForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if f.isEdit {
 			break
 		}
+
 		prev := f.path.Value()
 
 		f.path, cmd = f.path.Update(msg)
@@ -442,10 +455,12 @@ Next/Newline: Enter  Save: Ctrl+S  Cancel: Esc`)
 	btnDef := lipgloss.NewStyle().Foreground(c("buttonDefFg")).Background(c("buttonDefBg")).Padding(0, 2)
 	btnSel := lipgloss.NewStyle().Foreground(c("buttonSelFg")).Background(c("buttonSelBg")).Padding(0, 2)
 	b := strings.Builder{}
+
 	title := "New project"
 	if f.isEdit {
 		title = "Edit project"
 	}
+
 	b.WriteString(styleTitle.Render(title))
 	b.WriteString("\n")
 	b.WriteString(styleSection.Render("Project details"))
@@ -454,10 +469,12 @@ Next/Newline: Enter  Save: Ctrl+S  Cancel: Esc`)
 	b.WriteString("\n")
 	b.WriteString(f.name.View())
 	b.WriteString("\n")
+
 	pathView := f.path.View()
 	if f.isEdit {
 		pathView = lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(f.path.Value() + " (read-only)")
 	}
+
 	b.WriteString(pathView)
 	b.WriteString("\n\n")
 	b.WriteString(styleSection.Render("Project options"))
@@ -519,6 +536,7 @@ func NewProjectEditFormModel(p *domain.Project) *NewProjectForm {
 	f.name.SetValue(p.Name)
 	f.path.SetValue(p.Path)
 	f.shell.SetValue(p.Shell)
+
 	return f
 }
 

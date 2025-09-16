@@ -38,14 +38,22 @@ func (g *GitRepository) Load(path string) (*domain.GitConfig, error) {
 		return nil, err
 	}
 
-	tagGPGSing, err := strconv.ParseBool(g.git.Raw.Section("tag").Option("gpgsign"))
-	if err != nil {
-		return nil, err
+	tagOpt := g.git.Raw.Section("tag").Option("gpgsign")
+	tagGPGSing := false
+
+	if tagOpt != "" {
+		if b, e := strconv.ParseBool(tagOpt); e == nil {
+			tagGPGSing = b
+		}
 	}
 
-	commitGPGSing, err := strconv.ParseBool(g.git.Raw.Section("commit").Option("gpgsign"))
-	if err != nil {
-		return nil, err
+	commitOpt := g.git.Raw.Section("commit").Option("gpgsign")
+	commitGPGSing := false
+
+	if commitOpt != "" {
+		if b, e := strconv.ParseBool(commitOpt); e == nil {
+			commitGPGSing = b
+		}
 	}
 
 	return &domain.GitConfig{

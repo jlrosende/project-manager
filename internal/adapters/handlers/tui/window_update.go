@@ -47,6 +47,7 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 
 				commitSign := strings.ToLower(strings.TrimSpace(f.commitGPGSign.Value())) != strFalse
+
 				tagSign := strings.ToLower(strings.TrimSpace(f.tagGPGSign.Value())) != "false"
 				if f.isEdit {
 					proj, _ := m.projectSvc.Load(f.originalName)
@@ -58,25 +59,30 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if raw != "" {
 						lines := strings.Split(raw, "\n")
 						ok := true
+
 						for _, line := range lines {
 							l := strings.TrimSpace(line)
 							if l == "" || strings.HasPrefix(l, "#") {
 								continue
 							}
+
 							kv := strings.SplitN(l, "=", 2)
 							if len(kv) != 2 || strings.TrimSpace(kv[0]) == "" {
 								ok = false
 								break
 							}
 						}
+
 						if ok {
 							projEnvPath := proj.EnvVarsFile
 							if !filepath.IsAbs(projEnvPath) {
 								projEnvPath = filepath.Join(proj.Path, projEnvPath)
 							}
-							_ = os.WriteFile(projEnvPath, []byte(f.envVars.Value()), 0o644)
+
+							_ = os.WriteFile(projEnvPath, []byte(f.envVars.Value()), 0o600)
 						}
 					}
+
 					gitRepo, err := repositories.NewGitRepository()
 					if err == nil {
 						gitSvc := services.NewGitService(gitRepo)
@@ -92,13 +98,16 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						}
 						_ = gitSvc.Save(gitPath, gc)
 					}
+
 					projects, err := m.projectSvc.List()
 					if err == nil {
 						m.projects = projects
 						m.total = len(projects) + 1
 					}
+
 					m.mode = 0
 					m.form = nil
+
 					return m, tea.ClearScreen
 				}
 
@@ -199,12 +208,14 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					project, _ := m.projectSvc.Load(m.envProjectName)
 					// find updated env (by new name)
 					var envPath string
+
 					for _, e := range project.Environments {
 						if e.Name == env.Name {
 							envPath = e.EnvVarsFile
 							break
 						}
 					}
+
 					if envPath != "" {
 						if !filepath.IsAbs(envPath) {
 							envPath = filepath.Join(project.Path, envPath)
@@ -214,19 +225,22 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						if raw != "" {
 							lines := strings.Split(raw, "\n")
 							ok := true
+
 							for _, line := range lines {
 								l := strings.TrimSpace(line)
 								if l == "" || strings.HasPrefix(l, "#") {
 									continue
 								}
+
 								kv := strings.SplitN(l, "=", 2)
 								if len(kv) != 2 || strings.TrimSpace(kv[0]) == "" {
 									ok = false
 									break
 								}
 							}
+
 							if ok {
-								_ = os.WriteFile(envPath, []byte(f.envVars.Value()), 0o644)
+								_ = os.WriteFile(envPath, []byte(f.envVars.Value()), 0o600)
 							}
 						}
 					}
@@ -256,78 +270,145 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "e":
-			idx := mod(m.cursor, m.total)
-			if m.focus == 0 && idx < len(m.projects) {
-				project, _ := m.projectSvc.Load(m.projects[idx].Name)
-				m.form = NewProjectEditFormModel(project)
-				// Prefill from project env file content
-				projEnvPath := project.EnvVarsFile
-				if !filepath.IsAbs(projEnvPath) {
-					projEnvPath = filepath.Join(project.Path, projEnvPath)
-				}
-				if b, err := os.ReadFile(projEnvPath); err == nil {
-					m.form.envVars.SetValue(string(b))
-				} else {
-					pairs := project.EnvVars.ToSlice()
-					sort.Strings(pairs)
-					m.form.envVars.SetValue(strings.Join(pairs, "\n"))
-				}
-				// Prefill git config into edit form
-				gitRepo, err := repositories.NewGitRepository()
-				if err == nil {
-					gitSvc := services.NewGitService(gitRepo)
-					gitPath := project.EnvVarsFile
-					if strings.HasPrefix(gitPath, ".") {
-						gitPath = filepath.Join(project.Path, fmt.Sprintf(".%s.gitconfig", project.Name))
+		if msg.Type == tea.KeyRunes {
+			r := string(msg.Runes)
+			switch r {
+			case "e":
+				idx := mod(m.cursor, m.total)
+				if m.focus == 0 && idx < len(m.projects) {
+					project, _ := m.projectSvc.Load(m.projects[idx].Name)
+					m.form = NewProjectEditFormModel(project)
+
+					projEnvPath := project.EnvVarsFile
+					if !filepath.IsAbs(projEnvPath) {
+						projEnvPath = filepath.Join(project.Path, projEnvPath)
 					}
-					if gc, e := gitSvc.Load(gitPath); e == nil {
-						m.form.userName.SetValue(gc.User.Name)
-						m.form.userEmail.SetValue(gc.User.Email)
-						m.form.userSigningKey.SetValue(gc.User.SigningKey)
-						if gc.Commit.GPGSign {
-							m.form.commitGPGSign.SetValue(strTrue)
-						} else {
-							m.form.commitGPGSign.SetValue(strFalse)
-						}
-						if gc.Tag.GPGSign {
-							m.form.tagGPGSign.SetValue(strTrue)
-						} else {
-							m.form.tagGPGSign.SetValue(strFalse)
-						}
-					}
-				}
-				m.mode = 1
-				return m, tea.ClearScreen
-			}
-			if m.focus == 1 && idx < len(m.projects) {
-				project, _ := m.projectSvc.Load(m.projects[idx].Name)
-				if m.cursorEnv < len(project.Environments) {
-					env := project.Environments[m.cursorEnv]
-					m.envForm = NewEnvironmentEditFormModel(env)
-					// Prefill env vars from file content
-					envPath := env.EnvVarsFile
-					if !filepath.IsAbs(envPath) {
-						envPath = filepath.Join(project.Path, envPath)
-					}
-					if b, err := os.ReadFile(envPath); err == nil {
-						m.envForm.envVars.SetValue(string(b))
-					} else if len(env.EnvVars) > 0 {
-						pairs := env.EnvVars.ToSlice()
+
+					if b, err := os.ReadFile(projEnvPath); err == nil {
+						m.form.envVars.SetValue(string(b))
+					} else {
+						pairs := project.EnvVars.ToSlice()
 						sort.Strings(pairs)
-						m.envForm.envVars.SetValue(strings.Join(pairs, "\n"))
+						m.form.envVars.SetValue(strings.Join(pairs, "\n"))
 					}
-					m.envProjectName = project.Name
-					m.mode = 3
+
+					gitRepo, err := repositories.NewGitRepository()
+					if err == nil {
+						gitSvc := services.NewGitService(gitRepo)
+
+						gitPath := filepath.Join(project.Path, fmt.Sprintf(".%s.gitconfig", project.Name))
+						if _, err := os.Stat(gitPath); os.IsNotExist(err) {
+							if matches, _ := filepath.Glob(filepath.Join(project.Path, ".*.gitconfig")); len(matches) > 0 {
+								gitPath = matches[0]
+							}
+						}
+
+						if gc, e := gitSvc.Load(gitPath); e == nil {
+							m.form.userName.SetValue(gc.User.Name)
+							m.form.userEmail.SetValue(gc.User.Email)
+							m.form.userSigningKey.SetValue(gc.User.SigningKey)
+
+							if gc.Commit.GPGSign {
+								m.form.commitGPGSign.SetValue(strTrue)
+							} else {
+								m.form.commitGPGSign.SetValue(strFalse)
+							}
+
+							if gc.Tag.GPGSign {
+								m.form.tagGPGSign.SetValue(strTrue)
+							} else {
+								m.form.tagGPGSign.SetValue(strFalse)
+							}
+						}
+					}
+
+					m.mode = 1
+
 					return m, tea.ClearScreen
 				}
-			}
-		case "q", "ctrl+c", "esc":
-			m.selectedProject = nil
 
+				if m.focus == 1 && idx < len(m.projects) {
+					project, _ := m.projectSvc.Load(m.projects[idx].Name)
+					if m.cursorEnv < len(project.Environments) {
+						env := project.Environments[m.cursorEnv]
+						m.envForm = NewEnvironmentEditFormModel(env)
+
+						envPath := env.EnvVarsFile
+						if !filepath.IsAbs(envPath) {
+							envPath = filepath.Join(project.Path, envPath)
+						}
+
+						if b, err := os.ReadFile(envPath); err == nil {
+							m.envForm.envVars.SetValue(string(b))
+						} else if len(env.EnvVars) > 0 {
+							pairs := env.EnvVars.ToSlice()
+							sort.Strings(pairs)
+							m.envForm.envVars.SetValue(strings.Join(pairs, "\n"))
+						}
+
+						m.envProjectName = project.Name
+						m.mode = 3
+
+						return m, tea.ClearScreen
+					}
+				}
+			case "h":
+				m.focus = 0
+			case "l":
+				mod := mod(m.cursor, m.total)
+				if mod < len(m.projects) && len(m.projects) > 0 {
+					m.focus = 1
+					if len(m.projects[mod].Environments) == 0 {
+						m.cursorEnv = 0
+					}
+				}
+			case "k":
+				if m.focus == 0 {
+					m.cursor--
+					m.cursorEnv = 0
+				} else {
+					mod := mod(m.cursor, m.total)
+					if mod < len(m.projects) && len(m.projects) > 0 {
+						envCount := len(m.projects[mod].Environments)
+
+						envCountPlus := envCount + 1
+						if envCountPlus > 0 {
+							m.cursorEnv--
+							if m.cursorEnv < 0 {
+								m.cursorEnv = envCountPlus - 1
+							}
+						}
+					}
+				}
+			case "j":
+				if m.focus == 0 {
+					m.cursor++
+					m.cursorEnv = 0
+				} else {
+					mod := mod(m.cursor, m.total)
+					if mod < len(m.projects) && len(m.projects) > 0 {
+						envCount := len(m.projects[mod].Environments)
+
+						envCountPlus := envCount + 1
+						if envCountPlus > 0 {
+							m.cursorEnv++
+							if m.cursorEnv >= envCountPlus {
+								m.cursorEnv = 0
+							}
+						}
+					}
+				}
+			case "q":
+				m.selectedProject = nil
+				return m, tea.Quit
+			}
+		}
+
+		switch msg.Type {
+		case tea.KeyEsc, tea.KeyCtrlC:
+			m.selectedProject = nil
 			return m, tea.Quit
-		case "enter":
+		case tea.KeyEnter:
 			if m.focus == 0 {
 				idx := mod(m.cursor, m.total)
 				if idx == len(m.projects) { // '+ New project'
@@ -360,11 +441,9 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 			}
-
-			// The "up" and "k" keys move the cursor up
-		case "left", "h":
+		case tea.KeyLeft:
 			m.focus = 0
-		case "right", "l":
+		case tea.KeyRight:
 			mod := mod(m.cursor, m.total)
 			if mod < len(m.projects) && len(m.projects) > 0 {
 				m.focus = 1
@@ -372,7 +451,7 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.cursorEnv = 0
 				}
 			}
-		case "up", "k":
+		case tea.KeyUp:
 			if m.focus == 0 {
 				m.cursor--
 				m.cursorEnv = 0
@@ -390,8 +469,7 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 			}
-		// The "down" and "j" keys move the cursor down
-		case "down", "j":
+		case tea.KeyDown:
 			if m.focus == 0 {
 				m.cursor++
 				m.cursorEnv = 0
@@ -412,8 +490,5 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	return m, tea.Batch(
-		cmd,
-		tea.Printf("Let's go to %d!", m.cursor),
-	)
+	return m, cmd
 }

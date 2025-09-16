@@ -5,6 +5,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
 	"github.com/jlrosende/project-manager/internal/core/domain"
 	"github.com/jlrosende/project-manager/internal/core/services"
 )
@@ -194,17 +195,21 @@ type Window struct {
 	prompt         *postCreatePrompt
 	envForm        *NewEnvironmentForm
 	envProjectName string
+	styles         Styles
 }
 
 func NewWindow(projectSvc *services.ProjectService, opts Options) (*Window, error) {
 	if strings.TrimSpace(opts.Theme) != "" {
 		setPaletteByName(opts.Theme)
 	}
+
 	for k, v := range opts.Overrides {
 		if strings.TrimSpace(v) != "" {
 			currentPalette[k] = v
 		}
 	}
+
+	s := BuildStyles()
 
 	projects, err := projectSvc.List()
 	if err != nil {
@@ -221,6 +226,7 @@ func NewWindow(projectSvc *services.ProjectService, opts Options) (*Window, erro
 		projects:   projects,
 		total:      total,
 		cursor:     0,
+		styles:     s,
 	}, nil
 }
 

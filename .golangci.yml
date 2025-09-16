@@ -3,45 +3,17 @@ run:
   concurrency: 4
   timeout: 5m
 linters:
-  default: fast
   enable:
     - wsl_v5
-    - govet
-    - staticcheck
-    - ineffassign
-    - errcheck
-    - unused
-    - revive
-    - gocritic
-    - bodyclose
-    - unparam
-    - cyclop
-    - dupl
-    - goconst
-    - funlen
-    - depguard
-    - misspell
-    - forbidigo
-    - rowserrcheck
-    - sqlclosecheck
-    - noctx
-    - copyloopvar
-  disable:
-    - wsl
-    - wsl_v5
-    - depguard
-    - mnd
-    - lll
-    - cyclop
-    - gocyclo
-    - nestif
-    - gocognit
-    - nlreturn
-    - funcorder
-    - funlen
-    - testpackage
-    - gochecknoinits
-    - maintidx
+    - govet # reports suspicious constructs
+    - staticcheck # advanced static analysis
+    - ineffassign # detects unused assignments
+    - revive # replacement for golint, configurable
+    - errcheck # ensures errors are checked
+    - gosec # security checks
+    - dupl # finds duplicated code
+    - unparam # checks unused function parameters
+    # - gocyclo # checks for high cyclomatic complexity
   settings:
     wsl_v5:
       allow-first-in-block: true

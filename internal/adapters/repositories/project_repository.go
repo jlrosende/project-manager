@@ -283,13 +283,17 @@ func (p *ProjectRepository) UpdateProject(project *domain.Project) error {
 	gitdir := fmt.Sprintf("gitdir/i:%s/", projectDir)
 	includeIf := p.git.Raw.Section("includeIf").Subsection(gitdir)
 	oldGitPath := includeIf.Option("path")
+
 	newGitPath := filepath.Join(projectDir, fmt.Sprintf(".%s.gitconfig", project.Name))
 	if oldGitPath != "" && oldGitPath != newGitPath {
 		if _, err := os.Stat(oldGitPath); err == nil {
 			_ = os.Rename(oldGitPath, newGitPath)
 		}
+
 		includeIf.SetOption("path", newGitPath)
+
 		gitConf, _ := p.git.Marshal()
+
 		if home, err := os.UserHomeDir(); err == nil {
 			if fpGit, err := os.OpenFile(filepath.Join(home, ".gitconfig"), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o644); err == nil {
 				_, _ = fpGit.Write(gitConf)
@@ -302,19 +306,24 @@ func (p *ProjectRepository) UpdateProject(project *domain.Project) error {
 	b := &strings.Builder{}
 	fmt.Fprintf(b, "name = \"%s\"\n\n", project.Name)
 	fmt.Fprintf(b, "description = \"%s\"\n\n", project.Description)
+
 	if project.Shell != "" {
 		fmt.Fprintf(b, "shell = \"%s\"\n\n", project.Shell)
 	}
+
 	fmt.Fprintf(b, "env_vars_file = \"%s\"\n\n", project.EnvVarsFile)
+
 	if project.DefaultEnv != "" {
 		fmt.Fprintf(b, "default_env = \"%s\"\n\n", project.DefaultEnv)
 	}
 
 	for _, e := range project.Environments {
 		fmt.Fprintf(b, "environment \"%s\" {\n", e.Name)
+
 		if e.Color != "" {
 			fmt.Fprintf(b, "  color = \"%s\"\n", e.Color)
 		}
+
 		fmt.Fprintf(b, "  env_vars_mode = \"%s\"\n", e.EnvVarsMode)
 		fmt.Fprintf(b, "  env_vars_file = \"%s\"\n", e.EnvVarsFile)
 		b.WriteString("}\n\n")
@@ -325,6 +334,7 @@ func (p *ProjectRepository) UpdateProject(project *domain.Project) error {
 		return err
 	}
 	defer fp.Close()
+
 	if _, err := io.WriteString(fp, b.String()); err != nil {
 		return err
 	}
@@ -339,23 +349,27 @@ func (p *ProjectRepository) UpdateEnvironment(projectName, originalEnvName strin
 	}
 
 	idx := -1
+
 	for i, e := range project.Environments {
 		if e.Name == originalEnvName {
 			idx = i
 			break
 		}
 	}
+
 	if idx == -1 {
 		return fmt.Errorf("environment %s not found", originalEnvName)
 	}
 
 	project.Environments[idx].Name = env.Name
+
 	project.Environments[idx].Color = env.Color
 	if env.EnvVarsMode == "" {
 		project.Environments[idx].EnvVarsMode = domain.EnvVarsModeMerge
 	} else {
 		project.Environments[idx].EnvVarsMode = env.EnvVarsMode
 	}
+
 	if env.EnvVarsFile != "" {
 		project.Environments[idx].EnvVarsFile = env.EnvVarsFile
 	}

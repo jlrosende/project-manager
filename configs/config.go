@@ -9,26 +9,26 @@ import (
 )
 
 type Config struct {
-	Theme        string         `hcl:"theme"`
-	CustomThemes []CustomTheme  `hcl:"custom_theme,block"`
+	Theme        string        `hcl:"theme"`
+	CustomThemes []CustomTheme `hcl:"custom_theme,block"`
 }
 
 type CustomTheme struct {
-	Name          string `hcl:"name,label"`
-	Title         string `hcl:"title,optional"`
-	Section       string `hcl:"section,optional"`
-	Subtext       string `hcl:"subtext,optional"`
-	Text          string `hcl:"text,optional"`
-	Placeholder   string `hcl:"placeholder,optional"`
-	Border        string `hcl:"border,optional"`
-	Error         string `hcl:"error,optional"`
-	ButtonDefFg   string `hcl:"buttonDefFg,optional"`
-	ButtonDefBg   string `hcl:"buttonDefBg,optional"`
-	ButtonSelFg   string `hcl:"buttonSelFg,optional"`
-	ButtonSelBg   string `hcl:"buttonSelBg,optional"`
-	SelectedFg    string `hcl:"selectedFg,optional"`
-	SelectedBg    string `hcl:"selectedBg,optional"`
-	Help          string `hcl:"help,optional"`
+	Name        string `hcl:"name,label"`
+	Title       string `hcl:"title,optional"`
+	Section     string `hcl:"section,optional"`
+	Subtext     string `hcl:"subtext,optional"`
+	Text        string `hcl:"text,optional"`
+	Placeholder string `hcl:"placeholder,optional"`
+	Border      string `hcl:"border,optional"`
+	Error       string `hcl:"error,optional"`
+	ButtonDefFg string `hcl:"buttonDefFg,optional"`
+	ButtonDefBg string `hcl:"buttonDefBg,optional"`
+	ButtonSelFg string `hcl:"buttonSelFg,optional"`
+	ButtonSelBg string `hcl:"buttonSelBg,optional"`
+	SelectedFg  string `hcl:"selectedFg,optional"`
+	SelectedBg  string `hcl:"selectedBg,optional"`
+	Help        string `hcl:"help,optional"`
 }
 
 func GetConfig(cfgFile string) (*Config, error) {
@@ -37,34 +37,43 @@ func GetConfig(cfgFile string) (*Config, error) {
 			cfgFile = env
 		}
 	}
+
 	if strings.HasPrefix(cfgFile, "~/") {
 		h, _ := os.UserHomeDir()
 		cfgFile = filepath.Join(h, cfgFile[2:])
 	}
+
 	if strings.TrimSpace(cfgFile) != "" {
 		var cfg Config
 		if err := hclsimple.DecodeFile(cfgFile, nil, &cfg); err != nil {
 			return nil, err
 		}
+
 		if strings.TrimSpace(cfg.Theme) == "" {
 			cfg.Theme = "nord"
 		}
+
 		return &cfg, nil
 	}
+
 	configDir, err := os.UserConfigDir()
 	if err != nil {
 		return &Config{Theme: "nord"}, nil
 	}
+
 	defaultPath := filepath.Join(configDir, "pm", "config.hcl")
 	if _, err := os.Stat(defaultPath); err == nil {
 		var cfg Config
 		if err := hclsimple.DecodeFile(defaultPath, nil, &cfg); err != nil {
 			return nil, err
 		}
+
 		if strings.TrimSpace(cfg.Theme) == "" {
 			cfg.Theme = "nord"
 		}
+
 		return &cfg, nil
 	}
+
 	return &Config{Theme: "nord"}, nil
 }

@@ -137,16 +137,19 @@ func root(cmd *cobra.Command, args []string) error {
 	if len(args) == 0 || name == "" {
 		themeFlag, _ := cmd.PersistentFlags().GetString("theme")
 		configFlag, _ := cmd.PersistentFlags().GetString("config")
+
 		cfgPath := strings.TrimSpace(configFlag)
 		if cfgPath == "" {
 			if v, ok := os.LookupEnv("PM_CONFIG"); ok && strings.TrimSpace(v) != "" {
 				cfgPath = v
 			}
 		}
+
 		cfg, cfgErr := configs.GetConfig(cfgPath)
 		if cfgPath != "" && cfgErr != nil {
 			return cfgErr
 		}
+
 		theme := strings.TrimSpace(themeFlag)
 		if theme == "" {
 			if v, ok := os.LookupEnv("PM_THEME"); ok && strings.TrimSpace(v) != "" {
@@ -157,23 +160,65 @@ func root(cmd *cobra.Command, args []string) error {
 		}
 
 		ov := map[string]string{}
+
 		if cfg != nil {
 			for _, ct := range cfg.CustomThemes {
 				if strings.EqualFold(ct.Name, theme) {
-					if ct.Title != "" { ov["title"] = ct.Title }
-					if ct.Section != "" { ov["section"] = ct.Section }
-					if ct.Subtext != "" { ov["subtext"] = ct.Subtext }
-					if ct.Text != "" { ov["text"] = ct.Text }
-					if ct.Placeholder != "" { ov["placeholder"] = ct.Placeholder }
-					if ct.Border != "" { ov["border"] = ct.Border }
-					if ct.Error != "" { ov["error"] = ct.Error }
-					if ct.ButtonDefFg != "" { ov["buttonDefFg"] = ct.ButtonDefFg }
-					if ct.ButtonDefBg != "" { ov["buttonDefBg"] = ct.ButtonDefBg }
-					if ct.ButtonSelFg != "" { ov["buttonSelFg"] = ct.ButtonSelFg }
-					if ct.ButtonSelBg != "" { ov["buttonSelBg"] = ct.ButtonSelBg }
-					if ct.SelectedFg != "" { ov["selectedFg"] = ct.SelectedFg }
-					if ct.SelectedBg != "" { ov["selectedBg"] = ct.SelectedBg }
-					if ct.Help != "" { ov["help"] = ct.Help }
+					if ct.Title != "" {
+						ov["title"] = ct.Title
+					}
+
+					if ct.Section != "" {
+						ov["section"] = ct.Section
+					}
+
+					if ct.Subtext != "" {
+						ov["subtext"] = ct.Subtext
+					}
+
+					if ct.Text != "" {
+						ov["text"] = ct.Text
+					}
+
+					if ct.Placeholder != "" {
+						ov["placeholder"] = ct.Placeholder
+					}
+
+					if ct.Border != "" {
+						ov["border"] = ct.Border
+					}
+
+					if ct.Error != "" {
+						ov["error"] = ct.Error
+					}
+
+					if ct.ButtonDefFg != "" {
+						ov["buttonDefFg"] = ct.ButtonDefFg
+					}
+
+					if ct.ButtonDefBg != "" {
+						ov["buttonDefBg"] = ct.ButtonDefBg
+					}
+
+					if ct.ButtonSelFg != "" {
+						ov["buttonSelFg"] = ct.ButtonSelFg
+					}
+
+					if ct.ButtonSelBg != "" {
+						ov["buttonSelBg"] = ct.ButtonSelBg
+					}
+
+					if ct.SelectedFg != "" {
+						ov["selectedFg"] = ct.SelectedFg
+					}
+
+					if ct.SelectedBg != "" {
+						ov["selectedBg"] = ct.SelectedBg
+					}
+
+					if ct.Help != "" {
+						ov["help"] = ct.Help
+					}
 				}
 			}
 		}

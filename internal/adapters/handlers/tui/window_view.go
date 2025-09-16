@@ -23,17 +23,9 @@ func (m Window) View() string {
 
 	left := strings.Builder{}
 	title := " Projects"
-	titleStyle := lipgloss.NewStyle().
-		Foreground(c("title")).
-		Align(lipgloss.Center).
-		Border(lipgloss.NormalBorder(), false, false, true).
-		BorderForeground(c("border")).
-		Padding(0, 1)
-	selectedStyle := lipgloss.NewStyle().
-		Foreground(c("selectedFg")).
-		Background(c("selectedBg")).Padding(0, 1)
-	defaultStyle := lipgloss.NewStyle().
-		Foreground(c("subtext")).Padding(0, 1)
+	titleStyle := m.styles.Title
+	selectedStyle := m.styles.Selected
+	defaultStyle := m.styles.Default
 
 	left.WriteString(titleStyle.Render(title))
 	left.WriteString("\n")
@@ -116,9 +108,7 @@ func (m Window) View() string {
 	}
 
 	content := lipgloss.JoinHorizontal(lipgloss.Left, left.String(), "  ", right.String())
-	help := lipgloss.NewStyle().
-		Foreground(c("help")).
-		Render(`Navigate: ↑/k ↓/j  Focus: ←/h →/l
+	help := m.styles.Help.Render(`Navigate: ↑/k ↓/j  Focus: ←/h →/l
 Select: Enter  Edit: e  Exit: Esc/Ctrl+C/q`)
 
 	return lipgloss.JoinVertical(lipgloss.Left, content, help)
