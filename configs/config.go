@@ -1,151 +1,70 @@
 package configs
 
 import (
-	"bytes"
-	_ "embed"
-	"errors"
-	"fmt"
-	"log/slog"
 	"os"
-	"path"
-	"reflect"
+	"path/filepath"
+	"strings"
 
-	"github.com/go-viper/mapstructure/v2"
-	"github.com/spf13/viper"
+	"github.com/hashicorp/hcl/v2/hclsimple"
 )
 
-//go:embed config.default.hcl
-var defaultConfig []byte
-
-var ErrConfigNotFound = errors.New("config file not found")
-
 type Config struct {
-	Theme      string             `mapstructure:"theme"`
-	RootFolder string             `mapstructure:"root_folder"`
-	Projects   map[string]Project `mapstructure:"project"`
+	Theme        string         `hcl:"theme"`
+	CustomThemes []CustomTheme  `hcl:"custom_theme,block"`
 }
 
-type Project struct {
-	Path         string                 `mapstructure:"path"`
-	Theme        string                 `mapstructure:"theme"`
-	EnvVars      map[string]string      `mapstructure:"env_vars"`
-	EnvVarsFile  string                 `mapstructure:"env_vars_file"`
-	Environments map[string]Environment `mapstructure:"environment"`
-	DefaultEnv   string                 `mapstructure:"default_env"`
-}
-
-type Environment struct {
-	Theme       string            `mapstructure:"theme"`
-	EnvVars     map[string]string `mapstructure:"env_vars"`
-	EnvVarsFile string            `mapstructure:"env_vars_file"`
+type CustomTheme struct {
+	Name          string `hcl:"name,label"`
+	Title         string `hcl:"title,optional"`
+	Section       string `hcl:"section,optional"`
+	Subtext       string `hcl:"subtext,optional"`
+	Text          string `hcl:"text,optional"`
+	Placeholder   string `hcl:"placeholder,optional"`
+	Border        string `hcl:"border,optional"`
+	Error         string `hcl:"error,optional"`
+	ButtonDefFg   string `hcl:"buttonDefFg,optional"`
+	ButtonDefBg   string `hcl:"buttonDefBg,optional"`
+	ButtonSelFg   string `hcl:"buttonSelFg,optional"`
+	ButtonSelBg   string `hcl:"buttonSelBg,optional"`
+	SelectedFg    string `hcl:"selectedFg,optional"`
+	SelectedBg    string `hcl:"selectedBg,optional"`
+	Help          string `hcl:"help,optional"`
 }
 
 func GetConfig(cfgFile string) (*Config, error) {
-	v, err := LoadConfig(cfgFile)
-	if err != nil {
-		return nil, err
+	if cfgFile == "" {
+		if env := os.Getenv("PM_CONFIG"); strings.TrimSpace(env) != "" {
+			cfgFile = env
+		}
 	}
-
-	config, err := ParseConfig(v)
-	if err != nil {
-		slog.Debug("unable to parse config", slog.Any("err", err))
-
-		return nil, err
+	if strings.HasPrefix(cfgFile, "~/") {
+		h, _ := os.UserHomeDir()
+		cfgFile = filepath.Join(h, cfgFile[2:])
 	}
-
-	return config, nil
-}
-
-func LoadConfig(cfgFile string) (*viper.Viper, error) {
-	v := viper.New()
-
-	if cfgFile != "" {
-		// Use config file from the flag.
-		v.SetConfigFile(cfgFile)
-	} else {
-		config, err := os.UserConfigDir()
-		if err != nil {
+	if strings.TrimSpace(cfgFile) != "" {
+		var cfg Config
+		if err := hclsimple.DecodeFile(cfgFile, nil, &cfg); err != nil {
 			return nil, err
 		}
-
-		v.AddConfigPath(path.Join(config, "pm/"))
-		v.SetConfigName("config")
-		v.SetConfigType("hcl")
-	}
-
-	v.AutomaticEnv()
-
-	err := v.ReadInConfig()
-	if err != nil {
-		slog.Debug(fmt.Sprintf("Unable to read config: %v", err))
-
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			return DefaultConfig()
+		if strings.TrimSpace(cfg.Theme) == "" {
+			cfg.Theme = "nord"
 		}
-
-		return nil, err
+		return &cfg, nil
 	}
-
-	return v, nil
-}
-
-func ParseConfig(v *viper.Viper) (*Config, error) {
-	var cfg Config
-
-	configOption := viper.DecodeHook(mapstructure.ComposeDecodeHookFunc(
-		sliceOfMapsToMapHookFunc(),
-		mapstructure.StringToTimeDurationHookFunc(),
-		mapstructure.StringToSliceHookFunc(","),
-	))
-
-	err := v.Unmarshal(&cfg, configOption)
+	configDir, err := os.UserConfigDir()
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse config: %w", err)
+		return &Config{Theme: "nord"}, nil
 	}
-
-	return &cfg, nil
-}
-
-func DefaultConfig() (*viper.Viper, error) {
-	v := viper.New()
-
-	err := v.ReadConfig(bytes.NewReader(defaultConfig))
-	if err != nil {
-		return nil, err
-	}
-
-	return v, nil
-}
-
-// sliceOfMapsToMapHookFunc merges a slice of maps to a map.
-func sliceOfMapsToMapHookFunc() mapstructure.DecodeHookFunc {
-	return func(from, to reflect.Type, data interface{}) (interface{}, error) {
-		if from.Kind() == reflect.Slice && from.Elem().Kind() == reflect.Map &&
-			(to.Kind() == reflect.Struct || to.Kind() == reflect.Map) {
-			source, ok := data.([]map[string]interface{})
-			if !ok {
-				return data, nil
-			}
-
-			if len(source) == 0 {
-				return data, nil
-			}
-
-			if len(source) == 1 {
-				return source[0], nil
-			}
-			// flatten the slice into one map
-			convert := make(map[string]interface{})
-
-			for _, mapItem := range source {
-				for key, value := range mapItem {
-					convert[key] = value
-				}
-			}
-
-			return convert, nil
+	defaultPath := filepath.Join(configDir, "pm", "config.hcl")
+	if _, err := os.Stat(defaultPath); err == nil {
+		var cfg Config
+		if err := hclsimple.DecodeFile(defaultPath, nil, &cfg); err != nil {
+			return nil, err
 		}
-
-		return data, nil
+		if strings.TrimSpace(cfg.Theme) == "" {
+			cfg.Theme = "nord"
+		}
+		return &cfg, nil
 	}
+	return &Config{Theme: "nord"}, nil
 }

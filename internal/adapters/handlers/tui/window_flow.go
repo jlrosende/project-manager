@@ -144,12 +144,13 @@ func (p *postCreatePrompt) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (p *postCreatePrompt) View() string {
 	styleTitle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("14")).
+		Foreground(c("title")).
 		Align(lipgloss.Center).
 		Border(lipgloss.NormalBorder(), false, false, true).
+		BorderForeground(c("border")).
 		Padding(0, 1)
-	styleSel := lipgloss.NewStyle().Foreground(lipgloss.Color("229")).Background(lipgloss.Color("57")).Padding(0, 1)
-	styleDef := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Padding(0, 1)
+	styleSel := lipgloss.NewStyle().Foreground(c("selectedFg")).Background(c("selectedBg")).Padding(0, 1)
+	styleDef := lipgloss.NewStyle().Foreground(c("subtext")).Padding(0, 1)
 	b := strings.Builder{}
 	b.WriteString(styleTitle.Render("Project created. What next?"))
 	b.WriteString("\n")
@@ -168,8 +169,9 @@ func (p *postCreatePrompt) View() string {
 	}
 
 	help := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240")).
-		Render("Keys: ↑/k ↓/j navigate  Enter select  Esc cancel")
+		Foreground(c("help")).
+		Render(`Navigate: ↑/k ↓/j
+Select: Enter  Cancel: Esc/q/Ctrl+C`)
 
 	return lipgloss.JoinVertical(lipgloss.Left, b.String(), help)
 }

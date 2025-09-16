@@ -43,9 +43,9 @@ func NewEnvironmentFormModel() *NewEnvironmentForm {
 	name := bti.New()
 	name.Prompt = "Env name*: "
 	name.Placeholder = "staging"
-	name.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
-	name.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	name.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("229"))
+	name.PromptStyle = lipgloss.NewStyle().Foreground(c("title"))
+	name.PlaceholderStyle = lipgloss.NewStyle().Foreground(c("placeholder"))
+	name.TextStyle = lipgloss.NewStyle().Foreground(c("text"))
 	name.Width = 60
 	name.Focus()
 
@@ -53,17 +53,17 @@ func NewEnvironmentFormModel() *NewEnvironmentForm {
 	color.Prompt = "Color (name/#hex/0-255): "
 	color.Placeholder = "teal"
 	color.SetValue("grey")
-	color.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
-	color.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	color.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	color.PromptStyle = lipgloss.NewStyle().Foreground(c("title"))
+	color.PlaceholderStyle = lipgloss.NewStyle().Foreground(c("placeholder"))
+	color.TextStyle = lipgloss.NewStyle().Foreground(c("subtext"))
 	color.Width = 60
 	mode := bti.New()
 	mode.Prompt = "Env vars mode* (merge/replace): "
 	mode.Placeholder = domain.EnvVarsModeMerge
 	mode.SetValue(domain.EnvVarsModeMerge)
-	mode.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
-	mode.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	mode.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("229"))
+	mode.PromptStyle = lipgloss.NewStyle().Foreground(c("title"))
+	mode.PlaceholderStyle = lipgloss.NewStyle().Foreground(c("placeholder"))
+	mode.TextStyle = lipgloss.NewStyle().Foreground(c("text"))
 	mode.Width = 60
 	env := bta.New()
 	env.Placeholder = "# One per line (like .env)\nAPI_URL=https://api.example.com\nLOG_LEVEL=info\n# comments allowed"
@@ -253,17 +253,21 @@ func (f *NewEnvironmentForm) focusCurrent() {
 }
 
 func (f *NewEnvironmentForm) View() string {
-	box := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("240")).Padding(1, 2)
+	box := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(c("border")).Padding(1, 2)
 	help := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240")).
-		Render("Tab switch  Enter next/newline  Ctrl+S save  Esc cancel")
-	styleSel := lipgloss.NewStyle().Foreground(lipgloss.Color("229")).Background(lipgloss.Color("57")).Padding(0, 1)
-	styleDef := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Padding(0, 1)
+		Foreground(c("help")).
+		Render(`Move: Tab/↑/↓  Buttons: ←/→
+Next/Newline: Enter  Save: Ctrl+S  Cancel: Esc`)
 	styleTitle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("14")).
+		Foreground(c("title")).
 		Align(lipgloss.Center).
 		Border(lipgloss.NormalBorder(), false, false, true).
+		BorderForeground(c("border")).
 		Padding(0, 1)
+	styleSection := lipgloss.NewStyle().Foreground(c("section")).Bold(true)
+	styleSub := lipgloss.NewStyle().Foreground(c("subtext"))
+	btnDef := lipgloss.NewStyle().Foreground(c("buttonDefFg")).Background(c("buttonDefBg")).Padding(0, 2)
+	btnSel := lipgloss.NewStyle().Foreground(c("buttonSelFg")).Background(c("buttonSelBg")).Padding(0, 2)
 	b := strings.Builder{}
 	title := "New environment"
 	if f.isEdit {
@@ -271,36 +275,38 @@ func (f *NewEnvironmentForm) View() string {
 	}
 	b.WriteString(styleTitle.Render(title))
 	b.WriteString("\n")
+	b.WriteString(styleSection.Render("Environment details"))
+	b.WriteString("\n")
+	b.WriteString(styleSub.Render("Display and behavior"))
+	b.WriteString("\n")
 	b.WriteString(f.name.View())
 	b.WriteString("\n")
 	b.WriteString(f.color.View())
+	b.WriteString("\n\n")
+	b.WriteString(styleSection.Render("Variables"))
+	b.WriteString("\n")
+	b.WriteString(styleSub.Render("One KEY=VALUE per line; '#' comments allowed"))
 	b.WriteString("\n")
 	b.WriteString(f.mode.View())
 	b.WriteString("\n")
-	b.WriteString(
-		lipgloss.NewStyle().
-			Foreground(lipgloss.Color("240")).
-			Render("Env vars (.env format): one KEY=VALUE per line; '#' comments allowed"),
-	)
-	b.WriteString("\n")
 	b.WriteString(f.envVars.View())
-	b.WriteString("\n")
+	b.WriteString("\n\n")
 
-	btnSave := styleDef.Render("Save")
+	btnSave := btnDef.Render(" Save ")
 	if f.focused == 4 {
-		btnSave = styleSel.Render("Save")
+		btnSave = btnSel.Render(" Save ")
 	}
 
-	btnCancel := styleDef.Render("Cancel")
+	btnCancel := btnDef.Render(" Cancel ")
 	if f.focused == 5 {
-		btnCancel = styleSel.Render("Cancel")
+		btnCancel = btnSel.Render(" Cancel ")
 	}
 
-	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Left, btnSave, "  ", btnCancel))
+	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Left, btnSave, "   ", btnCancel))
 	b.WriteString("\n\n")
 
 	if f.err != "" {
-		b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Render(f.err))
+		b.WriteString(lipgloss.NewStyle().Foreground(c("error")).Render(f.err))
 		b.WriteString("\n")
 	}
 

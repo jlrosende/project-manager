@@ -45,13 +45,13 @@ type NewProjectForm struct {
 
 func NewProjectFormModel() *NewProjectForm {
 	ni := bti.New()
-	sc := lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
-	sr := lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
+	sc := lipgloss.NewStyle().Foreground(c("title"))
+	sr := lipgloss.NewStyle().Foreground(c("error"))
 	ni.Prompt = sc.Render("Name") + sr.Render("*") + sc.Render(": ")
 	ni.Placeholder = "my-awesome-app"
 	ni.PromptStyle = lipgloss.NewStyle()
-	ni.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	ni.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("229"))
+	ni.PlaceholderStyle = lipgloss.NewStyle().Foreground(c("placeholder"))
+	ni.TextStyle = lipgloss.NewStyle().Foreground(c("text"))
 	ni.Width = 40
 	ni.Focus()
 
@@ -59,59 +59,59 @@ func NewProjectFormModel() *NewProjectForm {
 	pi.Prompt = sc.Render("Path") + sr.Render("*") + sc.Render(": ")
 	pi.Placeholder = "~/my-awesome-app"
 	pi.PromptStyle = lipgloss.NewStyle()
-	pi.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	pi.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("229"))
+	pi.PlaceholderStyle = lipgloss.NewStyle().Foreground(c("placeholder"))
+	pi.TextStyle = lipgloss.NewStyle().Foreground(c("text"))
 	pi.Width = 40
 	spi := bti.New()
 	spi.Prompt = "Subproject: "
 	spi.Placeholder = "services/api"
-	spi.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
-	spi.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	spi.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("229"))
+	spi.PromptStyle = lipgloss.NewStyle().Foreground(c("title"))
+	spi.PlaceholderStyle = lipgloss.NewStyle().Foreground(c("placeholder"))
+	spi.TextStyle = lipgloss.NewStyle().Foreground(c("text"))
 	spi.Width = 40
 	un := bti.New()
 	un.Prompt = "Git user.name: "
 	un.Placeholder = "Jane Doe"
-	un.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
-	un.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	un.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("229"))
+	un.PromptStyle = lipgloss.NewStyle().Foreground(c("title"))
+	un.PlaceholderStyle = lipgloss.NewStyle().Foreground(c("placeholder"))
+	un.TextStyle = lipgloss.NewStyle().Foreground(c("text"))
 	un.Width = 40
 	uem := bti.New()
 	uem.Prompt = "Git user.email: "
 	uem.Placeholder = "jane@example.com"
-	uem.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
-	uem.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	uem.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("229"))
+	uem.PromptStyle = lipgloss.NewStyle().Foreground(c("title"))
+	uem.PlaceholderStyle = lipgloss.NewStyle().Foreground(c("placeholder"))
+	uem.TextStyle = lipgloss.NewStyle().Foreground(c("text"))
 	uem.Width = 40
 	usk := bti.New()
 	usk.Prompt = "Git user.signingkey: "
 	usk.Placeholder = "0xDEADBEEF"
-	usk.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
-	usk.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	usk.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("229"))
+	usk.PromptStyle = lipgloss.NewStyle().Foreground(c("title"))
+	usk.PlaceholderStyle = lipgloss.NewStyle().Foreground(c("placeholder"))
+	usk.TextStyle = lipgloss.NewStyle().Foreground(c("text"))
 	usk.Width = 40
 	csg := bti.New()
 	csg.Prompt = "commit.gpgsign (true/false): "
 	csg.Placeholder = strTrue
 	csg.SetValue(strTrue)
-	csg.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
-	csg.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	csg.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("229"))
+	csg.PromptStyle = lipgloss.NewStyle().Foreground(c("title"))
+	csg.PlaceholderStyle = lipgloss.NewStyle().Foreground(c("placeholder"))
+	csg.TextStyle = lipgloss.NewStyle().Foreground(c("text"))
 	csg.Width = 40
 	tsg := bti.New()
 	tsg.Prompt = "tag.gpgsign (true/false): "
 	tsg.Placeholder = strTrue
 	tsg.SetValue(strTrue)
-	tsg.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
-	tsg.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	tsg.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("229"))
+	tsg.PromptStyle = lipgloss.NewStyle().Foreground(c("title"))
+	tsg.PlaceholderStyle = lipgloss.NewStyle().Foreground(c("placeholder"))
+	tsg.TextStyle = lipgloss.NewStyle().Foreground(c("text"))
 	tsg.Width = 40
 	sh := bti.New()
 	sh.Prompt = "Shell: "
 	sh.Placeholder = "/bin/bash"
-	sh.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
-	sh.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	sh.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("229"))
+	sh.PromptStyle = lipgloss.NewStyle().Foreground(c("title"))
+	sh.PlaceholderStyle = lipgloss.NewStyle().Foreground(c("placeholder"))
+	sh.TextStyle = lipgloss.NewStyle().Foreground(c("text"))
 	sh.Width = 40
 	ev := bta.New()
 	ev.Placeholder = "# One per line (like .env)\nAPP_ENV=development\nDATABASE_URL=postgres://user:pass@localhost:5432/app\n# comments allowed"
@@ -425,24 +425,32 @@ func (f *NewProjectForm) focusCurrent() {
 }
 
 func (f *NewProjectForm) View() string {
-	box := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("240")).Padding(1, 2)
+	box := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(c("border")).Padding(1, 2)
 	help := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240")).
-		Render("Tab/↑/↓ move  ←/→ buttons  Enter next/newline  Ctrl+S save  Esc cancel")
-	errStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
-	styleSel := lipgloss.NewStyle().Foreground(lipgloss.Color("229")).Background(lipgloss.Color("57")).Padding(0, 1)
-	styleDef := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Padding(0, 1)
+		Foreground(c("help")).
+		Render(`Move: Tab/↑/↓  Buttons: ←/→
+Next/Newline: Enter  Save: Ctrl+S  Cancel: Esc`)
+	errStyle := lipgloss.NewStyle().Foreground(c("error"))
 	styleTitle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("14")).
+		Foreground(c("title")).
 		Align(lipgloss.Center).
 		Border(lipgloss.NormalBorder(), false, false, true).
+		BorderForeground(c("border")).
 		Padding(0, 1)
+	styleSection := lipgloss.NewStyle().Foreground(c("section")).Bold(true)
+	styleSub := lipgloss.NewStyle().Foreground(c("subtext"))
+	btnDef := lipgloss.NewStyle().Foreground(c("buttonDefFg")).Background(c("buttonDefBg")).Padding(0, 2)
+	btnSel := lipgloss.NewStyle().Foreground(c("buttonSelFg")).Background(c("buttonSelBg")).Padding(0, 2)
 	b := strings.Builder{}
 	title := "New project"
 	if f.isEdit {
 		title = "Edit project"
 	}
 	b.WriteString(styleTitle.Render(title))
+	b.WriteString("\n")
+	b.WriteString(styleSection.Render("Project details"))
+	b.WriteString("\n")
+	b.WriteString(styleSub.Render("Basic information"))
 	b.WriteString("\n")
 	b.WriteString(f.name.View())
 	b.WriteString("\n")
@@ -451,10 +459,18 @@ func (f *NewProjectForm) View() string {
 		pathView = lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(f.path.Value() + " (read-only)")
 	}
 	b.WriteString(pathView)
+	b.WriteString("\n\n")
+	b.WriteString(styleSection.Render("Project options"))
+	b.WriteString("\n")
+	b.WriteString(styleSub.Render("Optional settings"))
 	b.WriteString("\n")
 	b.WriteString(f.subproject.View())
 	b.WriteString("\n")
 	b.WriteString(f.shell.View())
+	b.WriteString("\n\n")
+	b.WriteString(styleSection.Render("Git settings"))
+	b.WriteString("\n")
+	b.WriteString(styleSub.Render("Applied to this project only"))
 	b.WriteString("\n")
 	b.WriteString(f.userName.View())
 	b.WriteString("\n")
@@ -465,27 +481,25 @@ func (f *NewProjectForm) View() string {
 	b.WriteString(f.commitGPGSign.View())
 	b.WriteString("\n")
 	b.WriteString(f.tagGPGSign.View())
+	b.WriteString("\n\n")
+	b.WriteString(styleSection.Render("Environment variables"))
 	b.WriteString("\n")
-	b.WriteString(
-		lipgloss.NewStyle().
-			Foreground(lipgloss.Color("240")).
-			Render("Env vars (.env format): one KEY=VALUE per line; '#' comments allowed"),
-	)
+	b.WriteString(styleSub.Render("One KEY=VALUE per line; '#' comments allowed"))
 	b.WriteString("\n")
 	b.WriteString(f.envVars.View())
-	b.WriteString("\n")
+	b.WriteString("\n\n")
 
-	btnSave := styleDef.Render("Save")
+	btnSave := btnDef.Render(" Save ")
 	if f.focused == 10 {
-		btnSave = styleSel.Render("Save")
+		btnSave = btnSel.Render(" Save ")
 	}
 
-	btnCancel := styleDef.Render("Cancel")
+	btnCancel := btnDef.Render(" Cancel ")
 	if f.focused == 11 {
-		btnCancel = styleSel.Render("Cancel")
+		btnCancel = btnSel.Render(" Cancel ")
 	}
 
-	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Left, btnSave, "  ", btnCancel))
+	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Left, btnSave, "   ", btnCancel))
 	b.WriteString("\n\n")
 
 	if f.err != "" {

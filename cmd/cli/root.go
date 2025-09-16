@@ -5,6 +5,7 @@ import (
 	"log"
 	"log/slog"
 	"os"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
@@ -13,6 +14,7 @@ import (
 	cmdInit "github.com/jlrosende/project-manager/cmd/cli/init"
 	cmdList "github.com/jlrosende/project-manager/cmd/cli/list"
 	cmdNew "github.com/jlrosende/project-manager/cmd/cli/new"
+	"github.com/jlrosende/project-manager/configs"
 	"github.com/jlrosende/project-manager/internal"
 	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui"
 	"github.com/jlrosende/project-manager/internal/adapters/repositories"
@@ -35,6 +37,7 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+
 		logFile, err := cmd.PersistentFlags().GetString("log-file")
 		if err != nil {
 			return err
@@ -61,6 +64,8 @@ func init() {
 
 	rootCmd.PersistentFlags().String("log-level", "info", "Change the log level (debug, info, warn, error)")
 	rootCmd.PersistentFlags().String("log-file", "", "Path to log file (default: $XDG_CACHE_HOME/pm.log)")
+	rootCmd.PersistentFlags().String("theme", "", "Theme for this run (nord, catppuccin, dracula, ayu)")
+	rootCmd.PersistentFlags().String("config", "", "Path to pm config file")
 
 	rootCmd.AddCommand(cmdInit.InitCmd)
 	rootCmd.AddCommand(cmdNew.NewCmd)
@@ -130,7 +135,50 @@ func root(cmd *cobra.Command, args []string) error {
 
 	// Launch TUI if no args or project not exsit
 	if len(args) == 0 || name == "" {
-		window, err := tui.NewWindow(svc)
+		themeFlag, _ := cmd.PersistentFlags().GetString("theme")
+		configFlag, _ := cmd.PersistentFlags().GetString("config")
+		cfgPath := strings.TrimSpace(configFlag)
+		if cfgPath == "" {
+			if v, ok := os.LookupEnv("PM_CONFIG"); ok && strings.TrimSpace(v) != "" {
+				cfgPath = v
+			}
+		}
+		cfg, cfgErr := configs.GetConfig(cfgPath)
+		if cfgPath != "" && cfgErr != nil {
+			return cfgErr
+		}
+		theme := strings.TrimSpace(themeFlag)
+		if theme == "" {
+			if v, ok := os.LookupEnv("PM_THEME"); ok && strings.TrimSpace(v) != "" {
+				theme = v
+			} else if cfg != nil && strings.TrimSpace(cfg.Theme) != "" {
+				theme = cfg.Theme
+			}
+		}
+
+		ov := map[string]string{}
+		if cfg != nil {
+			for _, ct := range cfg.CustomThemes {
+				if strings.EqualFold(ct.Name, theme) {
+					if ct.Title != "" { ov["title"] = ct.Title }
+					if ct.Section != "" { ov["section"] = ct.Section }
+					if ct.Subtext != "" { ov["subtext"] = ct.Subtext }
+					if ct.Text != "" { ov["text"] = ct.Text }
+					if ct.Placeholder != "" { ov["placeholder"] = ct.Placeholder }
+					if ct.Border != "" { ov["border"] = ct.Border }
+					if ct.Error != "" { ov["error"] = ct.Error }
+					if ct.ButtonDefFg != "" { ov["buttonDefFg"] = ct.ButtonDefFg }
+					if ct.ButtonDefBg != "" { ov["buttonDefBg"] = ct.ButtonDefBg }
+					if ct.ButtonSelFg != "" { ov["buttonSelFg"] = ct.ButtonSelFg }
+					if ct.ButtonSelBg != "" { ov["buttonSelBg"] = ct.ButtonSelBg }
+					if ct.SelectedFg != "" { ov["selectedFg"] = ct.SelectedFg }
+					if ct.SelectedBg != "" { ov["selectedBg"] = ct.SelectedBg }
+					if ct.Help != "" { ov["help"] = ct.Help }
+				}
+			}
+		}
+
+		window, err := tui.NewWindow(svc, tui.Options{Theme: theme, Overrides: ov})
 		if err != nil {
 			return err
 		}

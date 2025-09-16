@@ -24,15 +24,16 @@ func (m Window) View() string {
 	left := strings.Builder{}
 	title := " Projects"
 	titleStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("14")).
+		Foreground(c("title")).
 		Align(lipgloss.Center).
 		Border(lipgloss.NormalBorder(), false, false, true).
+		BorderForeground(c("border")).
 		Padding(0, 1)
 	selectedStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("229")).
-		Background(lipgloss.Color("57")).Padding(0, 1)
+		Foreground(c("selectedFg")).
+		Background(c("selectedBg")).Padding(0, 1)
 	defaultStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240")).Padding(0, 1)
+		Foreground(c("subtext")).Padding(0, 1)
 
 	left.WriteString(titleStyle.Render(title))
 	left.WriteString("\n")
@@ -93,7 +94,7 @@ func (m Window) View() string {
 
 				content := defaultStyle.Foreground(lipgloss.Color(env.Color)).Render("● " + env.Name)
 				if p.DefaultEnv != "" && env.Name == p.DefaultEnv {
-					content = content + " " + lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render("(default)")
+					content = content + " " + lipgloss.NewStyle().Foreground(c("subtext")).Render("(default)")
 				}
 
 				right.WriteString(marker)
@@ -116,8 +117,9 @@ func (m Window) View() string {
 
 	content := lipgloss.JoinHorizontal(lipgloss.Left, left.String(), "  ", right.String())
 	help := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240")).
-		Render("Keys: ↑/k ↓/j navigate  ←/h →/l focus  e edit  Enter select  Esc/Ctrl+C exit")
+		Foreground(c("help")).
+		Render(`Navigate: ↑/k ↓/j  Focus: ←/h →/l
+Select: Enter  Edit: e  Exit: Esc/Ctrl+C/q`)
 
 	return lipgloss.JoinVertical(lipgloss.Left, content, help)
 }
