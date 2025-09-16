@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strings"
 
+	helpcomp "github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 	bta "github.com/charmbracelet/bubbles/textarea"
 	bti "github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -20,6 +22,20 @@ const (
 	strFalse        = "false"
 	errPathRequired = "path is required"
 )
+
+type formKeyMap struct {
+	Save    key.Binding
+	Cancel  key.Binding
+	Next    key.Binding
+	Prev    key.Binding
+	Buttons key.Binding
+	Help    key.Binding
+}
+
+func (k formKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.Next, k.Save, k.Help} }
+func (k formKeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{{k.Next, k.Prev, k.Buttons}, {k.Save, k.Cancel, k.Help}}
+}
 
 type NewProjectForm struct {
 	name           bti.Model
@@ -41,6 +57,8 @@ type NewProjectForm struct {
 	err            string
 	isEdit         bool
 	originalName   string
+	help           helpcomp.Model
+	keys           formKeyMap
 }
 
 func NewProjectFormModel() *NewProjectForm {
@@ -118,6 +136,15 @@ func NewProjectFormModel() *NewProjectForm {
 	ev.SetHeight(6)
 	ev.SetWidth(60)
 
+	h := helpcomp.New()
+	km := formKeyMap{}
+	km.Save = key.NewBinding(key.WithKeys("ctrl+s"), key.WithHelp("ctrl+s", "save"))
+	km.Cancel = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "cancel"))
+	km.Next = key.NewBinding(key.WithKeys("tab", "down", "enter"), key.WithHelp("tab/↓/enter", "next"))
+	km.Prev = key.NewBinding(key.WithKeys("shift+tab", "up"), key.WithHelp("shift+tab/↑", "prev"))
+	km.Buttons = key.NewBinding(key.WithKeys("left", "right"), key.WithHelp("←/→", "buttons"))
+	km.Help = key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "toggle help"))
+
 	return &NewProjectForm{
 		name:           ni,
 		path:           pi,
@@ -130,6 +157,8 @@ func NewProjectFormModel() *NewProjectForm {
 		tagGPGSign:     tsg,
 		envVars:        ev,
 		focused:        0,
+		help:           h,
+		keys:           km,
 	}
 }
 
@@ -332,6 +361,13 @@ func (f *NewProjectForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	if m, ok := msg.(tea.KeyMsg); ok {
+		if m.Type == tea.KeyRunes && len(m.Runes) > 0 && m.Runes[0] == '?' {
+			f.help.ShowAll = !f.help.ShowAll
+			return f, nil
+		}
+	}
+
 	var cmd tea.Cmd
 
 	switch f.focused {
@@ -438,11 +474,6 @@ func (f *NewProjectForm) focusCurrent() {
 }
 
 func (f *NewProjectForm) View() string {
-	box := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(c("border")).Padding(1, 2)
-	help := lipgloss.NewStyle().
-		Foreground(c("help")).
-		Render(`Move: Tab/↑/↓  Buttons: ←/→
-Next/Newline: Enter  Save: Ctrl+S  Cancel: Esc`)
 	errStyle := lipgloss.NewStyle().Foreground(c("error"))
 	styleTitle := lipgloss.NewStyle().
 		Foreground(c("title")).
@@ -524,9 +555,16 @@ Next/Newline: Enter  Save: Ctrl+S  Cancel: Esc`)
 		b.WriteString("\n")
 	}
 
-	b.WriteString(help)
+	content := b.String()
 
-	return box.Render(b.String())
+	sepLen := f.width
+	if sepLen < 1 {
+		sepLen = 80
+	}
+
+	sep := lipgloss.NewStyle().Foreground(c("border")).Render(strings.Repeat("─", sepLen))
+
+	return lipgloss.JoinVertical(lipgloss.Left, content, sep, f.help.View(f.keys))
 }
 
 func NewProjectEditFormModel(p *domain.Project) *NewProjectForm {

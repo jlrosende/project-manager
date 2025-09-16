@@ -6,8 +6,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-const markerArrow = "➜"
-
 func (m Window) View() string {
 	if m.mode == 1 && m.form != nil {
 		return m.form.View()
@@ -24,7 +22,6 @@ func (m Window) View() string {
 	left := strings.Builder{}
 	title := " Projects"
 	titleStyle := m.styles.Title
-	selectedStyle := m.styles.Selected
 	defaultStyle := m.styles.Default
 
 	left.WriteString(titleStyle.Render(title))
@@ -32,24 +29,28 @@ func (m Window) View() string {
 
 	mod := mod(m.cursor, m.total)
 	for i, project := range m.projects {
-		if mod == i {
-			left.WriteString(markerArrow + " ")
-			left.WriteString(selectedStyle.Render(project.Name))
-			left.WriteString("\n")
-		} else {
-			left.WriteString(" ")
-			left.WriteString(defaultStyle.Render(project.Name))
-			left.WriteString("\n")
+		selected := mod == i
+
+		marker := "  "
+		text := defaultStyle.Render(project.Name)
+
+		if selected {
+			marker = lipgloss.NewStyle().Foreground(c("selectedBg")).Render("▌ ")
+			text = lipgloss.NewStyle().Foreground(c("selectedFg")).Bold(true).Render(project.Name)
 		}
+
+		left.WriteString(marker)
+		left.WriteString(text)
+		left.WriteString("\n")
 	}
 
 	if mod == len(m.projects) {
-		left.WriteString(markerArrow + " ")
-		left.WriteString(selectedStyle.Render("+ New project"))
+		left.WriteString(lipgloss.NewStyle().Foreground(c("selectedBg")).Render("▌ "))
+		left.WriteString(lipgloss.NewStyle().Foreground(c("selectedFg")).Bold(true).Render("+ New project"))
 		left.WriteString("\n")
 	} else {
-		left.WriteString(" ")
-		left.WriteString(defaultStyle.Render("+ New project"))
+		left.WriteString("  ")
+		left.WriteString(lipgloss.NewStyle().Foreground(c("section")).Bold(true).Render("+ New project"))
 		left.WriteString("\n")
 	}
 
@@ -63,11 +64,11 @@ func (m Window) View() string {
 		if len(p.Environments) == 0 {
 			marker := "  "
 			if m.focus == 1 && m.cursorEnv == 0 {
-				marker = "➜"
+				marker = lipgloss.NewStyle().Foreground(c("selectedBg")).Render("▌ ")
 			}
 
 			right.WriteString(marker)
-			right.WriteString(defaultStyle.Render("+ New environment"))
+			right.WriteString(lipgloss.NewStyle().Foreground(c("section")).Bold(true).Render("+ New environment"))
 			right.WriteString("\n")
 		} else {
 			for i, env := range p.Environments {
@@ -76,40 +77,53 @@ func (m Window) View() string {
 				selected := m.focus == 1 && m.cursorEnv == i
 
 				if selected {
-					marker = markerArrow
+					marker = lipgloss.NewStyle().Foreground(lipgloss.Color(env.Color)).Render("▌ ")
 				}
 
-				rowStyle := lipgloss.NewStyle()
+				var content string
+
 				if selected {
-					rowStyle = rowStyle.Background(lipgloss.Color(env.Color)).Padding(0, 0, 0, 1)
+					bullet := lipgloss.NewStyle().Foreground(lipgloss.Color(env.Color)).Render("● ")
+					name := lipgloss.NewStyle().Foreground(c("selectedFg")).Bold(true).Render(env.Name)
+					content = bullet + name
+				} else {
+					content = defaultStyle.Foreground(lipgloss.Color(env.Color)).Render("● " + env.Name)
 				}
 
-				content := defaultStyle.Foreground(lipgloss.Color(env.Color)).Render("● " + env.Name)
 				if p.DefaultEnv != "" && env.Name == p.DefaultEnv {
 					content = content + " " + lipgloss.NewStyle().Foreground(c("subtext")).Render("(default)")
 				}
 
 				right.WriteString(marker)
-				right.WriteString(rowStyle.Render(content))
+				right.WriteString(content)
 				right.WriteString("\n")
 			}
 		}
-		// Add new environment entry when there are environments
+
 		if mod < len(m.projects) && len(m.projects) > 0 && len(m.projects[mod].Environments) > 0 {
 			marker := "  "
 			if m.focus == 1 && m.cursorEnv == len(m.projects[mod].Environments) {
-				marker = markerArrow
+				marker = lipgloss.NewStyle().Foreground(c("selectedBg")).Render("▌ ")
 			}
 
 			right.WriteString(marker)
-			right.WriteString(defaultStyle.Render("+ New environment"))
+			right.WriteString(lipgloss.NewStyle().Foreground(c("section")).Bold(true).Render("+ New environment"))
 			right.WriteString("\n")
 		}
 	}
 
 	content := lipgloss.JoinHorizontal(lipgloss.Left, left.String(), "  ", right.String())
-	help := m.styles.Help.Render(`Navigate: ↑/k ↓/j  Focus: ←/h →/l
-Select: Enter  Edit: e  Exit: Esc/Ctrl+C/q`)
 
-	return lipgloss.JoinVertical(lipgloss.Left, content, help)
+	sepLen := m.width
+	if sepLen < 1 {
+		sepLen = 80
+	}
+
+	sep := lipgloss.NewStyle().Foreground(c("border")).Render(strings.Repeat("─", sepLen))
+	content = content + "\n" + sep + "\n" + m.help.View(m.keys)
+
+	v := m.vp
+	v.SetContent(content)
+
+	return v.View()
 }

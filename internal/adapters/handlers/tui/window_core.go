@@ -3,6 +3,9 @@ package tui
 import (
 	"strings"
 
+	helpcomp "github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -177,6 +180,22 @@ type Options struct {
 	Overrides map[string]string
 }
 
+type keyMap struct {
+	Quit  key.Binding
+	Edit  key.Binding
+	Left  key.Binding
+	Right key.Binding
+	Up    key.Binding
+	Down  key.Binding
+	Enter key.Binding
+	Help  key.Binding
+}
+
+func (k keyMap) ShortHelp() []key.Binding { return []key.Binding{k.Quit, k.Edit, k.Enter, k.Help} }
+func (k keyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{{k.Left, k.Right, k.Up, k.Down}, {k.Edit, k.Enter, k.Quit, k.Help}}
+}
+
 type Window struct {
 	projectSvc *services.ProjectService
 
@@ -196,6 +215,9 @@ type Window struct {
 	envForm        *NewEnvironmentForm
 	envProjectName string
 	styles         Styles
+	vp             viewport.Model
+	help           helpcomp.Model
+	keys           keyMap
 }
 
 func NewWindow(projectSvc *services.ProjectService, opts Options) (*Window, error) {
@@ -221,13 +243,29 @@ func NewWindow(projectSvc *services.ProjectService, opts Options) (*Window, erro
 		total = 1
 	}
 
-	return &Window{
+	vp := viewport.New(0, 0)
+	h := helpcomp.New()
+
+	w := &Window{
 		projectSvc: projectSvc,
 		projects:   projects,
 		total:      total,
 		cursor:     0,
 		styles:     s,
-	}, nil
+		vp:         vp,
+		help:       h,
+	}
+
+	w.keys.Quit = key.NewBinding(key.WithKeys("q", "ctrl+c", "esc"), key.WithHelp("q", "quit"))
+	w.keys.Edit = key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "edit"))
+	w.keys.Left = key.NewBinding(key.WithKeys("left", "h"), key.WithHelp("←/h", "focus projects"))
+	w.keys.Right = key.NewBinding(key.WithKeys("right", "l"), key.WithHelp("→/l", "focus envs"))
+	w.keys.Up = key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up"))
+	w.keys.Down = key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down"))
+	w.keys.Enter = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select"))
+	w.keys.Help = key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "toggle help"))
+
+	return w, nil
 }
 
 func c(k string) lipgloss.Color { return lipgloss.Color(currentPalette[k]) }

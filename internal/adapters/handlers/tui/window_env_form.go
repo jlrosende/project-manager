@@ -3,6 +3,8 @@ package tui
 import (
 	"strings"
 
+	helpcomp "github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 	bta "github.com/charmbracelet/bubbles/textarea"
 	bti "github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -16,6 +18,21 @@ const (
 	errModeMustBeVal = "mode must be merge or replace"
 )
 
+type envFormKeyMap struct {
+	Save    key.Binding
+	Cancel  key.Binding
+	Next    key.Binding
+	Prev    key.Binding
+	Buttons key.Binding
+	Help    key.Binding
+}
+
+func (k envFormKeyMap) ShortHelp() []key.Binding { return []key.Binding{k.Next, k.Save, k.Help} }
+
+func (k envFormKeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{{k.Next, k.Prev, k.Buttons}, {k.Save, k.Cancel, k.Help}}
+}
+
 type NewEnvironmentForm struct {
 	name         bti.Model
 	color        bti.Model
@@ -27,6 +44,8 @@ type NewEnvironmentForm struct {
 	err          string
 	isEdit       bool
 	originalName string
+	help         helpcomp.Model
+	keys         envFormKeyMap
 }
 
 func NewEnvironmentFormModel() *NewEnvironmentForm {
@@ -60,7 +79,16 @@ func NewEnvironmentFormModel() *NewEnvironmentForm {
 	env.SetHeight(6)
 	env.SetWidth(70)
 
-	return &NewEnvironmentForm{name: name, color: color, mode: mode, envVars: env}
+	h := helpcomp.New()
+	km := envFormKeyMap{}
+	km.Save = key.NewBinding(key.WithKeys("ctrl+s"), key.WithHelp("ctrl+s", "save"))
+	km.Cancel = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "cancel"))
+	km.Next = key.NewBinding(key.WithKeys("tab", "down", "enter"), key.WithHelp("tab/↓/enter", "next"))
+	km.Prev = key.NewBinding(key.WithKeys("shift+tab", "up"), key.WithHelp("shift+tab/↑", "prev"))
+	km.Buttons = key.NewBinding(key.WithKeys("left", "right"), key.WithHelp("←/→", "buttons"))
+	km.Help = key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "toggle help"))
+
+	return &NewEnvironmentForm{name: name, color: color, mode: mode, envVars: env, help: h, keys: km}
 }
 
 func NewEnvironmentEditFormModel(e *domain.Environment) *NewEnvironmentForm {
@@ -198,6 +226,13 @@ func (f *NewEnvironmentForm) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	if m, ok := msg.(tea.KeyMsg); ok {
+		if m.Type == tea.KeyRunes && len(m.Runes) > 0 && m.Runes[0] == '?' {
+			f.help.ShowAll = !f.help.ShowAll
+			return f, nil
+		}
+	}
+
 	var cmd tea.Cmd
 
 	switch f.focused {
@@ -248,11 +283,6 @@ func (f *NewEnvironmentForm) focusCurrent() {
 }
 
 func (f *NewEnvironmentForm) View() string {
-	box := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(c("border")).Padding(1, 2)
-	help := lipgloss.NewStyle().
-		Foreground(c("help")).
-		Render(`Move: Tab/↑/↓  Buttons: ←/→
-Next/Newline: Enter  Save: Ctrl+S  Cancel: Esc`)
 	styleTitle := lipgloss.NewStyle().
 		Foreground(c("title")).
 		Align(lipgloss.Center).
@@ -307,7 +337,10 @@ Next/Newline: Enter  Save: Ctrl+S  Cancel: Esc`)
 		b.WriteString("\n")
 	}
 
-	b.WriteString(help)
+	content := b.String()
 
-	return box.Render(b.String())
+	sepLen := 80
+	sep := lipgloss.NewStyle().Foreground(c("border")).Render(strings.Repeat("─", sepLen))
+
+	return lipgloss.JoinVertical(lipgloss.Left, content, sep, f.help.View(f.keys))
 }

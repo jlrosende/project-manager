@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/jlrosende/project-manager/internal/adapters/repositories"
 	"github.com/jlrosende/project-manager/internal/core/domain"
@@ -269,10 +270,40 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		m.vp.Width = msg.Width
+
+		hh := lipgloss.Height(m.help.View(m.keys))
+
+		vh := msg.Height - hh
+		if vh < 1 {
+			vh = 1
+		}
+
+		m.vp.Height = vh
 	case tea.KeyMsg:
+		if m.mode == 0 {
+			var vcmd tea.Cmd
+
+			m.vp, vcmd = m.vp.Update(msg)
+			cmd = tea.Batch(cmd, vcmd)
+		}
+
 		if msg.Type == tea.KeyRunes {
 			r := string(msg.Runes)
 			switch r {
+			case "?":
+				m.help.ShowAll = !m.help.ShowAll
+
+				hh := lipgloss.Height(m.help.View(m.keys))
+
+				vh := m.height - hh
+				if vh < 1 {
+					vh = 1
+				}
+
+				m.vp.Height = vh
+
+				return m, nil
 			case "e":
 				idx := mod(m.cursor, m.total)
 				if m.focus == 0 && idx < len(m.projects) {
