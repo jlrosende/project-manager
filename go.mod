@@ -12,6 +12,7 @@ require (
 	github.com/joho/godotenv v1.6.0-pre.2
 	github.com/spf13/cobra v1.10.1
 	github.com/spf13/viper v1.21.0
+	go.uber.org/mock v0.6.0
 	golang.org/x/term v0.35.0
 )
 
@@ -512,4 +513,5 @@ require (
 tool (
 	github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 	github.com/goreleaser/goreleaser/v2
+	go.uber.org/mock/mockgen
 )

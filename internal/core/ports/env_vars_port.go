@@ -1,5 +1,7 @@
 package ports
 
+//go:generate go tool mockgen -source=env_vars_port.go -destination=../../../mocks/mock_env_vars_port.go -package=mocks
+
 import "github.com/jlrosende/project-manager/internal/core/domain"
 
 type EnvVarsService interface {

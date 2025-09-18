@@ -1,0 +1,734 @@
+package integration_test
+
+import (
+	"strings"
+	"testing"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"go.uber.org/mock/gomock"
+
+	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/v1"
+	v2 "github.com/jlrosende/project-manager/internal/adapters/handlers/tui/v2"
+	"github.com/jlrosende/project-manager/internal/core/domain"
+	"github.com/jlrosende/project-manager/internal/core/ports"
+	"github.com/jlrosende/project-manager/internal/core/services"
+	"github.com/jlrosende/project-manager/mocks"
+)
+
+func buildService(t *testing.T) ports.ProjectService {
+	ctrl := gomock.NewController(t)
+
+	mockRepo := mocks.NewMockProjectRepository(ctrl)
+	mockEnv := mocks.NewMockEnvVarsRepository(ctrl)
+	mockGit := mocks.NewMockGitRepository(ctrl)
+
+	p1 := &domain.Project{
+		Name:       "INDITEX",
+		Path:       "/tmp/inditex",
+		DefaultEnv: "dev",
+		Environments: []*domain.Environment{
+			{Name: "dev", Color: "240", EnvVarsFile: ".env.dev"},
+			{Name: "pre", Color: "240", EnvVarsFile: ".env.pre"},
+			{Name: "pro", Color: "240", EnvVarsFile: ".env.pro"},
+		},
+	}
+	p2 := &domain.Project{Name: "Mahou"}
+	p3 := &domain.Project{Name: "Accenture"}
+	p4 := &domain.Project{Name: "Personal"}
+	p5 := &domain.Project{Name: "test"}
+	projects := []*domain.Project{p1, p2, p3, p4, p5}
+
+	mockRepo.EXPECT().List().Return(projects, nil).AnyTimes()
+	mockRepo.EXPECT().AddEnvironment(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	mockRepo.EXPECT().UpdateEnvironment(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	mockRepo.EXPECT().UpdateProject(gomock.Any()).Return(nil).AnyTimes()
+	mockEnv.EXPECT().Load(gomock.Any()).Return(domain.EnvVars{}, nil).AnyTimes()
+	mockGit.EXPECT().Load(gomock.Any()).Return(&domain.GitConfig{}, nil).AnyTimes()
+
+	return services.NewProjectService(mockRepo, mockEnv, mockGit)
+}
+
+func normalize(s string) string {
+	lines := strings.Split(s, "\n")
+	for i := range lines {
+		lines[i] = strings.TrimRight(lines[i], " ")
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+func hasANSI(s string) bool { return strings.Contains(s, "\x1b[") }
+
+func renderV1(t *testing.T, svc ports.ProjectService, width int, focusRight bool) string {
+	t.Helper()
+
+	w, err := v1.NewWindow(svc.(*services.ProjectService), v1.Options{})
+	if err != nil {
+		t.Fatalf("v1 window: %v", err)
+	}
+
+	w.Update(tea.WindowSizeMsg{Width: width, Height: 24})
+
+	if focusRight {
+		w.Update(tea.KeyMsg{Type: tea.KeyRight})
+	}
+
+	return w.View()
+}
+
+func renderV2(t *testing.T, svc ports.ProjectService, width int, focusRight bool) string {
+	t.Helper()
+
+	w, err := v2.NewWindow(svc.(*services.ProjectService), v2.Options{})
+	if err != nil {
+		t.Fatalf("v2 window: %v", err)
+	}
+
+	cmd := w.Init()
+	if cmd != nil {
+		msg := cmd()
+		w.Update(msg)
+	}
+
+	w.Update(tea.WindowSizeMsg{Width: width, Height: 24})
+
+	if focusRight {
+		w.Update(tea.KeyMsg{Type: tea.KeyRight})
+	}
+
+	return w.View()
+}
+
+func TestMainViewParity_LeftFocus(t *testing.T) {
+	svc := buildService(t)
+	v1s := normalize(renderV1(t, svc, 49, false))
+
+	v2s := normalize(renderV2(t, svc, 49, false))
+	if v1s != v2s {
+		t.Fatalf("views differ\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
+}
+
+func TestMainViewParity_RightFocus(t *testing.T) {
+	svc := buildService(t)
+	v1s := normalize(renderV1(t, svc, 49, true))
+
+	v2s := normalize(renderV2(t, svc, 49, true))
+	if v1s != v2s {
+		t.Fatalf("views differ (right focus)\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
+}
+
+func renderV1Msgs(t *testing.T, svc ports.ProjectService, width int, msgs ...tea.Msg) string {
+	t.Helper()
+
+	w, err := v1.NewWindow(svc.(*services.ProjectService), v1.Options{})
+	if err != nil {
+		t.Fatalf("v1 window: %v", err)
+	}
+
+	_, _ = w.Update(tea.WindowSizeMsg{Width: width, Height: 24})
+	for _, m := range msgs {
+		_, cmd := w.Update(m)
+		if cmd != nil {
+			if msg := cmd(); msg != nil {
+				_, _ = w.Update(msg)
+			}
+		}
+	}
+
+	return w.View()
+}
+
+func renderV2Msgs(t *testing.T, svc ports.ProjectService, width int, msgs ...tea.Msg) string {
+	t.Helper()
+
+	w, err := v2.NewWindow(svc.(*services.ProjectService), v2.Options{})
+	if err != nil {
+		t.Fatalf("v2 window: %v", err)
+	}
+
+	cmd := w.Init()
+	if cmd != nil {
+		if msg := cmd(); msg != nil {
+			_, _ = w.Update(msg)
+		}
+	}
+
+	_, _ = w.Update(tea.WindowSizeMsg{Width: width, Height: 24})
+	for _, m := range msgs {
+		_, cmd := w.Update(m)
+		if cmd != nil {
+			if msg := cmd(); msg != nil {
+				_, _ = w.Update(msg)
+			}
+		}
+	}
+
+	return w.View()
+}
+
+func TestParity_ProjectDownTwice_LeftFocus(t *testing.T) {
+	svc := buildService(t)
+	seq := []tea.Msg{tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}}
+	v1s := normalize(renderV1Msgs(t, svc, 49, seq...))
+
+	v2s := normalize(renderV2Msgs(t, svc, 49, seq...))
+	if v1s != v2s {
+		t.Fatalf("views differ after moving down twice\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
+}
+
+func TestParity_NoEnvProject_RightFocus(t *testing.T) {
+	svc := buildService(t)
+	seq := []tea.Msg{tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyRight}}
+	v1s := normalize(renderV1Msgs(t, svc, 49, seq...))
+
+	v2s := normalize(renderV2Msgs(t, svc, 49, seq...))
+	if v1s != v2s {
+		t.Fatalf("views differ on no-env project right focus\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
+}
+
+func TestParity_EnvDownSelection_RightFocus(t *testing.T) {
+	svc := buildService(t)
+	seq := []tea.Msg{tea.KeyMsg{Type: tea.KeyRight}, tea.KeyMsg{Type: tea.KeyDown}}
+	v1s := normalize(renderV1Msgs(t, svc, 49, seq...))
+
+	v2s := normalize(renderV2Msgs(t, svc, 49, seq...))
+	if v1s != v2s {
+		t.Fatalf("views differ after moving down envs\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
+
+	// Enter on an environment should start session (quit), not open edit
+	seq2 := append(seq, tea.KeyMsg{Type: tea.KeyEnter})
+	_ = renderV1Msgs(t, svc, 49, seq2...)
+	_ = renderV2Msgs(t, svc, 49, seq2...)
+}
+
+func TestParity_Width60_LeftFocus(t *testing.T) {
+	svc := buildService(t)
+	v1s := normalize(renderV1(t, svc, 60, false))
+
+	v2s := normalize(renderV2(t, svc, 60, false))
+	if v1s != v2s {
+		t.Fatalf("views differ at width 60\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
+}
+
+func TestParity_NewProject_RightDoesNotFocusEnvs(t *testing.T) {
+	svc := buildService(t)
+	open := []tea.Msg{
+		tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyDown}, // now on '+ New project'
+		tea.KeyMsg{Type: tea.KeyRight},
+	}
+	v1s := normalize(renderV1Msgs(t, svc, 49, open...))
+	v2s := normalize(renderV2Msgs(t, svc, 49, open...))
+	if v1s != v2s {
+		t.Fatalf("moving right on '+ New project' should not focus envs\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
+}
+
+func TestParity_NewProject_RightThenDownStillProjects(t *testing.T) {
+	svc := buildService(t)
+	seq := []tea.Msg{
+		tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyRight}, tea.KeyMsg{Type: tea.KeyDown},
+	}
+	v1s := normalize(renderV1Msgs(t, svc, 49, seq...))
+	v2s := normalize(renderV2Msgs(t, svc, 49, seq...))
+	if v1s != v2s {
+		t.Fatalf("after Right on '+ New project', Down should still move in projects\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
+}
+
+func TestParity_ToggleHelp(t *testing.T) {
+	svc := buildService(t)
+	seq := []tea.Msg{tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}}}
+	v1s := normalize(renderV1Msgs(t, svc, 49, seq...))
+
+	v2s := normalize(renderV2Msgs(t, svc, 49, seq...))
+	if v1s != v2s {
+		t.Fatalf("views differ after toggling help\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
+}
+
+func TestForm_CreateProject_ViewParity(t *testing.T) {
+	svc := buildService(t)
+	seq := []tea.Msg{
+		tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyEnter},
+	}
+	v1s := normalize(renderV1Msgs(t, svc, 49, seq...))
+
+	v2s := normalize(renderV2Msgs(t, svc, 49, seq...))
+	if v1s != v2s {
+		t.Fatalf("create project form view differs\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
+
+	seq2 := append(seq, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}})
+	v1s2 := normalize(renderV1Msgs(t, svc, 49, seq2...))
+	v2s2 := normalize(renderV2Msgs(t, svc, 49, seq2...))
+	if v1s2 != v2s2 {
+		t.Fatalf("create project form help footer differs after '?'\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s2, v2s2)
+	}
+
+	seq3 := append(seq, tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyEnter})
+	v1s3 := normalize(renderV1Msgs(t, svc, 49, seq3...))
+	v2s3 := normalize(renderV2Msgs(t, svc, 49, seq3...))
+	if v1s3 != v2s3 {
+		t.Fatalf("tab/down/enter navigation in form differs\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s3, v2s3)
+	}
+}
+
+func TestForm_EditProject_ViewParity(t *testing.T) {
+	svc := buildService(t)
+	seq := []tea.Msg{tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}}}
+	v1s := normalize(renderV1Msgs(t, svc, 49, seq...))
+	v2s := normalize(renderV2Msgs(t, svc, 49, seq...))
+	if v1s != v2s { t.Fatalf("edit project form view differs\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s) }
+}
+
+func TestForm_CreateProject_ViewParity_Width60(t *testing.T) {
+	svc := buildService(t)
+	seq := []tea.Msg{
+		tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyEnter},
+	}
+	v1s := normalize(renderV1Msgs(t, svc, 60, seq...))
+	v2s := normalize(renderV2Msgs(t, svc, 60, seq...))
+	if v1s != v2s {
+		t.Fatalf("create project form view differs at width 60\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
+}
+
+func TestForm_Navigation_UpDownTab_Parity(t *testing.T) {
+	svc := buildService(t)
+	open := []tea.Msg{
+		tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyEnter},
+	}
+	seq := append(open, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyUp}, tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyShiftTab})
+	v1s := normalize(renderV1Msgs(t, svc, 49, seq...))
+	v2s := normalize(renderV2Msgs(t, svc, 49, seq...))
+	if v1s != v2s {
+		t.Fatalf("form navigation with up/down/tab parity mismatch\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
+}
+
+func TestForm_Buttons_Cancel_RightEnter_Parity(t *testing.T) {
+	svc := buildService(t)
+	open := []tea.Msg{
+		tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyEnter},
+	}
+	// Tab through fields to reach buttons, then move to Cancel and press Enter
+	tabs := []tea.Msg{tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyTab}}
+	seq := append(append(open, tabs...), tea.KeyMsg{Type: tea.KeyRight}, tea.KeyMsg{Type: tea.KeyEnter})
+	v1s := normalize(renderV1Msgs(t, svc, 49, seq...))
+	v2s := normalize(renderV2Msgs(t, svc, 49, seq...))
+	if v1s != v2s {
+		t.Fatalf("button Cancel (right+enter) parity mismatch\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
+}
+
+func TestForm_EditProject_ViewParity_Width60(t *testing.T) {
+	svc := buildService(t)
+	seq := []tea.Msg{tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}}}
+	v1s := normalize(renderV1Msgs(t, svc, 60, seq...))
+	v2s := normalize(renderV2Msgs(t, svc, 60, seq...))
+	if v1s != v2s {
+		t.Fatalf("edit project form view differs at width 60\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
+}
+
+func TestForm_EditEnv_ViewParity(t *testing.T) {
+	svc := buildService(t)
+	seq := []tea.Msg{tea.KeyMsg{Type: tea.KeyRight}, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}}}
+	v1s := normalize(renderV1Msgs(t, svc, 49, seq...))
+
+	v2s := normalize(renderV2Msgs(t, svc, 49, seq...))
+	if v1s != v2s {
+		t.Fatalf("edit env form view differs\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
+}
+
+func TestTransition_ProjectForm_CancelEsc(t *testing.T) {
+	svc := buildService(t)
+	open := []tea.Msg{
+		tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyEnter},
+	}
+	v1after := normalize(renderV1Msgs(t, svc, 49, append(open, tea.KeyMsg{Type: tea.KeyEsc})...))
+	v2after := normalize(renderV2Msgs(t, svc, 49, append(open, tea.KeyMsg{Type: tea.KeyEsc})...))
+
+	if v1after != v2after {
+		t.Fatalf("views differ after canceling project form\n--- v1 after ---\n%s\n--- v2 after ---\n%s", v1after, v2after)
+	}
+}
+
+func TestForm_Q_DoesNotExit_Vs_CtrlC_ReturnsToMain(t *testing.T) {
+	svc := buildService(t)
+	open := []tea.Msg{
+		tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyEnter},
+	}
+	v1q := normalize(renderV1Msgs(t, svc, 49, append(open, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})...))
+	v2q := normalize(renderV2Msgs(t, svc, 49, append(open, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})...))
+	if v1q != v2q {
+		t.Fatalf("pressing 'q' inside form should not exit; parity mismatch\n--- v1 ---\n%s\n--- v2 ---\n%s", v1q, v2q)
+	}
+
+	v1cc := normalize(renderV1Msgs(t, svc, 49, append(open, tea.KeyMsg{Type: tea.KeyCtrlC})...))
+	v2cc := normalize(renderV2Msgs(t, svc, 49, append(open, tea.KeyMsg{Type: tea.KeyCtrlC})...))
+	if v1cc != v2cc {
+		t.Fatalf("pressing Ctrl+C inside form should return to main; parity mismatch\n--- v1 ---\n%s\n--- v2 ---\n%s", v1cc, v2cc)
+	}
+}
+
+func TestTransition_AddEnvForm_CancelEsc(t *testing.T) {
+	svc := buildService(t)
+	open := []tea.Msg{
+		tea.KeyMsg{Type: tea.KeyRight},
+		tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyEnter},
+	}
+	v1after := normalize(renderV1Msgs(t, svc, 49, append(open, tea.KeyMsg{Type: tea.KeyEsc})...))
+	v2after := normalize(renderV2Msgs(t, svc, 49, append(open, tea.KeyMsg{Type: tea.KeyEsc})...))
+
+	if v1after != v2after {
+		t.Fatalf("views differ after canceling add env form\n--- v1 after ---\n%s\n--- v2 after ---\n%s", v1after, v2after)
+	}
+}
+
+func TestForm_CreateProject_CtrlS(t *testing.T) {
+	svc := buildService(t)
+	seq := []tea.Msg{
+		tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyEnter}, tea.KeyMsg{Type: tea.KeyCtrlS},
+	}
+	_ = normalize(renderV1Msgs(t, svc, 49, seq...))
+	_ = normalize(renderV2Msgs(t, svc, 49, seq...))
+}
+
+func TestForm_CreateProject_TypingUpdatesPath_Parity(t *testing.T) {
+	svc := buildService(t)
+	open := []tea.Msg{
+		tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyEnter},
+	}
+	_ = normalize(renderV1Msgs(t, svc, 49, open...))
+	_ = normalize(renderV2Msgs(t, svc, 49, open...))
+	typing := []tea.Msg{
+		tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'m'}},
+		tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}},
+		tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'-'}},
+		tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}},
+		tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}},
+		tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}},
+	}
+	v1s := normalize(renderV1Msgs(t, svc, 49, append(open, typing...)...))
+	v2s := normalize(renderV2Msgs(t, svc, 49, append(open, typing...)...))
+	if v1s != v2s { t.Fatalf("typing in name should update path placeholder equally\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s) }
+}
+
+func TestForm_AddEnv_CtrlS(t *testing.T) {
+	svc := buildService(t)
+	seq := []tea.Msg{tea.KeyMsg{Type: tea.KeyRight}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyEnter}, tea.KeyMsg{Type: tea.KeyCtrlS}}
+	_ = normalize(renderV1Msgs(t, svc, 49, seq...))
+	_ = normalize(renderV2Msgs(t, svc, 49, seq...))
+}
+
+func TestForm_EditEnv_CtrlS(t *testing.T) {
+	svc := buildService(t)
+	seq := []tea.Msg{tea.KeyMsg{Type: tea.KeyRight}, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}}, tea.KeyMsg{Type: tea.KeyCtrlS}}
+	_ = normalize(renderV1Msgs(t, svc, 49, seq...))
+	_ = normalize(renderV2Msgs(t, svc, 49, seq...))
+}
+
+func TestForm_AddEnv_ViewParity(t *testing.T) {
+	svc := buildService(t)
+	seq := []tea.Msg{
+		tea.KeyMsg{Type: tea.KeyRight},
+		tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyEnter},
+	}
+	v1s := normalize(renderV1Msgs(t, svc, 49, seq...))
+	v2s := normalize(renderV2Msgs(t, svc, 49, seq...))
+	if v1s != v2s {
+		t.Fatalf("add env form view differs\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
+}
+
+func TestRouting_EditEnv_ReenterAfterBack(t *testing.T) {
+	svc := buildService(t)
+	open := []tea.Msg{tea.KeyMsg{Type: tea.KeyRight}, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}}}
+	back := tea.KeyMsg{Type: tea.KeyEsc}
+	v1again := normalize(renderV1Msgs(t, svc, 49, append(append(open, back), tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})...))
+	v2again := normalize(renderV2Msgs(t, svc, 49, append(append(open, back), tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})...))
+	if v1again != v2again {
+		t.Fatalf("views differ when re-entering edit env\n--- v1 again ---\n%s\n--- v2 again ---\n%s", v1again, v2again)
+	}
+}
+
+func TestParity_ProjectWrapDown(t *testing.T) {
+	svc := buildService(t)
+	seq := []tea.Msg{
+		tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyDown},
+	}
+	v1s := normalize(renderV1Msgs(t, svc, 49, seq...))
+	v2s := normalize(renderV2Msgs(t, svc, 49, seq...))
+	if v1s != v2s {
+		t.Fatalf("views differ on project wrap down\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
+}
+
+func TestParity_ProjectWrapUp(t *testing.T) {
+	svc := buildService(t)
+	seq := []tea.Msg{tea.KeyMsg{Type: tea.KeyUp}}
+	v1s := normalize(renderV1Msgs(t, svc, 49, seq...))
+	v2s := normalize(renderV2Msgs(t, svc, 49, seq...))
+	if v1s != v2s {
+		t.Fatalf("views differ on project wrap up\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
+}
+
+func TestParity_EnvWrapDown(t *testing.T) {
+	svc := buildService(t)
+	seq := []tea.Msg{tea.KeyMsg{Type: tea.KeyRight}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}}
+	v1s := normalize(renderV1Msgs(t, svc, 49, seq...))
+	v2s := normalize(renderV2Msgs(t, svc, 49, seq...))
+	if v1s != v2s {
+		t.Fatalf("views differ on env wrap down\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
+}
+
+func TestParity_EnvWrapUp(t *testing.T) {
+	svc := buildService(t)
+	seq := []tea.Msg{tea.KeyMsg{Type: tea.KeyRight}, tea.KeyMsg{Type: tea.KeyUp}}
+	v1s := normalize(renderV1Msgs(t, svc, 49, seq...))
+	v2s := normalize(renderV2Msgs(t, svc, 49, seq...))
+	if v1s != v2s {
+		t.Fatalf("views differ on env wrap up\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
+}
+
+func TestParity_EnvListUpdatesOnProjectChange(t *testing.T) {
+	svc := buildService(t)
+	seq := []tea.Msg{
+		tea.KeyMsg{Type: tea.KeyRight},
+		tea.KeyMsg{Type: tea.KeyDown}, // focus pre
+		tea.KeyMsg{Type: tea.KeyLeft}, // back to projects
+		tea.KeyMsg{Type: tea.KeyDown}, // move to Mahou (no envs)
+		tea.KeyMsg{Type: tea.KeyRight}, // focus envs
+		tea.KeyMsg{Type: tea.KeyLeft},
+		tea.KeyMsg{Type: tea.KeyDown}, // Accenture (no envs)
+		tea.KeyMsg{Type: tea.KeyLeft}, // redundant left
+		tea.KeyMsg{Type: tea.KeyDown}, // Personal (no envs)
+		tea.KeyMsg{Type: tea.KeyDown}, // test (no envs)
+		tea.KeyMsg{Type: tea.KeyUp},   // Personal
+		tea.KeyMsg{Type: tea.KeyUp},   // Accenture
+		tea.KeyMsg{Type: tea.KeyUp},   // Mahou
+		tea.KeyMsg{Type: tea.KeyUp},   // INDITEX
+		tea.KeyMsg{Type: tea.KeyRight},
+		tea.KeyMsg{Type: tea.KeyDown}, // move through envs again
+		tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyDown},
+	}
+	v1s := normalize(renderV1Msgs(t, svc, 49, seq...))
+	v2s := normalize(renderV2Msgs(t, svc, 49, seq...))
+	if v1s != v2s {
+		t.Fatalf("env list did not update properly on project change\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
+}
+
+func TestParity_EditOnNewProjectDoesNothing(t *testing.T) {
+	svc := buildService(t)
+	seq := []tea.Msg{tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}}}
+	v1s := normalize(renderV1Msgs(t, svc, 49, seq...))
+	v2s := normalize(renderV2Msgs(t, svc, 49, seq...))
+	if v1s != v2s {
+		t.Fatalf("pressing edit on + New project should do nothing\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
+}
+
+func TestParity_EditOnNewEnvironmentDoesNothing(t *testing.T) {
+	svc := buildService(t)
+	seq := []tea.Msg{tea.KeyMsg{Type: tea.KeyRight}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}}}
+	v1s := normalize(renderV1Msgs(t, svc, 49, seq...))
+	v2s := normalize(renderV2Msgs(t, svc, 49, seq...))
+	if v1s != v2s {
+		t.Fatalf("pressing edit on + New environment should do nothing\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
+}
+
+func TestStyled_CreateProjectForm_ParityAndDecor(t *testing.T) {
+	svc := buildService(t)
+	open := []tea.Msg{tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyEnter}}
+	v1s := renderV1Msgs(t, svc, 49, open...)
+	v2s := renderV2Msgs(t, svc, 49, open...)
+	if normalize(v1s) != normalize(v2s) {
+		t.Fatalf("styled create project form parity mismatch\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
+	if !strings.Contains(v1s, "─") || !strings.Contains(v2s, "─") {
+		t.Fatalf("expected decorative borders (─) in form views")
+	}
+}
+
+func TestStyled_FormButtons_LinePresent(t *testing.T) {
+	svc := buildService(t)
+	open := []tea.Msg{tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyEnter}}
+	tabs := []tea.Msg{tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyTab}}
+	v1s := renderV1Msgs(t, svc, 49, append(open, tabs...)...)
+	v2s := renderV2Msgs(t, svc, 49, append(open, tabs...)...)
+	if normalize(v1s) != normalize(v2s) {
+		t.Fatalf("styled buttons parity mismatch\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
+	if !strings.Contains(v1s, "Save") || !strings.Contains(v1s, "Cancel") || !strings.Contains(v2s, "Save") || !strings.Contains(v2s, "Cancel") {
+		t.Fatalf("expected Save and Cancel buttons rendered in both views")
+	}
+}
+
+func TestTheme_AppliesAcrossViews_Parity(t *testing.T) {
+	svc := buildService(t)
+	w1, err1 := v1.NewWindow(svc.(*services.ProjectService), v1.Options{Theme: "dracula"})
+	if err1 != nil { t.Fatalf("new v1 window: %v", err1) }
+	w2, err2 := v2.NewWindow(svc.(*services.ProjectService), v2.Options{Theme: "dracula"})
+	if err2 != nil { t.Fatalf("new v2 window: %v", err2) }
+	// size
+	if _, cmd := w1.Update(tea.WindowSizeMsg{Width: 49, Height: 24}); cmd != nil { if m := cmd(); m != nil { w1.Update(m) } }
+	if _, cmd := w2.Update(tea.WindowSizeMsg{Width: 49, Height: 24}); cmd != nil { if m := cmd(); m != nil { w2.Update(m) } }
+	mv1 := normalize(w1.View())
+	mv2 := normalize(w2.View())
+	if mv1 != mv2 { t.Fatalf("theme parity mismatch on main\n--- v1 ---\n%s\n--- v2 ---\n%s", mv1, mv2) }
+	// open New project form (process returned cmds)
+	seq := []tea.Msg{tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyEnter}}
+	for _, m := range seq {
+		if _, cmd := w1.Update(m); cmd != nil { if mm := cmd(); mm != nil { w1.Update(mm) } }
+		if _, cmd := w2.Update(m); cmd != nil { if mm := cmd(); mm != nil { w2.Update(mm) } }
+	}
+	fv1 := normalize(w1.View())
+	fv2 := normalize(w2.View())
+	if fv1 != fv2 { t.Fatalf("theme parity mismatch on form\n--- v1 ---\n%s\n--- v2 ---\n%s", fv1, fv2) }
+}
+
+func TestEnvForm_Navigation_TabShiftEnter_Parity(t *testing.T) {
+	svc := buildService(t)
+	open := []tea.Msg{
+		tea.KeyMsg{Type: tea.KeyRight},
+		tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyEnter},
+	}
+	seq := append(open, tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyEnter}, tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyShiftTab})
+	v1s := normalize(renderV1Msgs(t, svc, 49, seq...))
+	v2s := normalize(renderV2Msgs(t, svc, 49, seq...))
+	if v1s != v2s {
+		t.Fatalf("env form navigation parity mismatch\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
+}
+
+func TestEnvForm_Buttons_Cancel_RightEnter_Parity(t *testing.T) {
+	svc := buildService(t)
+	open := []tea.Msg{
+		tea.KeyMsg{Type: tea.KeyRight},
+		tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyEnter},
+	}
+	tabs := []tea.Msg{tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyTab}}
+	seq := append(append(open, tabs...), tea.KeyMsg{Type: tea.KeyRight}, tea.KeyMsg{Type: tea.KeyEnter})
+	v1s := normalize(renderV1Msgs(t, svc, 49, seq...))
+	v2s := normalize(renderV2Msgs(t, svc, 49, seq...))
+	if v1s != v2s {
+		t.Fatalf("env form button Cancel (right+enter) parity mismatch\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
+}
+
+func TestEnvForm_Q_DoesNotExit_Vs_CtrlC_ReturnsToMain(t *testing.T) {
+	svc := buildService(t)
+	open := []tea.Msg{
+		tea.KeyMsg{Type: tea.KeyRight},
+		tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyEnter},
+	}
+	v1q := normalize(renderV1Msgs(t, svc, 49, append(open, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})...))
+	v2q := normalize(renderV2Msgs(t, svc, 49, append(open, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})...))
+	if v1q != v2q {
+		t.Fatalf("pressing 'q' inside env form should not exit; parity mismatch\n--- v1 ---\n%s\n--- v2 ---\n%s", v1q, v2q)
+	}
+	v1cc := normalize(renderV1Msgs(t, svc, 49, append(open, tea.KeyMsg{Type: tea.KeyCtrlC})...))
+	v2cc := normalize(renderV2Msgs(t, svc, 49, append(open, tea.KeyMsg{Type: tea.KeyCtrlC})...))
+	if v1cc != v2cc {
+		t.Fatalf("pressing Ctrl+C inside env form should return to main; parity mismatch\n--- v1 ---\n%s\n--- v2 ---\n%s", v1cc, v2cc)
+	}
+}
+
+func TestEnvForm_TypingInColor_Parity(t *testing.T) {
+	svc := buildService(t)
+	open := []tea.Msg{
+		tea.KeyMsg{Type: tea.KeyRight},
+		tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyEnter},
+	}
+	seq := append(open, tea.KeyMsg{Type: tea.KeyTab},
+		tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'b'}},
+		tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}},
+		tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'u'}},
+		tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}},
+	)
+	v1s := normalize(renderV1Msgs(t, svc, 49, seq...))
+	v2s := normalize(renderV2Msgs(t, svc, 49, seq...))
+	if v1s != v2s {
+		t.Fatalf("typing in Color should update value equally\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
+}
+
+func TestEnvForm_TypingInMode_Parity(t *testing.T) {
+	svc := buildService(t)
+	open := []tea.Msg{
+		tea.KeyMsg{Type: tea.KeyRight},
+		tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyEnter},
+	}
+	seq := append(open, tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyTab},
+		tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}},
+		tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}},
+		tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}},
+		tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}},
+		tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}},
+		tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}},
+		tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}},
+	)
+	v1s := normalize(renderV1Msgs(t, svc, 49, seq...))
+	v2s := normalize(renderV2Msgs(t, svc, 49, seq...))
+	if v1s != v2s {
+		t.Fatalf("typing in Mode should update value equally\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
+}
+
+func TestEnvForm_SaveButton_Enter_Parity(t *testing.T) {
+	svc := buildService(t)
+	open := []tea.Msg{
+		tea.KeyMsg{Type: tea.KeyRight},
+		tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown},
+		tea.KeyMsg{Type: tea.KeyEnter},
+	}
+	tabs := []tea.Msg{tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyTab}, tea.KeyMsg{Type: tea.KeyTab}}
+	seq := append(append(open, tabs...), tea.KeyMsg{Type: tea.KeyEnter})
+	v1s := normalize(renderV1Msgs(t, svc, 49, seq...))
+	v2s := normalize(renderV2Msgs(t, svc, 49, seq...))
+	if v1s != v2s {
+		t.Fatalf("env form Save via Enter parity mismatch\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
+}

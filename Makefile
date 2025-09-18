@@ -1,4 +1,4 @@
-.PHONY: build run run-build lint docker-build
+.PHONY: build run run-build lint docker-build generate tools
 
 MAYOR ?= 0
 MINOR ?= 0
@@ -30,6 +30,10 @@ run-build: build
 lint:
 	go tool golangci-lint run -v
 
+.PHONY: lint-fix
+lint-fix:
+	go tool golangci-lint run -v --fix
+
 .PHONY: bdocker-build
 docker-build:
 	docker buildx build \
@@ -55,3 +59,11 @@ gendocs-rest:
 .PHONY: release
 release:
 	go tool run
+
+.PHONY: generate
+generate:
+	go generate ./...
+
+.PHONY: test
+test:
+	go test ./... -v

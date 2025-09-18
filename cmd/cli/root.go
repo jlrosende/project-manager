@@ -16,7 +16,7 @@ import (
 	cmdNew "github.com/jlrosende/project-manager/cmd/cli/new"
 	"github.com/jlrosende/project-manager/configs"
 	"github.com/jlrosende/project-manager/internal"
-	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui"
+	tui "github.com/jlrosende/project-manager/internal/adapters/handlers/tui/v2"
 	"github.com/jlrosende/project-manager/internal/adapters/repositories"
 	"github.com/jlrosende/project-manager/internal/adapters/repositories/shells"
 	"github.com/jlrosende/project-manager/internal/core/domain"
@@ -75,7 +75,7 @@ func init() {
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		slog.Error("somethin wrong happened", slog.Any("err", err))
+		slog.Error("something wrong happened", slog.Any("err", err))
 		os.Exit(1)
 	}
 }
@@ -102,8 +102,8 @@ func root(cmd *cobra.Command, args []string) error {
 	svc := services.NewProjectService(repoProject, repoEnvVars, repoGitConfig)
 
 	// NOTE: signal the waiting pm process to kill session shell
-	if projet, ok := os.LookupEnv("PM_ACTIVE_PROJECT"); ok {
-		fmt.Fprintf(cmd.OutOrStderr(), "Already runnign pm, active project: %s\n", projet)
+	if project, ok := os.LookupEnv("PM_ACTIVE_PROJECT"); ok {
+		fmt.Fprintf(cmd.OutOrStderr(), "Already running pm, active project: %s\n", project)
 
 		return nil
 	}
@@ -133,7 +133,7 @@ func root(cmd *cobra.Command, args []string) error {
 
 	var project *domain.Project
 
-	// Launch TUI if no args or project not exsit
+	// Launch TUI if no args or project not exist
 	if len(args) == 0 || name == "" {
 		themeFlag, _ := cmd.PersistentFlags().GetString("theme")
 		configFlag, _ := cmd.PersistentFlags().GetString("config")

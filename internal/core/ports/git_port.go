@@ -1,5 +1,7 @@
 package ports
 
+//go:generate go tool mockgen -source=git_port.go -destination=../../../mocks/mock_git_port.go -package=mocks
+
 import "github.com/jlrosende/project-manager/internal/core/domain"
 
 type GitService interface {
