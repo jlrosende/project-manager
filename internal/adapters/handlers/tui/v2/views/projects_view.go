@@ -12,6 +12,40 @@ import (
 
 type projectsLoadedMsg struct{ Items []components.ListItem }
 
+type ProjectsViewStyles struct {
+	Title    lipgloss.Style
+	Item     lipgloss.Style
+	Selected lipgloss.Style
+	Marker   lipgloss.Color
+}
+
+type ProjectsViewStyleOption func(*ProjectsViewStyles)
+
+func NewProjectsViewStyles(opts ...ProjectsViewStyleOption) ProjectsViewStyles {
+	s := ProjectsViewStyles{}
+	for _, o := range opts {
+		o(&s)
+	}
+
+	return s
+}
+
+func WithProjectsTitle(s lipgloss.Style) ProjectsViewStyleOption {
+	return func(ps *ProjectsViewStyles) { ps.Title = s }
+}
+
+func WithProjectsItem(s lipgloss.Style) ProjectsViewStyleOption {
+	return func(ps *ProjectsViewStyles) { ps.Item = s }
+}
+
+func WithProjectsSelected(s lipgloss.Style) ProjectsViewStyleOption {
+	return func(ps *ProjectsViewStyles) { ps.Selected = s }
+}
+
+func WithProjectsMarker(c lipgloss.Color) ProjectsViewStyleOption {
+	return func(ps *ProjectsViewStyles) { ps.Marker = c }
+}
+
 type ProjectsView struct {
 	List        components.List
 	TitleStyle  lipgloss.Style
@@ -21,13 +55,12 @@ type ProjectsView struct {
 
 func NewProjectsView(
 	fetch func() ([]components.ListItem, error),
-	title, item, sel lipgloss.Style,
-	marker lipgloss.Color,
+	styles ProjectsViewStyles,
 ) ProjectsView {
-	l := components.NewList(nil, item, sel).
-		WithMarkerColor(func(_ components.ListItem) lipgloss.Color { return marker })
+	l := components.NewList(nil, styles.Item, styles.Selected).
+		WithMarkerColor(func(_ components.ListItem) lipgloss.Color { return styles.Marker })
 
-	return ProjectsView{List: l, TitleStyle: title, MarkerColor: marker, fetch: fetch}
+	return ProjectsView{List: l, TitleStyle: styles.Title, MarkerColor: styles.Marker, fetch: fetch}
 }
 
 func (v ProjectsView) Init() tea.Cmd {

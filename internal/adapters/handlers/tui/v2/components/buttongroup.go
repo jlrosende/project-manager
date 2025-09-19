@@ -2,58 +2,33 @@ package components
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
-type ButtonSpec struct {
-	Label    string
-	Primary  bool
-	Disabled bool
-}
-
 type ButtonGroup struct {
-	Buttons      []ButtonSpec
-	Cursor       int
-	primaryStyle lipgloss.Style
-	secondStyle  lipgloss.Style
-	disStyle     lipgloss.Style
+	Buttons []Button
+	Cursor  int
+	Active  bool
 }
 
 type ButtonChosenMsg struct{ Label string }
 
 type ButtonMovedMsg struct{ Cursor int }
 
-func NewButtonGroup(btns []ButtonSpec, primary, secondary, disabled lipgloss.Style) ButtonGroup {
-	return ButtonGroup{Buttons: btns, primaryStyle: primary, secondStyle: secondary, disStyle: disabled}
+func NewButtonGroup(btns []Button) ButtonGroup {
+	return ButtonGroup{Buttons: btns}
 }
 
 func (g ButtonGroup) Init() tea.Cmd { return nil }
 
 func (g ButtonGroup) View() string {
-	out := ""
+	out := "   "
 
 	for i, b := range g.Buttons {
-		style := g.secondStyle
-
-		if b.Primary {
-			style = g.primaryStyle
-		}
-
-		if b.Disabled {
-			style = g.disStyle
-		}
-
-		label := style.Render(" " + b.Label + " ")
-
-		if i == g.Cursor {
-			label = style.Bold(true).Render(" " + b.Label + " ")
-		}
-
 		if i > 0 {
-			out += "   "
+			out += "         "
 		}
 
-		out += label
+		out += b.Render(i == g.Cursor && g.Active)
 	}
 
 	return out
@@ -64,16 +39,14 @@ func (g ButtonGroup) Update(msg tea.Msg) (ButtonGroup, tea.Cmd) {
 		s := k.String()
 
 		switch s {
-		case "left":
+		case "left", "shift+tab":
 			if g.Cursor > 0 {
 				g.Cursor--
-
 				return g, func() tea.Msg { return ButtonMovedMsg{Cursor: g.Cursor} }
 			}
-		case "right":
+		case "right", "tab":
 			if g.Cursor < len(g.Buttons)-1 {
 				g.Cursor++
-
 				return g, func() tea.Msg { return ButtonMovedMsg{Cursor: g.Cursor} }
 			}
 		case "enter":

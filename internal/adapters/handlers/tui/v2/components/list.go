@@ -58,9 +58,7 @@ func (l List) View() string {
 
 		if i == l.Cursor {
 			rendered := l.styleSel.Render(bullet + it.Label)
-			if strings.HasPrefix(rendered, " ") {
-				rendered = rendered[1:]
-			}
+			rendered = strings.TrimPrefix(rendered, " ")
 
 			out += prefix + rendered + "\n"
 		} else {
@@ -79,6 +77,7 @@ func (l List) Update(msg tea.Msg) (List, tea.Cmd) {
 			if len(l.Items) == 0 {
 				return l, nil
 			}
+
 			if l.Cursor > 0 {
 				l.Cursor--
 			} else {
@@ -90,6 +89,7 @@ func (l List) Update(msg tea.Msg) (List, tea.Cmd) {
 			if len(l.Items) == 0 {
 				return l, nil
 			}
+
 			if l.Cursor < len(l.Items)-1 {
 				l.Cursor++
 			} else {

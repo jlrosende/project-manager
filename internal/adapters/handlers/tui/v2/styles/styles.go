@@ -13,6 +13,10 @@ type ComponentStyles struct {
 	ModalFooter     lipgloss.Style
 	ButtonPrimary   lipgloss.Style
 	ButtonSecondary lipgloss.Style
+	ButtonSuccess   lipgloss.Style
+	ButtonInfo      lipgloss.Style
+	ButtonWarning   lipgloss.Style
+	ButtonDanger    lipgloss.Style
 	ButtonDisabled  lipgloss.Style
 }
 
@@ -28,6 +32,10 @@ func BuildComponentStyles(t Theme) ComponentStyles {
 		ModalFooter:     t.Help,
 		ButtonPrimary:   t.ButtonPrimary,
 		ButtonSecondary: t.ButtonSecondary,
+		ButtonSuccess:   t.ButtonSuccess,
+		ButtonInfo:      t.ButtonInfo,
+		ButtonWarning:   t.ButtonWarning,
+		ButtonDanger:    t.ButtonDanger,
 		ButtonDisabled:  t.Default,
 	}
 }

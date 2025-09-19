@@ -10,6 +10,90 @@ import (
 	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/v2/state"
 )
 
+const (
+	idxName = iota
+	idxPath
+	idxSubproject
+	idxShell
+	idxUserName
+	idxUserEmail
+	idxUserSigningKey
+	idxCommitGPGSign
+	idxTagGPGSign
+	idxEnvVars
+	idxBtnSave
+	idxBtnCancel
+)
+
+type ProjectFormViewStyles struct {
+	Title               lipgloss.Style
+	Section             lipgloss.Style
+	Subtext             lipgloss.Style
+	Accent              lipgloss.Style
+	Input               lipgloss.Style
+	InputVal            lipgloss.Style
+	BtnPrimary          lipgloss.Style
+	BtnSecondary        lipgloss.Style
+	BtnPrimaryFocused   lipgloss.Style
+	BtnSecondaryFocused lipgloss.Style
+	BtnDisabled         lipgloss.Style
+}
+
+type ProjectFormViewStyleOption func(*ProjectFormViewStyles)
+
+func NewProjectFormViewStyles(opts ...ProjectFormViewStyleOption) ProjectFormViewStyles {
+	s := ProjectFormViewStyles{}
+	for _, o := range opts {
+		o(&s)
+	}
+
+	return s
+}
+
+func WithProjectFormTitle(s lipgloss.Style) ProjectFormViewStyleOption {
+	return func(ps *ProjectFormViewStyles) { ps.Title = s }
+}
+
+func WithProjectFormInput(s lipgloss.Style) ProjectFormViewStyleOption {
+	return func(ps *ProjectFormViewStyles) { ps.Input = s }
+}
+
+func WithProjectFormInputVal(s lipgloss.Style) ProjectFormViewStyleOption {
+	return func(ps *ProjectFormViewStyles) { ps.InputVal = s }
+}
+
+func WithProjectFormBtnPrimary(s lipgloss.Style) ProjectFormViewStyleOption {
+	return func(ps *ProjectFormViewStyles) { ps.BtnPrimary = s }
+}
+
+func WithProjectFormBtnSecondary(s lipgloss.Style) ProjectFormViewStyleOption {
+	return func(ps *ProjectFormViewStyles) { ps.BtnSecondary = s }
+}
+
+func WithProjectFormBtnPrimaryFocused(s lipgloss.Style) ProjectFormViewStyleOption {
+	return func(ps *ProjectFormViewStyles) { ps.BtnPrimaryFocused = s }
+}
+
+func WithProjectFormBtnSecondaryFocused(s lipgloss.Style) ProjectFormViewStyleOption {
+	return func(ps *ProjectFormViewStyles) { ps.BtnSecondaryFocused = s }
+}
+
+func WithProjectFormBtnDisabled(s lipgloss.Style) ProjectFormViewStyleOption {
+	return func(ps *ProjectFormViewStyles) { ps.BtnDisabled = s }
+}
+
+func WithProjectFormSection(s lipgloss.Style) ProjectFormViewStyleOption {
+	return func(ps *ProjectFormViewStyles) { ps.Section = s }
+}
+
+func WithProjectFormSubtext(s lipgloss.Style) ProjectFormViewStyleOption {
+	return func(ps *ProjectFormViewStyles) { ps.Subtext = s }
+}
+
+func WithProjectFormAccent(s lipgloss.Style) ProjectFormViewStyleOption {
+	return func(ps *ProjectFormViewStyles) { ps.Accent = s }
+}
+
 type ProjectFormView struct {
 	OriginalName   string
 	Name           components.Input
@@ -26,36 +110,73 @@ type ProjectFormView struct {
 	Cancel         components.Button
 	Buttons        components.ButtonGroup
 	Title          lipgloss.Style
+	Section        lipgloss.Style
+	Subtext        lipgloss.Style
+	Accent         lipgloss.Style
+	InputVal       lipgloss.Style
+	BtnPri         lipgloss.Style
+	BtnSec         lipgloss.Style
 	IsEdit         bool
 	Focused        int
 }
 
 func NewProjectFormView(
 	name, path string,
-	title, input, inputVal, btnPri, btnSec, btnDis lipgloss.Style,
+	styles ProjectFormViewStyles,
 ) ProjectFormView {
 	v := ProjectFormView{
-		Name:           components.NewInput("Name*", "my-awesome-app", name, input, inputVal),
-		Path:           components.NewInput("Path*", "~/my-awesome-app", path, input, inputVal),
-		Subproject:     components.NewInput("Subproject", "services/api", "", input, inputVal),
-		Shell:          components.NewInput("Shell", "/bin/bash", "", input, inputVal),
-		UserName:       components.NewInput("Git user.name", "Jane Doe", "", input, inputVal),
-		UserEmail:      components.NewInput("Git user.email", "jane@example.com", "", input, inputVal),
-		UserSigningKey: components.NewInput("Git user.signingkey", "0xDEADBEEF", "", input, inputVal),
-		CommitGPGSign:  components.NewInput("commit.gpgsign (true/false)", "true/false", "true", input, inputVal),
-		TagGPGSign:     components.NewInput("tag.gpgsign (true/false)", "true/false", "true", input, inputVal),
-		EnvVars:        components.NewTextArea("# One per line (like .env)\nAPP_ENV=development\nDATABASE_URL=postgres://user:pass@localhost:5432/app\n# comments allowed", "", input, inputVal),
-		SaveBtn:        components.NewButton("Save", components.Primary, btnPri, btnDis),
-		Cancel:         components.NewButton("Cancel", components.Secondary, btnSec, btnDis),
-		Title:          title,
+		Name:           components.NewInput("Name*", "my-awesome-app", name, styles.Input, styles.InputVal),
+		Path:           components.NewInput("Path*", "~/my-awesome-app", path, styles.Input, styles.InputVal),
+		Subproject:     components.NewInput("Subproject", "services/api", "", styles.Input, styles.InputVal),
+		Shell:          components.NewInput("Shell", "/bin/bash", "", styles.Input, styles.InputVal),
+		UserName:       components.NewInput("Git user.name", "Jane Doe", "", styles.Input, styles.InputVal),
+		UserEmail:      components.NewInput("Git user.email", "jane@example.com", "", styles.Input, styles.InputVal),
+		UserSigningKey: components.NewInput("Git user.signingkey", "0xDEADBEEF", "", styles.Input, styles.InputVal),
+		CommitGPGSign: components.NewInput(
+			"commit.gpgsign (true/false)",
+			"true/false",
+			"true",
+			styles.Input,
+			styles.InputVal,
+		),
+		TagGPGSign: components.NewInput(
+			"tag.gpgsign (true/false)",
+			"true/false",
+			"true",
+			styles.Input,
+			styles.InputVal,
+		),
+		EnvVars: components.NewTextArea(
+			"# One per line (like .env)\nAPP_ENV=development\nDATABASE_URL=postgres://user:pass@localhost:5432/app\n# comments allowed",
+			"",
+			styles.Input,
+			styles.InputVal,
+		),
+		SaveBtn: components.NewButton(
+			"Save",
+			components.Primary,
+			styles.BtnPrimary,
+			styles.BtnPrimaryFocused,
+			styles.BtnDisabled,
+		),
+		Cancel: components.NewButton(
+			"Cancel",
+			components.Secondary,
+			styles.BtnSecondary,
+			styles.BtnSecondaryFocused,
+			styles.BtnDisabled,
+		),
+		Title:    styles.Title,
+		Section:  styles.Section,
+		Subtext:  styles.Subtext,
+		Accent:   styles.Accent,
+		InputVal: styles.InputVal,
+		BtnPri:   styles.BtnPrimary,
+		BtnSec:   styles.BtnSecondary,
 	}
 
-	v.Buttons = components.NewButtonGroup(
-		[]components.ButtonSpec{{Label: "Save", Primary: true}, {Label: "Cancel"}},
-		btnPri,
-		btnSec,
-		btnDis,
-	)
+	v.Buttons = components.NewButtonGroup([]components.Button{v.SaveBtn, v.Cancel})
+	v.Buttons.Active = false
 
 	v.Name.SetWidth(40)
 	v.Path.SetWidth(40)
@@ -70,12 +191,13 @@ func NewProjectFormView(
 	v.EnvVars.SetWidth(60)
 
 	v.Name.Focus()
-	v.Focused = 0
+	v.Focused = idxName
 
 	if strings.TrimSpace(name) != "" && strings.TrimSpace(path) != "" {
 		v.IsEdit = true
 		v.OriginalName = name
 	}
+
 	return v
 }
 
@@ -84,37 +206,12 @@ func (v ProjectFormView) Init() tea.Cmd { return nil }
 func (v ProjectFormView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if v.Focused >= 10 {
-			switch msg.Type {
-			case tea.KeyLeft:
-				if v.Focused == 11 {
-					v.Focused = 10
-				}
-				return v, nil
-			case tea.KeyRight:
-				if v.Focused == 10 {
-					v.Focused = 11
-				}
-				return v, nil
-			case tea.KeyEnter:
-				if v.Focused == 10 {
-					return v, func() tea.Msg {
-						return state.SaveProjectMsg{
-							Name:          v.Name.Value(),
-							Path:          v.Path.Value(),
-							Subproject:    v.Subproject.Value(),
-							Shell:         v.Shell.Value(),
-							GitUserName:   v.UserName.Value(),
-							GitUserEmail:  v.UserEmail.Value(),
-							GitSigningKey: v.UserSigningKey.Value(),
-							CommitGPGSign: v.CommitGPGSign.Value(),
-							TagGPGSign:    v.TagGPGSign.Value(),
-							EnvVarsRaw:    v.EnvVars.Value(),
-						}
-					}
-				}
-				return v, func() tea.Msg { return state.CancelMsg{} }
-			}
+		if cmd, ok := handleButtonGroupNav(idxBtnSave, idxBtnCancel, &v.Focused, &v.Buttons, msg); ok {
+			v.blurAll()
+			v.Buttons.Active = v.Focused >= idxBtnSave
+			v.focusCurrent()
+
+			return v, cmd
 		}
 
 		if msg.Type == tea.KeyCtrlS {
@@ -135,55 +232,66 @@ func (v ProjectFormView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if msg.Type == tea.KeyTab || msg.Type == tea.KeyDown || msg.Type == tea.KeyEnter || msg.Type == tea.KeyShiftTab || msg.Type == tea.KeyUp {
-			f := v.Focused
-			if msg.Type == tea.KeyShiftTab || msg.Type == tea.KeyUp {
-				f--
-			} else {
-				if !(msg.Type == tea.KeyEnter && f >= 9) {
-					f++
-				}
-			}
-			if v.IsEdit && f == 1 {
+			allowed := v.Focused != idxEnvVars || (msg.Type == tea.KeyTab || msg.Type == tea.KeyShiftTab)
+			if allowed {
+				f := v.Focused
+
 				if msg.Type == tea.KeyShiftTab || msg.Type == tea.KeyUp {
 					f--
 				} else {
-					f++
+					if msg.Type != tea.KeyEnter || f < idxEnvVars {
+						f++
+					}
 				}
+
+				if v.IsEdit && f == idxPath {
+					if msg.Type == tea.KeyShiftTab || msg.Type == tea.KeyUp {
+						f--
+					} else {
+						f++
+					}
+				}
+
+				if f < 0 {
+					f = idxBtnCancel
+				}
+
+				if f > idxBtnCancel {
+					f = idxName
+				}
+
+				if msg.Type == tea.KeyUp && v.Focused == idxEnvVars {
+					f = v.Focused
+				}
+
+				v.blurAll()
+				v.Focused = f
+				v.Buttons.Active = v.Focused >= idxBtnSave
+				v.focusCurrent()
+
+				return v, nil
 			}
-			if f < 0 {
-				f = 11
-			}
-			if f > 11 {
-				f = 0
-			}
-			if (msg.Type == tea.KeyUp || msg.Type == tea.KeyDown) && v.Focused == 9 {
-				f = v.Focused
-			}
-			v.blurAll()
-			v.Focused = f
-			v.focusCurrent()
 		}
 
 	case components.InputSubmitMsg:
-		val := strings.TrimSpace(msg.Value)
-		if val == "" {
-			return v, nil
+		f := v.Focused
+
+		f++
+
+		if v.IsEdit && f == idxPath {
+			f++
 		}
 
-		return v, func() tea.Msg {
-			return state.SaveProjectMsg{
-				Name:          v.Name.Value(),
-				Path:          v.Path.Value(),
-				Subproject:    v.Subproject.Value(),
-				Shell:         v.Shell.Value(),
-				GitUserName:   v.UserName.Value(),
-				GitUserEmail:  v.UserEmail.Value(),
-				GitSigningKey: v.UserSigningKey.Value(),
-				CommitGPGSign: v.CommitGPGSign.Value(),
-				TagGPGSign:    v.TagGPGSign.Value(),
-				EnvVarsRaw:    v.EnvVars.Value(),
-			}
+		if f > idxBtnCancel {
+			f = idxName
 		}
+
+		v.blurAll()
+		v.Focused = f
+		v.Buttons.Active = v.Focused >= idxBtnSave
+		v.focusCurrent()
+
+		return v, nil
 	case components.ButtonPressedMsg:
 		if msg.Label == "Save" {
 			return v, func() tea.Msg {
@@ -230,11 +338,13 @@ func (v ProjectFormView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	oldName := strings.TrimSpace(v.Name.Value())
 	n, ncmd := v.Name.Update(msg)
+
 	v.Name = n
 	if !v.IsEdit && v.Name.Focused() {
 		newName := strings.TrimSpace(v.Name.Value())
 		if newName != oldName {
 			slug := strings.ToLower(strings.TrimSpace(strings.ReplaceAll(newName, " ", "-")))
+
 			cur := strings.TrimSpace(v.Path.Value())
 			if slug == "" {
 				if cur == "" || strings.HasPrefix(cur, "~/") {
@@ -267,14 +377,49 @@ func (v ProjectFormView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	e, ecmd := v.EnvVars.Update(msg)
 	v.EnvVars = e
 
-	var bgcmd tea.Cmd
-	if v.Focused >= 10 {
-		bg, bcmd := v.Buttons.Update(msg)
-		v.Buttons = bg
-		bgcmd = bcmd
+	return v, tea.Batch(ncmd, pcmd, scmd, shcmd, ucmd, uemcmd, ukcmd, cgcmd, tgcmd, ecmd)
+}
+
+func handleButtonGroupNav(base, last int, focused *int, g *components.ButtonGroup, k tea.KeyMsg) (tea.Cmd, bool) {
+	if *focused < base {
+		return nil, false
 	}
 
-	return v, tea.Batch(ncmd, pcmd, scmd, shcmd, ucmd, uemcmd, ukcmd, cgcmd, tgcmd, ecmd, bgcmd)
+	switch k.Type {
+	case tea.KeyLeft, tea.KeyRight, tea.KeyEnter:
+		bg, cmd := g.Update(k)
+		*g = bg
+		*focused = base + g.Cursor
+		g.Active = true
+
+		return cmd, true
+	case tea.KeyShiftTab, tea.KeyTab:
+		f := *focused
+		if k.Type == tea.KeyShiftTab {
+			f--
+		} else {
+			f++
+		}
+
+		if f < 0 {
+			f = last
+		}
+
+		if f > last {
+			f = idxName
+		}
+
+		*focused = f
+
+		g.Active = *focused >= base
+		if *focused >= base && *focused <= last {
+			g.Cursor = *focused - base
+		}
+
+		return nil, true
+	}
+
+	return nil, false
 }
 
 func (v *ProjectFormView) blurAll() {
@@ -292,166 +437,180 @@ func (v *ProjectFormView) blurAll() {
 
 func (v *ProjectFormView) focusCurrent() {
 	switch v.Focused {
-	case 0:
+	case idxName:
 		v.Name.Focus()
-	case 1:
+	case idxPath:
 		if !v.IsEdit {
 			v.Path.Focus()
 		}
-	case 2:
+	case idxSubproject:
 		v.Subproject.Focus()
-	case 3:
+	case idxShell:
 		v.Shell.Focus()
-	case 4:
+	case idxUserName:
 		v.UserName.Focus()
-	case 5:
+	case idxUserEmail:
 		v.UserEmail.Focus()
-	case 6:
+	case idxUserSigningKey:
 		v.UserSigningKey.Focus()
-	case 7:
+	case idxCommitGPGSign:
 		v.CommitGPGSign.Focus()
-	case 8:
+	case idxTagGPGSign:
 		v.TagGPGSign.Focus()
-	case 9:
+	case idxEnvVars:
 		v.EnvVars.Focus()
-	case 10:
-		v.Buttons.Cursor = 0
-	case 11:
-		v.Buttons.Cursor = 1
 	}
 }
 
 func (v ProjectFormView) View() string {
 	b := strings.Builder{}
+
 	title := "New project"
 	if v.IsEdit {
 		title = "Edit project"
 	}
+
 	b.WriteString(v.Title.Render(title))
 	b.WriteString("\n")
-	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#81A1C1")).Bold(true).Render("Project details"))
+	b.WriteString(v.Section.Bold(true).Render("Project details"))
 	b.WriteString("\n")
-	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#7C818C")).Render("Basic information"))
+	b.WriteString(v.Subtext.Render("Basic information"))
 	b.WriteString("\n")
 	{
-		p := lipgloss.NewStyle()
-		val := lipgloss.NewStyle().Foreground(lipgloss.Color("#D8DEE9"))
-		v.Name.SetPrompt(p.Render("Name") + lipgloss.NewStyle().Foreground(lipgloss.Color("#BF616A")).Render("*") + p.Render(": "))
-		v.Name.SetPromptStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#81A1C1")))
-		v.Name.SetPlaceholderStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#7C818C")))
+		p := v.Section
+		val := v.InputVal
+		v.Name.SetPrompt(
+			p.Render("Name") + v.Accent.Render("*") + p.Render(": "),
+		)
+		v.Name.SetPromptStyle(v.Section)
+		v.Name.SetPlaceholderStyle(v.Subtext)
 		v.Name.SetTextStyle(val)
 	}
+
 	b.WriteString(v.Name.View())
 	b.WriteString("\n")
+
 	if v.IsEdit {
 		p := strings.TrimSpace(v.Path.Value())
-		if p == "" { p = "~/my-awesome-app" }
-		b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(p + " (read-only)"))
+		if p == "" {
+			p = "~/my-awesome-app"
+		}
+
+		b.WriteString(v.Subtext.Render(p + " (read-only)"))
 	} else {
 		{
-			p := lipgloss.NewStyle()
-			val := lipgloss.NewStyle().Foreground(lipgloss.Color("#D8DEE9"))
-			v.Path.SetPrompt(p.Render("Path") + lipgloss.NewStyle().Foreground(lipgloss.Color("#BF616A")).Render("*") + p.Render(": "))
-			v.Path.SetPromptStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#81A1C1")))
-			v.Path.SetPlaceholderStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#7C818C")))
+			p := v.Section
+			val := v.InputVal
+			v.Path.SetPrompt(p.Render("Path") + v.Accent.Render("*") + p.Render(": "))
+			v.Path.SetPromptStyle(v.Section)
+			v.Path.SetPlaceholderStyle(v.Subtext)
 			v.Path.SetTextStyle(val)
 		}
+
 		b.WriteString(v.Path.View())
 	}
+
 	b.WriteString("\n\n")
-	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#81A1C1")).Bold(true).Render("Project options"))
+	b.WriteString(v.Section.Bold(true).Render("Project options"))
 	b.WriteString("\n")
-	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#7C818C")).Render("Optional settings"))
+	b.WriteString(v.Subtext.Render("Optional settings"))
 	b.WriteString("\n")
 	{
-		p := lipgloss.NewStyle().Foreground(lipgloss.Color("#81A1C1"))
-		val := lipgloss.NewStyle().Foreground(lipgloss.Color("#D8DEE9"))
+		p := v.Section
+		val := v.InputVal
+
 		v.Subproject.SetPrompt(p.Render("Subproject: "))
-		v.Subproject.SetPromptStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#81A1C1")))
-		v.Subproject.SetPlaceholderStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#7C818C")))
+		v.Subproject.SetPromptStyle(v.Section)
+		v.Subproject.SetPlaceholderStyle(v.Subtext)
 		v.Subproject.SetTextStyle(val)
 	}
+
 	b.WriteString(v.Subproject.View())
 	b.WriteString("\n")
 	{
-		p := lipgloss.NewStyle().Foreground(lipgloss.Color("#81A1C1"))
-		val := lipgloss.NewStyle().Foreground(lipgloss.Color("#D8DEE9"))
+		p := v.Section
+		val := v.InputVal
+
 		v.Shell.SetPrompt(p.Render("Shell: "))
-		v.Shell.SetPromptStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#81A1C1")))
-		v.Shell.SetPlaceholderStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#7C818C")))
+		v.Shell.SetPromptStyle(v.Section)
+		v.Shell.SetPlaceholderStyle(v.Subtext)
 		v.Shell.SetTextStyle(val)
 	}
+
 	b.WriteString(v.Shell.View())
 	b.WriteString("\n\n")
-	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#81A1C1")).Bold(true).Render("Git settings"))
+	b.WriteString(v.Section.Bold(true).Render("Git settings"))
 	b.WriteString("\n")
-	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#7C818C")).Render("Applied to this project only"))
+	b.WriteString(v.Subtext.Render("Applied to this project only"))
 	b.WriteString("\n")
 	{
-		p := lipgloss.NewStyle().Foreground(lipgloss.Color("#81A1C1"))
-		val := lipgloss.NewStyle().Foreground(lipgloss.Color("#D8DEE9"))
+		p := v.Section
+		val := v.InputVal
+
 		v.UserName.SetPrompt(p.Render("Git user.name: "))
-		v.UserName.SetPromptStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#81A1C1")))
-		v.UserName.SetPlaceholderStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#7C818C")))
+		v.UserName.SetPromptStyle(v.Section)
+		v.UserName.SetPlaceholderStyle(v.Subtext)
 		v.UserName.SetTextStyle(val)
 	}
+
 	b.WriteString(v.UserName.View())
 	b.WriteString("\n")
 	{
-		p := lipgloss.NewStyle().Foreground(lipgloss.Color("#81A1C1"))
-		val := lipgloss.NewStyle().Foreground(lipgloss.Color("#D8DEE9"))
+		p := v.Section
+		val := v.InputVal
+
 		v.UserEmail.SetPrompt(p.Render("Git user.email: "))
-		v.UserEmail.SetPromptStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#81A1C1")))
-		v.UserEmail.SetPlaceholderStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#7C818C")))
+		v.UserEmail.SetPromptStyle(v.Section)
+		v.UserEmail.SetPlaceholderStyle(v.Subtext)
 		v.UserEmail.SetTextStyle(val)
 	}
+
 	b.WriteString(v.UserEmail.View())
 	b.WriteString("\n")
 	{
-		p := lipgloss.NewStyle().Foreground(lipgloss.Color("#81A1C1"))
-		val := lipgloss.NewStyle().Foreground(lipgloss.Color("#D8DEE9"))
+		p := v.Section
+		val := v.InputVal
+
 		v.UserSigningKey.SetPrompt(p.Render("Git user.signingkey: "))
-		v.UserSigningKey.SetPromptStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#81A1C1")))
-		v.UserSigningKey.SetPlaceholderStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#7C818C")))
+		v.UserSigningKey.SetPromptStyle(v.Section)
+		v.UserSigningKey.SetPlaceholderStyle(v.Subtext)
 		v.UserSigningKey.SetTextStyle(val)
 	}
+
 	b.WriteString(v.UserSigningKey.View())
 	b.WriteString("\n")
 	{
-		p := lipgloss.NewStyle().Foreground(lipgloss.Color("#81A1C1"))
-		val := lipgloss.NewStyle().Foreground(lipgloss.Color("#D8DEE9"))
+		p := v.Section
+		val := v.InputVal
+
 		v.CommitGPGSign.SetPrompt(p.Render("commit.gpgsign (true/false): "))
-		v.CommitGPGSign.SetPromptStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#81A1C1")))
-		v.CommitGPGSign.SetPlaceholderStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#7C818C")))
+		v.CommitGPGSign.SetPromptStyle(v.Section)
+		v.CommitGPGSign.SetPlaceholderStyle(v.Subtext)
 		v.CommitGPGSign.SetTextStyle(val)
 	}
+
 	b.WriteString(v.CommitGPGSign.View())
 	b.WriteString("\n")
 	{
-		p := lipgloss.NewStyle().Foreground(lipgloss.Color("#81A1C1"))
-		val := lipgloss.NewStyle().Foreground(lipgloss.Color("#D8DEE9"))
+		p := v.Section
+		val := v.InputVal
+
 		v.TagGPGSign.SetPrompt(p.Render("tag.gpgsign (true/false): "))
-		v.TagGPGSign.SetPromptStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#81A1C1")))
-		v.TagGPGSign.SetPlaceholderStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#7C818C")))
+		v.TagGPGSign.SetPromptStyle(v.Section)
+		v.TagGPGSign.SetPlaceholderStyle(v.Subtext)
 		v.TagGPGSign.SetTextStyle(val)
 	}
+
 	b.WriteString(v.TagGPGSign.View())
 	b.WriteString("\n\n")
-	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#81A1C1")).Bold(true).Render("Environment variables"))
+	b.WriteString(v.Section.Bold(true).Render("Environment variables"))
 	b.WriteString("\n")
-	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#7C818C")).Render("One KEY=VALUE per line; '#' comments allowed"))
+	b.WriteString(v.Subtext.Render("One KEY=VALUE per line; '#' comments allowed"))
 	b.WriteString("\n")
 	b.WriteString(v.EnvVars.View())
 	b.WriteString("\n\n")
-	saveLbl := "Save"
-	cancelLbl := "Cancel"
-	if v.Focused == 10 {
-		saveLbl = lipgloss.NewStyle().Bold(true).Render("Save")
-	}
-	if v.Focused == 11 {
-		cancelLbl = lipgloss.NewStyle().Bold(true).Render("Cancel")
-	}
-	b.WriteString("   " + saveLbl + "         " + cancelLbl)
+	b.WriteString(v.Buttons.View())
 	b.WriteString("\n\n")
+
 	return b.String()
 }

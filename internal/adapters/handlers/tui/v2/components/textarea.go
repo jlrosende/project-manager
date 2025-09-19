@@ -39,8 +39,14 @@ func (t *TextArea) Focus() { t.txt.Focus() }
 func (t *TextArea) Blur() { t.txt.Blur() }
 
 func (t TextArea) Update(msg tea.Msg) (TextArea, tea.Cmd) {
-	if k, ok := msg.(tea.KeyMsg); ok && k.Type == tea.KeyEnter && k.Alt {
-		return t, func() tea.Msg { return TextAreaSubmitMsg{Value: t.txt.Value()} }
+	if k, ok := msg.(tea.KeyMsg); ok {
+		if k.Type == tea.KeyTab || k.Type == tea.KeyShiftTab {
+			return t, nil
+		}
+
+		if k.Type == tea.KeyEnter && k.Alt {
+			return t, func() tea.Msg { return TextAreaSubmitMsg{Value: t.txt.Value()} }
+		}
 	}
 
 	ta, cmd := t.txt.Update(msg)

@@ -62,7 +62,7 @@ func (i Input) Focused() bool { return i.txt.Focused() }
 func (i Input) Update(msg tea.Msg) (Input, tea.Cmd) {
 	switch m := msg.(type) {
 	case tea.KeyMsg:
-		if m.Type == tea.KeyEnter {
+		if m.Type == tea.KeyEnter && i.txt.Focused() {
 			return i, func() tea.Msg { return InputSubmitMsg{Value: i.txt.Value()} }
 		}
 	}

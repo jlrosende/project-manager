@@ -22,157 +22,226 @@ import (
 )
 
 var currentPalette = map[string]string{
-	"title":       "#88C0D0",
-	"section":     "#81A1C1",
-	"subtext":     "#7C818C",
-	"text":        "#D8DEE9",
-	"placeholder": "#7C818C",
-	"border":      "#4C566A",
-	"error":       "#BF616A",
-	"buttonDefFg": "#2E3440",
-	"buttonDefBg": "#4C566A",
-	"buttonSelFg": "#2E3440",
-	"buttonSelBg": "#A3BE8C",
-	"selectedFg":  "#ECEFF4",
-	"selectedBg":  "#5E81AC",
-	"help":        "#7C818C",
+	"title":           "#88C0D0",
+	"section":         "#81A1C1",
+	"subtext":         "#7C818C",
+	"text":            "#D8DEE9",
+	"placeholder":     "#7C818C",
+	"border":          "#4C566A",
+	"error":           "#BF616A",
+	"buttonDefFg":     "#2E3440",
+	"buttonDefBg":     "#4C566A",
+	"buttonSelFg":     "#2E3440",
+	"buttonSelBg":     "#A3BE8C",
+	"buttonSuccessFg": "#2E3440",
+	"buttonSuccessBg": "#A3BE8C",
+	"buttonInfoFg":    "#2E3440",
+	"buttonInfoBg":    "#81A1C1",
+	"buttonWarningFg": "#2E3440",
+	"buttonWarningBg": "#EBCB8B",
+	"buttonDangerFg":  "#2E3440",
+	"buttonDangerBg":  "#BF616A",
+	"selectedFg":      "#ECEFF4",
+	"selectedBg":      "#5E81AC",
+	"help":            "#7C818C",
 }
 
 var presetPalettes = map[string]map[string]string{
 	"nord": {
-		"title":       "#88C0D0",
-		"section":     "#81A1C1",
-		"subtext":     "#7C818C",
-		"text":        "#D8DEE9",
-		"placeholder": "#7C818C",
-		"border":      "#4C566A",
-		"error":       "#BF616A",
-		"buttonDefFg": "#2E3440",
-		"buttonDefBg": "#4C566A",
-		"buttonSelFg": "#2E3440",
-		"buttonSelBg": "#A3BE8C",
-		"selectedFg":  "#ECEFF4",
-		"selectedBg":  "#5E81AC",
-		"help":        "#7C818C",
+		"title":           "#88C0D0",
+		"section":         "#81A1C1",
+		"subtext":         "#7C818C",
+		"text":            "#D8DEE9",
+		"placeholder":     "#7C818C",
+		"border":          "#4C566A",
+		"error":           "#BF616A",
+		"buttonDefFg":     "#2E3440",
+		"buttonDefBg":     "#4C566A",
+		"buttonSelFg":     "#2E3440",
+		"buttonSelBg":     "#A3BE8C",
+		"buttonSuccessFg": "#2E3440",
+		"buttonSuccessBg": "#A3BE8C",
+		"buttonInfoFg":    "#2E3440",
+		"buttonInfoBg":    "#81A1C1",
+		"buttonWarningFg": "#2E3440",
+		"buttonWarningBg": "#EBCB8B",
+		"buttonDangerFg":  "#2E3440",
+		"buttonDangerBg":  "#BF616A",
+		"selectedFg":      "#ECEFF4",
+		"selectedBg":      "#5E81AC",
+		"help":            "#7C818C",
+	},
+	"nord-light": {
+		"title":           "#5E81AC",
+		"section":         "#81A1C1",
+		"subtext":         "#4C566A",
+		"text":            "#2E3440",
+		"placeholder":     "#7C818C",
+		"border":          "#D8DEE9",
+		"error":           "#BF616A",
+		"buttonDefFg":     "#2E3440",
+		"buttonDefBg":     "#D8DEE9",
+		"buttonSelFg":     "#2E3440",
+		"buttonSelBg":     "#A3BE8C",
+		"buttonSuccessFg": "#2E3440",
+		"buttonSuccessBg": "#A3BE8C",
+		"buttonInfoFg":    "#2E3440",
+		"buttonInfoBg":    "#5E81AC",
+		"buttonWarningFg": "#2E3440",
+		"buttonWarningBg": "#EBCB8B",
+		"buttonDangerFg":  "#2E3440",
+		"buttonDangerBg":  "#BF616A",
+		"selectedFg":      "#2E3440",
+		"selectedBg":      "#88C0D0",
+		"help":            "#6C6F7D",
 	},
 	"catppuccin": {
-		"title":       "#89B4FA",
-		"section":     "#B4BEFE",
-		"subtext":     "#A6ADC8",
-		"text":        "#CDD6F4",
-		"placeholder": "#6C7086",
-		"border":      "#585B70",
-		"error":       "#F38BA8",
-		"buttonDefFg": "#1E1E2E",
-		"buttonDefBg": "#585B70",
-		"buttonSelFg": "#1E1E2E",
-		"buttonSelBg": "#A6E3A1",
-		"selectedFg":  "#CDD6F4",
-		"selectedBg":  "#89B4FA",
-		"help":        "#A6ADC8",
+		"title":           "#89B4FA",
+		"section":         "#B4BEFE",
+		"subtext":         "#A6ADC8",
+		"text":            "#CDD6F4",
+		"placeholder":     "#6C7086",
+		"border":          "#585B70",
+		"error":           "#F38BA8",
+		"buttonDefFg":     "#1E1E2E",
+		"buttonDefBg":     "#585B70",
+		"buttonSelFg":     "#1E1E2E",
+		"buttonSelBg":     "#A6E3A1",
+		"buttonSuccessFg": "#1E1E2E",
+		"buttonSuccessBg": "#A6E3A1",
+		"buttonInfoFg":    "#1E1E2E",
+		"buttonInfoBg":    "#89B4FA",
+		"buttonWarningFg": "#1E1E2E",
+		"buttonWarningBg": "#FAB387",
+		"buttonDangerFg":  "#1E1E2E",
+		"buttonDangerBg":  "#F38BA8",
+		"selectedFg":      "#CDD6F4",
+		"selectedBg":      "#89B4FA",
+		"help":            "#A6ADC8",
+	},
+	"catppuccin-light": {
+		"title":           "#1E66F5",
+		"section":         "#7287FD",
+		"subtext":         "#6C6F85",
+		"text":            "#4C4F69",
+		"placeholder":     "#9CA0B0",
+		"border":          "#BCC0CC",
+		"error":           "#D20F39",
+		"buttonDefFg":     "#4C4F69",
+		"buttonDefBg":     "#BCC0CC",
+		"buttonSelFg":     "#4C4F69",
+		"buttonSelBg":     "#40A02B",
+		"buttonSuccessFg": "#4C4F69",
+		"buttonSuccessBg": "#40A02B",
+		"buttonInfoFg":    "#4C4F69",
+		"buttonInfoBg":    "#8CAAEE",
+		"buttonWarningFg": "#4C4F69",
+		"buttonWarningBg": "#DF8E1D",
+		"buttonDangerFg":  "#4C4F69",
+		"buttonDangerBg":  "#D20F39",
+		"selectedFg":      "#4C4F69",
+		"selectedBg":      "#8CAAEE",
+		"help":            "#6C6F85",
 	},
 	"dracula": {
-		"title":       "#BD93F9",
-		"section":     "#8BE9FD",
-		"subtext":     "#6272A4",
-		"text":        "#F8F8F2",
-		"placeholder": "#6272A4",
-		"border":      "#44475A",
-		"error":       "#FF5555",
-		"buttonDefFg": "#282A36",
-		"buttonDefBg": "#44475A",
-		"buttonSelFg": "#282A36",
-		"buttonSelBg": "#50FA7B",
-		"selectedFg":  "#F8F8F2",
-		"selectedBg":  "#6272A4",
-		"help":        "#6272A4",
+		"title":           "#BD93F9",
+		"section":         "#8BE9FD",
+		"subtext":         "#6272A4",
+		"text":            "#F8F8F2",
+		"placeholder":     "#6272A4",
+		"border":          "#44475A",
+		"error":           "#FF5555",
+		"buttonDefFg":     "#282A36",
+		"buttonDefBg":     "#44475A",
+		"buttonSelFg":     "#282A36",
+		"buttonSelBg":     "#50FA7B",
+		"buttonSuccessFg": "#282A36",
+		"buttonSuccessBg": "#50FA7B",
+		"buttonInfoFg":    "#282A36",
+		"buttonInfoBg":    "#8BE9FD",
+		"buttonWarningFg": "#282A36",
+		"buttonWarningBg": "#F1FA8C",
+		"buttonDangerFg":  "#282A36",
+		"buttonDangerBg":  "#FF5555",
+		"selectedFg":      "#F8F8F2",
+		"selectedBg":      "#6272A4",
+		"help":            "#6272A4",
+	},
+	"dracula-light": {
+		"title":           "#6272A4",
+		"section":         "#8BE9FD",
+		"subtext":         "#6D7086",
+		"text":            "#282A36",
+		"placeholder":     "#A0A0A0",
+		"border":          "#E5E5E5",
+		"error":           "#FF5555",
+		"buttonDefFg":     "#282A36",
+		"buttonDefBg":     "#E5E5E5",
+		"buttonSelFg":     "#282A36",
+		"buttonSelBg":     "#50FA7B",
+		"buttonSuccessFg": "#282A36",
+		"buttonSuccessBg": "#50FA7B",
+		"buttonInfoFg":    "#282A36",
+		"buttonInfoBg":    "#8BE9FD",
+		"buttonWarningFg": "#282A36",
+		"buttonWarningBg": "#F1FA8C",
+		"buttonDangerFg":  "#282A36",
+		"buttonDangerBg":  "#FF5555",
+		"selectedFg":      "#282A36",
+		"selectedBg":      "#8BE9FD",
+		"help":            "#6D7086",
 	},
 	"ayu": {
-		"title":       "#59C2FF",
-		"section":     "#D4BFFF",
-		"subtext":     "#5C6773",
-		"text":        "#CBCCC6",
-		"placeholder": "#5C6773",
-		"border":      "#3D4754",
-		"error":       "#D95757",
-		"buttonDefFg": "#1F2430",
-		"buttonDefBg": "#3D4754",
-		"buttonSelFg": "#1F2430",
-		"buttonSelBg": "#AAD94C",
-		"selectedFg":  "#CBCCC6",
-		"selectedBg":  "#59C2FF",
-		"help":        "#5C6773",
+		"title":           "#59C2FF",
+		"section":         "#D4BFFF",
+		"subtext":         "#5C6773",
+		"text":            "#CBCCC6",
+		"placeholder":     "#5C6773",
+		"border":          "#3D4754",
+		"error":           "#D95757",
+		"buttonDefFg":     "#1F2430",
+		"buttonDefBg":     "#3D4754",
+		"buttonSelFg":     "#1F2430",
+		"buttonSelBg":     "#AAD94C",
+		"buttonSuccessFg": "#1F2430",
+		"buttonSuccessBg": "#AAD94C",
+		"buttonInfoFg":    "#1F2430",
+		"buttonInfoBg":    "#59C2FF",
+		"buttonWarningFg": "#1F2430",
+		"buttonWarningBg": "#FFCC66",
+		"buttonDangerFg":  "#1F2430",
+		"buttonDangerBg":  "#D95757",
+		"selectedFg":      "#CBCCC6",
+		"selectedBg":      "#59C2FF",
+		"help":            "#5C6773",
+	},
+	"ayu-light": {
+		"title":           "#55B4D4",
+		"section":         "#D4BFFF",
+		"subtext":         "#8A9199",
+		"text":            "#5C6773",
+		"placeholder":     "#9AA5B1",
+		"border":          "#E6E9EF",
+		"error":           "#F07178",
+		"buttonDefFg":     "#5C6773",
+		"buttonDefBg":     "#E6E9EF",
+		"buttonSelFg":     "#1F2430",
+		"buttonSelBg":     "#AAD94C",
+		"buttonSuccessFg": "#1F2430",
+		"buttonSuccessBg": "#AAD94C",
+		"buttonInfoFg":    "#1F2430",
+		"buttonInfoBg":    "#8CAAEE",
+		"buttonWarningFg": "#1F2430",
+		"buttonWarningBg": "#FFCC66",
+		"buttonDangerFg":  "#1F2430",
+		"buttonDangerBg":  "#F07178",
+		"selectedFg":      "#5C6773",
+		"selectedBg":      "#FFCC66",
+		"help":            "#8A9199",
 	},
 }
 
 func init() {
-	presetPalettes["nord-light"] = map[string]string{
-		"title":       "#5E81AC",
-		"section":     "#81A1C1",
-		"subtext":     "#4C566A",
-		"text":        "#2E3440",
-		"placeholder": "#7C818C",
-		"border":      "#D8DEE9",
-		"error":       "#BF616A",
-		"buttonDefFg": "#2E3440",
-		"buttonDefBg": "#D8DEE9",
-		"buttonSelFg": "#2E3440",
-		"buttonSelBg": "#A3BE8C",
-		"selectedFg":  "#2E3440",
-		"selectedBg":  "#88C0D0",
-		"help":        "#6C6F7D",
-	}
-
-	presetPalettes["catppuccin-light"] = map[string]string{
-		"title":       "#1E66F5",
-		"section":     "#7287FD",
-		"subtext":     "#6C6F85",
-		"text":        "#4C4F69",
-		"placeholder": "#9CA0B0",
-		"border":      "#BCC0CC",
-		"error":       "#D20F39",
-		"buttonDefFg": "#4C4F69",
-		"buttonDefBg": "#BCC0CC",
-		"buttonSelFg": "#4C4F69",
-		"buttonSelBg": "#40A02B",
-		"selectedFg":  "#4C4F69",
-		"selectedBg":  "#8CAAEE",
-		"help":        "#6C6F85",
-	}
-
-	presetPalettes["dracula-light"] = map[string]string{
-		"title":       "#6272A4",
-		"section":     "#8BE9FD",
-		"subtext":     "#6D7086",
-		"text":        "#282A36",
-		"placeholder": "#A0A0A0",
-		"border":      "#E5E5E5",
-		"error":       "#FF5555",
-		"buttonDefFg": "#282A36",
-		"buttonDefBg": "#E5E5E5",
-		"buttonSelFg": "#282A36",
-		"buttonSelBg": "#50FA7B",
-		"selectedFg":  "#282A36",
-		"selectedBg":  "#8BE9FD",
-		"help":        "#6D7086",
-	}
-
-	presetPalettes["ayu-light"] = map[string]string{
-		"title":       "#55B4D4",
-		"section":     "#D4BFFF",
-		"subtext":     "#8A9199",
-		"text":        "#5C6773",
-		"placeholder": "#9AA5B1",
-		"border":      "#E6E9EF",
-		"error":       "#F07178",
-		"buttonDefFg": "#5C6773",
-		"buttonDefBg": "#E6E9EF",
-		"buttonSelFg": "#1F2430",
-		"buttonSelBg": "#AAD94C",
-		"selectedFg":  "#5C6773",
-		"selectedBg":  "#FFCC66",
-		"help":        "#8A9199",
-	}
 }
 
 func setPaletteByName(name string) {
@@ -181,6 +250,26 @@ func setPaletteByName(name string) {
 			currentPalette[k] = v
 		}
 	}
+}
+
+func (m *Window) buildProjectFormStyles() views.ProjectFormViewStyles {
+	return views.NewProjectFormViewStyles(
+		views.WithProjectFormTitle(m.theme.Title),
+		views.WithProjectFormSection(lipgloss.NewStyle().Foreground(lipgloss.Color(currentPalette["section"]))),
+		views.WithProjectFormSubtext(lipgloss.NewStyle().Foreground(lipgloss.Color(currentPalette["subtext"]))),
+		views.WithProjectFormAccent(lipgloss.NewStyle().Foreground(lipgloss.Color(currentPalette["error"]))),
+		views.WithProjectFormInput(m.cs.ListItem),
+		views.WithProjectFormInputVal(m.cs.ListItem),
+		views.WithProjectFormBtnPrimary(m.cs.ButtonPrimary),
+		views.WithProjectFormBtnSecondary(m.cs.ButtonSecondary),
+		views.WithProjectFormBtnPrimaryFocused(
+			m.cs.ButtonPrimary.Background(lipgloss.Color(currentPalette["selectedBg"])),
+		),
+		views.WithProjectFormBtnSecondaryFocused(
+			m.cs.ButtonSecondary.Background(lipgloss.Color(currentPalette["selectedBg"])),
+		),
+		views.WithProjectFormBtnDisabled(m.cs.ButtonDisabled),
+	)
 }
 
 type Options struct {
@@ -224,11 +313,11 @@ type Window struct {
 
 	projects        []*domain.Project
 	selectedProject *domain.Project
+	selectedEnv     string
 
-	cursor    int
-	cursorEnv int
-	total     int
-	width     int
+	cursor int
+	total  int
+	width  int
 
 	height         int
 	shouldQuit     bool
@@ -315,12 +404,16 @@ func NewWindow(projectSvc *services.ProjectService, opts Options) (*Window, erro
 		return items, nil
 	}
 
+	projStyles := views.NewProjectsViewStyles(
+		views.WithProjectsTitle(w.theme.Title),
+		views.WithProjectsItem(w.cs.ListItem),
+		views.WithProjectsSelected(w.cs.ListSelected),
+		views.WithProjectsMarker(lipgloss.Color(currentPalette["selectedBg"])),
+	)
+
 	w.projectsView = views.NewProjectsView(
 		fetch,
-		w.theme.Title,
-		w.cs.ListItem,
-		w.cs.ListSelected,
-		lipgloss.Color(currentPalette["selectedBg"]),
+		projStyles,
 	)
 
 	if pv, ok := w.projectsView.(views.ProjectsView); ok {
@@ -346,29 +439,16 @@ func (m Window) Init() tea.Cmd {
 func (m *Window) SelectedProject() *domain.Project { return m.selectedProject }
 
 func (m *Window) SelectedEnvironment() string {
-	if len(m.projects) == 0 {
+	if m.selectedProject == nil {
 		return ""
 	}
 
-	idx := mod(m.cursor, m.total)
-	if idx < 0 || idx >= len(m.projects) {
-		return ""
+	if strings.TrimSpace(m.selectedEnv) != "" {
+		return m.selectedEnv
 	}
 
-	p := m.projects[idx]
-	if len(p.Environments) == 0 {
-		return ""
-	}
-
-	e := m.cursorEnv % len(p.Environments)
-	if e < 0 {
-		e = 0
-	}
-
-	return p.Environments[e].Name
+	return strings.TrimSpace(m.selectedProject.DefaultEnv)
 }
-
-func mod(a, b int) int { return (a%b + b) % b }
 
 func parseEnvLines(s string) domain.EnvVars {
 	res := domain.EnvVars{}
@@ -423,15 +503,12 @@ func normalizeColorInput(s string) string {
 }
 
 func (m *Window) newProjectFlow() {
+	projFormStyles := m.buildProjectFormStyles()
+
 	m.form = views.NewProjectFormView(
 		"",
 		"",
-		m.theme.Title,
-		m.cs.ListItem,
-		m.cs.ListItem,
-		m.cs.ListSelected,
-		m.cs.ButtonPrimary,
-		m.cs.ButtonSecondary,
+		projFormStyles,
 	)
 
 	m.mode = 1
@@ -441,7 +518,17 @@ func (m *Window) newProjectFlow() {
 }
 
 func (m *Window) newEnvironmentFlow(projectName string) {
-	m.envForm = views.NewEnvFormView("", "", "", "merge", "", m.theme.Title, m.cs.ListItem, m.cs.ButtonPrimary, m.cs.ButtonSecondary)
+	m.envForm = views.NewEnvFormView(
+		"",
+		"",
+		"",
+		"merge",
+		"",
+		m.theme.Title,
+		m.cs.ListItem,
+		m.cs.ButtonPrimary,
+		m.cs.ButtonSecondary,
+	)
 	m.envProjectName = projectName
 
 	m.mode = 3
@@ -482,10 +569,12 @@ func (m *Window) currentView() tea.Model {
 
 				m.envVarsView = views.NewEnvVarsView(
 					items,
-					m.theme.Title,
-					m.cs.ListItem,
-					m.cs.ListSelected,
-					lipgloss.Color(currentPalette["selectedBg"]),
+					views.NewEnvVarsViewStyles(
+						views.WithEnvVarsTitle(m.theme.Title),
+						views.WithEnvVarsItem(m.cs.ListItem),
+						views.WithEnvVarsSelected(m.cs.ListSelected),
+						views.WithEnvVarsMarker(lipgloss.Color(currentPalette["selectedBg"])),
+					),
 				)
 
 				return m.envVarsView
@@ -692,9 +781,11 @@ func (m Window) View() string {
 
 		sepLen := 80
 		sep := lipgloss.NewStyle().Foreground(lipgloss.Color(currentPalette["border"]))
+
 		pad := "\n\n"
 		if m.mode == 1 || m.mode == 3 {
 			pad = "\n\n\n"
+
 			if m.mode == 3 {
 				if f, ok := m.envForm.(*views.EnvFormView); ok {
 					if strings.TrimSpace(f.Err) != "" {
@@ -704,7 +795,15 @@ func (m Window) View() string {
 			}
 		}
 
-		content = strings.TrimRight(content, "\n") + pad + sep.Render(strings.Repeat("─", sepLen)) + "\n" + m.help.View(m.fkeys)
+		content = strings.TrimRight(
+			content,
+			"\n",
+		) + pad + sep.Render(
+			strings.Repeat("─", sepLen),
+		) + "\n" + m.help.View(
+			m.fkeys,
+		)
+
 		return content
 	}
 
@@ -720,17 +819,24 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	m.reduce(msg)
 
+	if m.shouldQuit {
+		return m, tea.Quit
+	}
+
 	if km, ok := msg.(tea.KeyMsg); ok {
 		if km.Type == tea.KeyRunes {
 			r := string(km.Runes)
 			if r == "?" {
 				m.help.ShowAll = !m.help.ShowAll
 				hh := lipgloss.Height(m.help.View(m.keys))
+
 				vh := m.height - hh
 				if vh < 1 {
 					vh = 1
 				}
+
 				m.vp.Height = vh
+
 				return m, nil
 			}
 		}
@@ -763,47 +869,11 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			case tea.KeyLeft:
 				m.focus = 0
-			case tea.KeyTab:
-				if m.focus == 0 {
-					allow := true
-					if pv, ok := m.projectsView.(views.ProjectsView); ok {
-						idx := pv.List.Cursor
-						if idx >= 0 && idx < len(pv.List.Items) {
-							it := pv.List.Items[idx]
-							if it.ID == "__new__" {
-								allow = false
-							}
-						}
-					}
-					if allow {
-						m.focus = 1
-					}
-				} else {
-					m.focus = 0
-				}
-			case tea.KeyShiftTab:
-				if m.focus == 1 {
-					m.focus = 0
-				} else {
-					allow := true
-					if pv, ok := m.projectsView.(views.ProjectsView); ok {
-						idx := pv.List.Cursor
-						if idx >= 0 && idx < len(pv.List.Items) {
-							it := pv.List.Items[idx]
-							if it.ID == "__new__" {
-								allow = false
-							}
-						}
-					}
-					if allow {
-						m.focus = 1
-					}
-				}
 			}
 
 			if km.Type == tea.KeyRunes {
 				r := string(km.Runes)
-				if r == "l" || r == "]" {
+				if r == "l" {
 					if pv, ok := m.projectsView.(views.ProjectsView); ok {
 						idx := pv.List.Cursor
 						if idx >= 0 && idx < len(pv.List.Items) {
@@ -815,7 +885,7 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 
-				if r == "h" || r == "[" {
+				if r == "h" {
 					m.focus = 0
 				}
 			}
@@ -844,10 +914,12 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							items = append(items, components.ListItem{ID: "__add__", Label: "+ New environment"})
 							m.envVarsView = views.NewEnvVarsView(
 								items,
-								m.theme.Title,
-								m.cs.ListItem,
-								m.cs.ListSelected,
-								lipgloss.Color(currentPalette["selectedBg"]),
+								views.NewEnvVarsViewStyles(
+									views.WithEnvVarsTitle(m.theme.Title),
+									views.WithEnvVarsItem(m.cs.ListItem),
+									views.WithEnvVarsSelected(m.cs.ListSelected),
+									views.WithEnvVarsMarker(lipgloss.Color(currentPalette["selectedBg"])),
+								),
 							)
 						}
 					}
@@ -925,13 +997,16 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				proj.Shell = strings.TrimSpace(msg.Shell)
 				_ = m.projectSvc.UpdateProject(proj)
 			}
+
 			m.mode = 0
 			if m.r != nil {
 				m.r.NavigateTo(router.RouteProjects, nil)
 			}
+
 			if m.projectsView != nil {
 				return m, tea.Batch(cmd, m.projectsView.Init())
 			}
+
 			return m, tea.ClearScreen
 		}
 
@@ -990,7 +1065,8 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		m.form = views.NewProjectFormView(project.Name, project.Path, m.theme.Title, m.cs.ListItem, m.cs.ListItem, m.cs.ListSelected, m.cs.ButtonPrimary, m.cs.ButtonSecondary)
+		projFormStyles := m.buildProjectFormStyles()
+		m.form = views.NewProjectFormView(project.Name, project.Path, projFormStyles)
 		m.mode = 1
 
 		if m.r != nil {
@@ -1015,6 +1091,7 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if pname == "" && m.r != nil && m.r.Params() != nil {
 			pname = m.r.Params()["project"]
 		}
+
 		if pname == "" {
 			if pv, ok := m.projectsView.(views.ProjectsView); ok {
 				idx := pv.List.Cursor
@@ -1188,6 +1265,7 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.selectedProject = nil
 					return m, tea.Quit
 				}
+
 				return m, nil
 			}
 		}
@@ -1199,9 +1277,11 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.form = nil
 				m.envForm = nil
 				m.r.NavigateTo(router.RouteProjects, nil)
+
 				if m.projectsView != nil {
 					return m, tea.Batch(cmd, m.projectsView.Init())
 				}
+
 				return m, tea.ClearScreen
 			}
 
@@ -1225,12 +1305,37 @@ func (m *Window) reduce(msg tea.Msg) {
 			m.r.Back()
 		}
 	case state.ExitMsg:
-		if m.r != nil && m.r.Current() == router.RouteEnvVars {
-			if m.envProjectName != "" {
-				proj, _ := m.projectSvc.Load(m.envProjectName)
-				m.selectedProject = proj
+		if m.r != nil {
+			if m.r.Current() == router.RouteEnvVars || (m.r.Current() == router.RouteProjects && m.focus == 1) {
+				pname := m.envProjectName
+				if pname == "" {
+					if pv, ok := m.projectsView.(views.ProjectsView); ok {
+						idx := pv.List.Cursor
+						if idx >= 0 && idx < len(pv.List.Items) {
+							it := pv.List.Items[idx]
+							if it.ID != "__new__" {
+								pname = it.ID
+							}
+						}
+					}
+				}
+
+				if pname != "" {
+					proj, _ := m.projectSvc.Load(pname)
+					m.selectedProject = proj
+				}
+
+				if ev, ok := m.envVarsView.(views.EnvVarsView); ok {
+					if len(ev.List.Items) > 0 {
+						it := ev.List.Items[ev.List.Cursor]
+						if it.ID != "__add__" {
+							m.selectedEnv = it.ID
+						}
+					}
+				}
 			}
 		}
+
 		m.shouldQuit = true
 	}
 }

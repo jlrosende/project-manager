@@ -5,99 +5,12 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"go.uber.org/mock/gomock"
 
-	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/v1"
+	v1 "github.com/jlrosende/project-manager/internal/adapters/handlers/tui/v1"
 	v2 "github.com/jlrosende/project-manager/internal/adapters/handlers/tui/v2"
-	"github.com/jlrosende/project-manager/internal/core/domain"
 	"github.com/jlrosende/project-manager/internal/core/ports"
 	"github.com/jlrosende/project-manager/internal/core/services"
-	"github.com/jlrosende/project-manager/mocks"
 )
-
-func buildService(t *testing.T) ports.ProjectService {
-	ctrl := gomock.NewController(t)
-
-	mockRepo := mocks.NewMockProjectRepository(ctrl)
-	mockEnv := mocks.NewMockEnvVarsRepository(ctrl)
-	mockGit := mocks.NewMockGitRepository(ctrl)
-
-	p1 := &domain.Project{
-		Name:       "INDITEX",
-		Path:       "/tmp/inditex",
-		DefaultEnv: "dev",
-		Environments: []*domain.Environment{
-			{Name: "dev", Color: "240", EnvVarsFile: ".env.dev"},
-			{Name: "pre", Color: "240", EnvVarsFile: ".env.pre"},
-			{Name: "pro", Color: "240", EnvVarsFile: ".env.pro"},
-		},
-	}
-	p2 := &domain.Project{Name: "Mahou"}
-	p3 := &domain.Project{Name: "Accenture"}
-	p4 := &domain.Project{Name: "Personal"}
-	p5 := &domain.Project{Name: "test"}
-	projects := []*domain.Project{p1, p2, p3, p4, p5}
-
-	mockRepo.EXPECT().List().Return(projects, nil).AnyTimes()
-	mockRepo.EXPECT().AddEnvironment(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	mockRepo.EXPECT().UpdateEnvironment(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	mockRepo.EXPECT().UpdateProject(gomock.Any()).Return(nil).AnyTimes()
-	mockEnv.EXPECT().Load(gomock.Any()).Return(domain.EnvVars{}, nil).AnyTimes()
-	mockGit.EXPECT().Load(gomock.Any()).Return(&domain.GitConfig{}, nil).AnyTimes()
-
-	return services.NewProjectService(mockRepo, mockEnv, mockGit)
-}
-
-func normalize(s string) string {
-	lines := strings.Split(s, "\n")
-	for i := range lines {
-		lines[i] = strings.TrimRight(lines[i], " ")
-	}
-
-	return strings.Join(lines, "\n")
-}
-
-func hasANSI(s string) bool { return strings.Contains(s, "\x1b[") }
-
-func renderV1(t *testing.T, svc ports.ProjectService, width int, focusRight bool) string {
-	t.Helper()
-
-	w, err := v1.NewWindow(svc.(*services.ProjectService), v1.Options{})
-	if err != nil {
-		t.Fatalf("v1 window: %v", err)
-	}
-
-	w.Update(tea.WindowSizeMsg{Width: width, Height: 24})
-
-	if focusRight {
-		w.Update(tea.KeyMsg{Type: tea.KeyRight})
-	}
-
-	return w.View()
-}
-
-func renderV2(t *testing.T, svc ports.ProjectService, width int, focusRight bool) string {
-	t.Helper()
-
-	w, err := v2.NewWindow(svc.(*services.ProjectService), v2.Options{})
-	if err != nil {
-		t.Fatalf("v2 window: %v", err)
-	}
-
-	cmd := w.Init()
-	if cmd != nil {
-		msg := cmd()
-		w.Update(msg)
-	}
-
-	w.Update(tea.WindowSizeMsg{Width: width, Height: 24})
-
-	if focusRight {
-		w.Update(tea.KeyMsg{Type: tea.KeyRight})
-	}
-
-	return w.View()
-}
 
 func TestMainViewParity_LeftFocus(t *testing.T) {
 	svc := buildService(t)
@@ -294,7 +207,9 @@ func TestForm_EditProject_ViewParity(t *testing.T) {
 	seq := []tea.Msg{tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}}}
 	v1s := normalize(renderV1Msgs(t, svc, 49, seq...))
 	v2s := normalize(renderV2Msgs(t, svc, 49, seq...))
-	if v1s != v2s { t.Fatalf("edit project form view differs\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s) }
+	if v1s != v2s {
+		t.Fatalf("edit project form view differs\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
 }
 
 func TestForm_CreateProject_ViewParity_Width60(t *testing.T) {
@@ -438,7 +353,9 @@ func TestForm_CreateProject_TypingUpdatesPath_Parity(t *testing.T) {
 	}
 	v1s := normalize(renderV1Msgs(t, svc, 49, append(open, typing...)...))
 	v2s := normalize(renderV2Msgs(t, svc, 49, append(open, typing...)...))
-	if v1s != v2s { t.Fatalf("typing in name should update path placeholder equally\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s) }
+	if v1s != v2s {
+		t.Fatalf("typing in name should update path placeholder equally\n--- v1 ---\n%s\n--- v2 ---\n%s", v1s, v2s)
+	}
 }
 
 func TestForm_AddEnv_CtrlS(t *testing.T) {
@@ -529,9 +446,9 @@ func TestParity_EnvListUpdatesOnProjectChange(t *testing.T) {
 	svc := buildService(t)
 	seq := []tea.Msg{
 		tea.KeyMsg{Type: tea.KeyRight},
-		tea.KeyMsg{Type: tea.KeyDown}, // focus pre
-		tea.KeyMsg{Type: tea.KeyLeft}, // back to projects
-		tea.KeyMsg{Type: tea.KeyDown}, // move to Mahou (no envs)
+		tea.KeyMsg{Type: tea.KeyDown},  // focus pre
+		tea.KeyMsg{Type: tea.KeyLeft},  // back to projects
+		tea.KeyMsg{Type: tea.KeyDown},  // move to Mahou (no envs)
 		tea.KeyMsg{Type: tea.KeyRight}, // focus envs
 		tea.KeyMsg{Type: tea.KeyLeft},
 		tea.KeyMsg{Type: tea.KeyDown}, // Accenture (no envs)
@@ -604,24 +521,48 @@ func TestStyled_FormButtons_LinePresent(t *testing.T) {
 func TestTheme_AppliesAcrossViews_Parity(t *testing.T) {
 	svc := buildService(t)
 	w1, err1 := v1.NewWindow(svc.(*services.ProjectService), v1.Options{Theme: "dracula"})
-	if err1 != nil { t.Fatalf("new v1 window: %v", err1) }
+	if err1 != nil {
+		t.Fatalf("new v1 window: %v", err1)
+	}
 	w2, err2 := v2.NewWindow(svc.(*services.ProjectService), v2.Options{Theme: "dracula"})
-	if err2 != nil { t.Fatalf("new v2 window: %v", err2) }
+	if err2 != nil {
+		t.Fatalf("new v2 window: %v", err2)
+	}
 	// size
-	if _, cmd := w1.Update(tea.WindowSizeMsg{Width: 49, Height: 24}); cmd != nil { if m := cmd(); m != nil { w1.Update(m) } }
-	if _, cmd := w2.Update(tea.WindowSizeMsg{Width: 49, Height: 24}); cmd != nil { if m := cmd(); m != nil { w2.Update(m) } }
+	if _, cmd := w1.Update(tea.WindowSizeMsg{Width: 49, Height: 24}); cmd != nil {
+		if m := cmd(); m != nil {
+			w1.Update(m)
+		}
+	}
+	if _, cmd := w2.Update(tea.WindowSizeMsg{Width: 49, Height: 24}); cmd != nil {
+		if m := cmd(); m != nil {
+			w2.Update(m)
+		}
+	}
 	mv1 := normalize(w1.View())
 	mv2 := normalize(w2.View())
-	if mv1 != mv2 { t.Fatalf("theme parity mismatch on main\n--- v1 ---\n%s\n--- v2 ---\n%s", mv1, mv2) }
+	if mv1 != mv2 {
+		t.Fatalf("theme parity mismatch on main\n--- v1 ---\n%s\n--- v2 ---\n%s", mv1, mv2)
+	}
 	// open New project form (process returned cmds)
 	seq := []tea.Msg{tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyEnter}}
 	for _, m := range seq {
-		if _, cmd := w1.Update(m); cmd != nil { if mm := cmd(); mm != nil { w1.Update(mm) } }
-		if _, cmd := w2.Update(m); cmd != nil { if mm := cmd(); mm != nil { w2.Update(mm) } }
+		if _, cmd := w1.Update(m); cmd != nil {
+			if mm := cmd(); mm != nil {
+				w1.Update(mm)
+			}
+		}
+		if _, cmd := w2.Update(m); cmd != nil {
+			if mm := cmd(); mm != nil {
+				w2.Update(mm)
+			}
+		}
 	}
 	fv1 := normalize(w1.View())
 	fv2 := normalize(w2.View())
-	if fv1 != fv2 { t.Fatalf("theme parity mismatch on form\n--- v1 ---\n%s\n--- v2 ---\n%s", fv1, fv2) }
+	if fv1 != fv2 {
+		t.Fatalf("theme parity mismatch on form\n--- v1 ---\n%s\n--- v2 ---\n%s", fv1, fv2)
+	}
 }
 
 func TestEnvForm_Navigation_TabShiftEnter_Parity(t *testing.T) {

@@ -65,5 +65,12 @@ generate:
 	go generate ./...
 
 .PHONY: test
-test:
-	go test ./... -v
+test: unit integration
+
+.PHONY: unit
+unit:
+	go  test ./tests/... -v -tags unit
+
+.PHONY: integration
+integration:
+	go  test ./tests/... -v -tags integration

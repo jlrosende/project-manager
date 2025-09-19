@@ -17,6 +17,9 @@ type EnvFormView struct {
 	Color        components.Input
 	Mode         components.Input
 	EnvVars      components.TextArea
+	SaveBtn      components.Button
+	Cancel       components.Button
+	Buttons      components.ButtonGroup
 	Title        lipgloss.Style
 	Item         lipgloss.Style
 	BtnPri       lipgloss.Style
@@ -31,12 +34,19 @@ func NewEnvFormView(orig, name, color, mode, envRaw string, title, item, btnPri,
 		Name:         components.NewInput("Env name*", "staging", name, item, item),
 		Color:        components.NewInput("Color (name/#hex/0-255)", "teal", color, item, item),
 		Mode:         components.NewInput("Env vars mode* (merge/replace)", "merge", mode, item, item),
-		EnvVars:      components.NewTextArea("# One per line (like .env)\nAPI_URL=https://api.example.com\nLOG_LEVEL=info\n# comments allowed", envRaw, item, item),
-		Title:        title,
-		Item:         item,
-		BtnPri:       btnPri,
-		BtnSec:       btnSec,
-		Focused:      0,
+		EnvVars: components.NewTextArea(
+			"# One per line (like .env)\nAPI_URL=https://api.example.com\nLOG_LEVEL=info\n# comments allowed",
+			envRaw,
+			item,
+			item,
+		),
+		SaveBtn: components.NewButton("Save", components.Primary, btnPri, btnPri.Bold(true).Underline(true), item),
+		Cancel:  components.NewButton("Cancel", components.Secondary, btnSec, btnSec.Bold(true).Underline(true), item),
+		Title:   title,
+		Item:    item,
+		BtnPri:  btnPri,
+		BtnSec:  btnSec,
+		Focused: 0,
 	}
 
 	v.Name.SetWidth(60)
@@ -44,12 +54,15 @@ func NewEnvFormView(orig, name, color, mode, envRaw string, title, item, btnPri,
 	v.Mode.SetWidth(60)
 	v.EnvVars.SetHeight(6)
 	v.EnvVars.SetWidth(70)
+	v.Buttons = components.NewButtonGroup([]components.Button{v.SaveBtn, v.Cancel})
+	v.Buttons.Active = false
 	v.Name.Focus()
 
 	if strings.TrimSpace(orig) == "" {
 		if strings.TrimSpace(v.Color.Value()) == "" {
 			v.Color.SetValue("grey")
 		}
+
 		if strings.TrimSpace(v.Mode.Value()) == "" {
 			v.Mode.SetValue("merge")
 		}
@@ -64,31 +77,86 @@ func (v *EnvFormView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m := msg.(type) {
 	case components.ButtonPressedMsg:
 		if m.Label == "Save" {
-			return v, func() tea.Msg {
-				return state.SaveEnvFormMsg{
-					OriginalName: v.OriginalName,
-					Name:         strings.TrimSpace(v.Name.Value()),
-					Color:        strings.TrimSpace(v.Color.Value()),
-					Mode:         strings.TrimSpace(v.Mode.Value()),
-					EnvVarsRaw:   v.EnvVars.Value(),
-				}
-			}
-		}
-	case tea.KeyMsg:
-		s := m.String()
-		switch s {
-		case "ctrl+s":
 			v.Err = ""
 			name := strings.TrimSpace(v.Name.Value())
+
 			mode := strings.TrimSpace(v.Mode.Value())
 			if name == "" {
 				v.Err = "name is required"
 				return v, nil
 			}
+
 			if mode != domain.EnvVarsModeMerge && mode != domain.EnvVarsModeReplace {
 				v.Err = "mode must be merge or replace"
 				return v, nil
 			}
+
+			return v, func() tea.Msg {
+				return state.SaveEnvFormMsg{
+					OriginalName: v.OriginalName,
+					Name:         name,
+					Color:        strings.TrimSpace(v.Color.Value()),
+					Mode:         mode,
+					EnvVarsRaw:   v.EnvVars.Value(),
+				}
+			}
+		}
+
+		if m.Label == "Cancel" {
+			return v, func() tea.Msg { return state.CancelMsg{} }
+		}
+	case components.ButtonChosenMsg:
+		if m.Label == "Save" {
+			v.Err = ""
+			name := strings.TrimSpace(v.Name.Value())
+
+			mode := strings.TrimSpace(v.Mode.Value())
+			if name == "" {
+				v.Err = "name is required"
+				return v, nil
+			}
+
+			if mode != domain.EnvVarsModeMerge && mode != domain.EnvVarsModeReplace {
+				v.Err = "mode must be merge or replace"
+				return v, nil
+			}
+
+			return v, func() tea.Msg {
+				return state.SaveEnvFormMsg{
+					OriginalName: v.OriginalName,
+					Name:         name,
+					Color:        strings.TrimSpace(v.Color.Value()),
+					Mode:         mode,
+					EnvVarsRaw:   v.EnvVars.Value(),
+				}
+			}
+		}
+
+		if m.Label == "Cancel" {
+			return v, func() tea.Msg { return state.CancelMsg{} }
+		}
+	case tea.KeyMsg:
+		if cmd, ok := handleButtonGroupNav(4, 5, &v.Focused, &v.Buttons, m); ok {
+			return v, cmd
+		}
+
+		s := m.String()
+		switch s {
+		case "ctrl+s":
+			v.Err = ""
+			name := strings.TrimSpace(v.Name.Value())
+
+			mode := strings.TrimSpace(v.Mode.Value())
+			if name == "" {
+				v.Err = "name is required"
+				return v, nil
+			}
+
+			if mode != domain.EnvVarsModeMerge && mode != domain.EnvVarsModeReplace {
+				v.Err = "mode must be merge or replace"
+				return v, nil
+			}
+
 			return v, func() tea.Msg {
 				return state.SaveEnvFormMsg{
 					OriginalName: v.OriginalName,
@@ -101,73 +169,17 @@ func (v *EnvFormView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "tab":
 			v.Focused = (v.Focused + 1) % 6
 			v.blurAll()
+			v.Buttons.Active = v.Focused >= 4
 			v.focusCurrent()
+
 			return v, nil
 		case "shift+tab":
 			v.Focused = (v.Focused + 5) % 6
 			v.blurAll()
+			v.Buttons.Active = v.Focused >= 4
 			v.focusCurrent()
+
 			return v, nil
-		case "enter":
-			if v.Focused < 3 {
-				v.Focused = (v.Focused + 1) % 6
-				v.blurAll()
-				v.focusCurrent()
-				return v, nil
-			}
-			if v.Focused == 4 {
-				v.Err = ""
-				name := strings.TrimSpace(v.Name.Value())
-				mode := strings.TrimSpace(v.Mode.Value())
-				if name == "" {
-					v.Err = "name is required"
-					return v, nil
-				}
-				if mode != domain.EnvVarsModeMerge && mode != domain.EnvVarsModeReplace {
-					v.Err = "mode must be merge or replace"
-					return v, nil
-				}
-				return v, func() tea.Msg {
-					return state.SaveEnvFormMsg{
-						OriginalName: v.OriginalName,
-						Name:         name,
-						Color:        strings.TrimSpace(v.Color.Value()),
-						Mode:         mode,
-						EnvVarsRaw:   v.EnvVars.Value(),
-					}
-				}
-			}
-			if v.Focused == 5 {
-				return v, func() tea.Msg { return state.CancelMsg{} }
-			}
-		case "up":
-			if v.Focused != 3 {
-				v.Focused = (v.Focused + 5) % 6
-				v.blurAll()
-				v.focusCurrent()
-				return v, nil
-			}
-		case "down":
-			if v.Focused != 3 {
-				v.Focused = (v.Focused + 1) % 6
-				v.blurAll()
-				v.focusCurrent()
-				return v, nil
-			}
-		case "left":
-			if v.Focused == 5 {
-				v.Focused = 4
-				v.blurAll()
-				v.focusCurrent()
-				return v, nil
-			}
-		case "right":
-			if v.Focused == 4 {
-				v.Focused = 5
-				v.blurAll()
-				v.focusCurrent()
-				return v, nil
-			}
 		}
 	}
 
@@ -200,11 +212,13 @@ func (v *EnvFormView) View() string {
 	{
 		p := lipgloss.NewStyle()
 		val := lipgloss.NewStyle().Foreground(lipgloss.Color("#D8DEE9"))
+
 		v.Name.SetPrompt(p.Render("Env name*") + p.Render(": "))
 		v.Name.SetPromptStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#81A1C1")))
 		v.Name.SetPlaceholderStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#7C818C")))
 		v.Name.SetTextStyle(val)
 	}
+
 	b.WriteString(v.Name.View())
 	b.WriteString("\n")
 	{
@@ -215,36 +229,34 @@ func (v *EnvFormView) View() string {
 		v.Color.SetPlaceholderStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#7C818C")))
 		v.Color.SetTextStyle(val)
 	}
+
 	b.WriteString(v.Color.View())
 	b.WriteString("\n\n")
-	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#81A1C1")).Bold(true).Render("Variables"))
-	b.WriteString("\n")
-	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#7C818C")).Render("One KEY=VALUE per line; '#' comments allowed"))
+	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#81A1C1")).Bold(true).Render("Environment variables"))
 	b.WriteString("\n")
 	{
 		p := lipgloss.NewStyle()
 		val := lipgloss.NewStyle().Foreground(lipgloss.Color("#D8DEE9"))
+
 		v.Mode.SetPrompt(p.Render("Env vars mode* (merge/replace): "))
 		v.Mode.SetPromptStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#81A1C1")))
 		v.Mode.SetPlaceholderStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#7C818C")))
 		v.Mode.SetTextStyle(val)
 	}
+
 	b.WriteString(v.Mode.View())
+	b.WriteString("\n")
+	b.WriteString(
+		lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#7C818C")).
+			Render("One KEY=VALUE per line; '#' comments allowed"),
+	)
 	b.WriteString("\n")
 	b.WriteString(v.EnvVars.View())
 	b.WriteString("\n\n")
-	saveStyle := v.BtnSec
-	cancelStyle := v.BtnSec
-	if v.Focused == 4 {
-		saveStyle = v.BtnPri
-	}
-	if v.Focused == 5 {
-		cancelStyle = v.BtnPri
-	}
-	btnSave := saveStyle.Render(" Save ")
-	btnCancel := cancelStyle.Render(" Cancel ")
-	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Left, btnSave, "   ", btnCancel))
+	b.WriteString(v.Buttons.View())
 	b.WriteString("\n\n")
+
 	if strings.TrimSpace(v.Err) != "" {
 		b.WriteString(v.Err)
 	}
@@ -269,5 +281,9 @@ func (v *EnvFormView) focusCurrent() {
 		v.Mode.Focus()
 	case 3:
 		v.EnvVars.Focus()
+	case 4:
+		v.Buttons.Cursor = 0
+	case 5:
+		v.Buttons.Cursor = 1
 	}
 }

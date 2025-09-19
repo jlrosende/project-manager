@@ -10,6 +10,9 @@ type ButtonVariant int
 const (
 	Primary ButtonVariant = iota
 	Secondary
+	Success
+	Info
+	Warning
 	Danger
 )
 
@@ -18,13 +21,31 @@ type Button struct {
 	Variant       ButtonVariant
 	Disabled      bool
 	style         lipgloss.Style
+	styleFocused  lipgloss.Style
 	styleDisabled lipgloss.Style
+}
+
+func (b Button) Render(focused bool) string {
+	if b.Disabled {
+		return b.styleDisabled.Render(b.Label)
+	}
+
+	if focused {
+		return b.styleFocused.Render(b.Label)
+	}
+
+	return b.style.Render(b.Label)
 }
 
 type ButtonPressedMsg struct{ Label string }
 
-func NewButton(label string, v ButtonVariant, s, sd lipgloss.Style) Button {
-	return Button{Label: label, Variant: v, style: s, styleDisabled: sd}
+func NewButton(label string, v ButtonVariant, s, sf, sd lipgloss.Style) Button {
+	// Ensure minimum horizontal padding for better size/visibility
+	s = s.Padding(0, 2)
+	sf = sf.Padding(0, 2)
+	sd = sd.Padding(0, 2)
+
+	return Button{Label: label, Variant: v, style: s, styleFocused: sf, styleDisabled: sd}
 }
 
 func (b Button) Init() tea.Cmd { return nil }
