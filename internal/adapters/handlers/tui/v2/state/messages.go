@@ -29,6 +29,7 @@ type SaveProjectMsg struct {
 	GitSigningKey string
 	CommitGPGSign string
 	TagGPGSign    string
+	EnvVarsFile   string
 	EnvVarsRaw    string
 }
 
@@ -51,6 +52,7 @@ type SaveEnvFormMsg struct {
 	Name         string
 	Color        string
 	Mode         string
+	EnvVarsFile  string
 	EnvVarsRaw   string
 }
 

@@ -92,11 +92,21 @@ func run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// convert map[string]string to domain.EnvVars
+	dv := domain.EnvVars{}
+	for k, v := range envVars {
+		dv[k] = v
+	}
+
+	// default env vars file
+	envFile := ".env"
+
 	_, err = svc.Create(
 		name,
 		path,
 		subproject,
-		envVars,
+		envFile,
+		dv,
 		domain.New(
 			domain.WithName(gitUserName),
 			domain.WithEmail(gitUserEmail),

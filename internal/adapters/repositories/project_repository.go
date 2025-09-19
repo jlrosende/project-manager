@@ -111,7 +111,7 @@ NOTE: future work
   - If .project.hcl exist
 */
 func (p *ProjectRepository) Create(
-	name, path, subproject string,
+	name, path, subproject, envFile string,
 	envVars domain.EnvVars,
 	gitConfig *domain.GitConfig,
 ) (*domain.Project, error) {
@@ -223,10 +223,18 @@ func (p *ProjectRepository) Create(
 		return nil, err
 	}
 
-	// .env file with env_vars
-	envPath := filepath.Join(path, ".env")
+	// env file with env_vars
+	if strings.TrimSpace(envFile) == "" {
+		envFile = ".env"
+	}
+
+	envPath := envFile
+	if !filepath.IsAbs(envFile) {
+		envPath = filepath.Join(path, envFile)
+	}
+
 	if _, err = os.Stat(envPath); !os.IsNotExist(err) {
-		return nil, fmt.Errorf("%s already exists in directory %s", envPath, path)
+		return nil, fmt.Errorf("%s already exists in directory %s", filepath.Base(envPath), filepath.Dir(envPath))
 	}
 
 	fpEnv, err := os.OpenFile(envPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o644)
@@ -255,7 +263,7 @@ func (p *ProjectRepository) Create(
 
 	defer fpProj.Close()
 
-	projectHCL := fmt.Sprintf("name = \"%s\"\n\ndescription = \"\"\n\nenv_vars_file = \".env\"\n", name)
+	projectHCL := fmt.Sprintf("name = \"%s\"\n\ndescription = \"\"\n\nenv_vars_file = \"%s\"\n", name, envFile)
 	if _, err := fpProj.WriteString(projectHCL); err != nil {
 		return nil, err
 	}
@@ -264,7 +272,7 @@ func (p *ProjectRepository) Create(
 		Name:        name,
 		Description: "",
 		Path:        path,
-		EnvVarsFile: ".env",
+		EnvVarsFile: envFile,
 	}, nil
 }
 
@@ -349,20 +357,20 @@ func (p *ProjectRepository) UpdateEnvironment(projectName, originalEnvName strin
 	}
 
 	idx := -1
-
 	for i, e := range project.Environments {
 		if e.Name == originalEnvName {
 			idx = i
 			break
 		}
 	}
-
 	if idx == -1 {
 		return fmt.Errorf("environment %s not found", originalEnvName)
 	}
 
-	project.Environments[idx].Name = env.Name
+	old := project.Environments[idx]
 
+	// Update basic fields
+	project.Environments[idx].Name = env.Name
 	project.Environments[idx].Color = env.Color
 	if env.EnvVarsMode == "" {
 		project.Environments[idx].EnvVarsMode = domain.EnvVarsModeMerge
@@ -370,7 +378,31 @@ func (p *ProjectRepository) UpdateEnvironment(projectName, originalEnvName strin
 		project.Environments[idx].EnvVarsMode = env.EnvVarsMode
 	}
 
-	if env.EnvVarsFile != "" {
+	// Handle env file rename if filename changed
+	if strings.TrimSpace(env.EnvVarsFile) != "" && env.EnvVarsFile != old.EnvVarsFile {
+		oldPath := old.EnvVarsFile
+		newPath := env.EnvVarsFile
+
+		projPath := project.Path
+		if strings.HasPrefix(projPath, "~/") {
+			h, _ := os.UserHomeDir()
+			projPath = filepath.Join(h, projPath[2:])
+		}
+
+		if !filepath.IsAbs(oldPath) {
+			oldPath = filepath.Join(projPath, oldPath)
+		}
+		if !filepath.IsAbs(newPath) {
+			newPath = filepath.Join(projPath, newPath)
+		}
+
+		_ = os.MkdirAll(filepath.Dir(newPath), 0o755)
+		if _, err := os.Stat(oldPath); err == nil {
+			if _, err := os.Stat(newPath); os.IsNotExist(err) {
+				_ = os.Rename(oldPath, newPath)
+			}
+		}
+
 		project.Environments[idx].EnvVarsFile = env.EnvVarsFile
 	}
 
@@ -398,9 +430,14 @@ func (p *ProjectRepository) AddEnvironment(projectName string, env *domain.Envir
 		project.Path = filepath.Join(h, project.Path[2:])
 	}
 
-	envFile := env.EnvVarsFile
+	envFile := strings.TrimSpace(env.EnvVarsFile)
 	if envFile == "" {
-		envFile = ".env." + env.Name
+		slug := strings.ToLower(strings.TrimSpace(strings.ReplaceAll(env.Name, " ", "-")))
+		if slug != "" {
+			envFile = "." + slug + ".env"
+		} else {
+			envFile = ".env"
+		}
 	}
 
 	envPath := envFile

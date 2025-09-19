@@ -84,11 +84,11 @@ func (svc *ProjectService) List() ([]*domain.Project, error) {
 }
 
 func (svc *ProjectService) Create(
-	name, path, subproject string,
+	name, path, subproject, envFile string,
 	envVars domain.EnvVars,
 	gitConfig *domain.GitConfig,
 ) (*domain.Project, error) {
-	return svc.project.Create(name, path, subproject, envVars, gitConfig)
+	return svc.project.Create(name, path, subproject, envFile, envVars, gitConfig)
 }
 
 func (svc *ProjectService) AddEnvironment(projectName string, env *domain.Environment, envVars domain.EnvVars) error {

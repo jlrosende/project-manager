@@ -112,10 +112,12 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, tea.ClearScreen
 				}
 
+				envFile := ".env"
 				proj, _ := m.projectSvc.Create(
 					name,
 					path,
 					f.subproject.Value(),
+					envFile,
 					envs,
 					domain.New(
 						domain.WithName(strings.TrimSpace(f.userName.Value())),

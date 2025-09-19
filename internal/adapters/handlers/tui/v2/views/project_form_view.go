@@ -20,6 +20,7 @@ const (
 	idxUserSigningKey
 	idxCommitGPGSign
 	idxTagGPGSign
+	idxEnvFile
 	idxEnvVars
 	idxBtnSave
 	idxBtnCancel
@@ -94,6 +95,59 @@ func WithProjectFormAccent(s lipgloss.Style) ProjectFormViewStyleOption {
 	return func(ps *ProjectFormViewStyles) { ps.Accent = s }
 }
 
+type ProjectFormInit struct {
+	OriginalName   string
+	Name           string
+	Path           string
+	Subproject     string
+	Shell          string
+	GitUserName    string
+	GitUserEmail   string
+	GitSigningKey  string
+	CommitGPGSign  string
+	TagGPGSign     string
+	EnvVarsFile    string
+	EnvVarsRaw     string
+}
+
+func NewProjectFormViewWith(init ProjectFormInit, styles ProjectFormViewStyles) ProjectFormView {
+	v := NewProjectFormView(init.Name, init.Path, styles)
+
+	if strings.TrimSpace(init.Subproject) != "" {
+		v.Subproject.SetValue(init.Subproject)
+	}
+	if strings.TrimSpace(init.Shell) != "" {
+		v.Shell.SetValue(init.Shell)
+	}
+	if strings.TrimSpace(init.GitUserName) != "" {
+		v.UserName.SetValue(init.GitUserName)
+	}
+	if strings.TrimSpace(init.GitUserEmail) != "" {
+		v.UserEmail.SetValue(init.GitUserEmail)
+	}
+	if strings.TrimSpace(init.GitSigningKey) != "" {
+		v.UserSigningKey.SetValue(init.GitSigningKey)
+	}
+	if strings.TrimSpace(init.CommitGPGSign) != "" {
+		v.CommitGPGSign.SetValue(init.CommitGPGSign)
+	}
+	if strings.TrimSpace(init.TagGPGSign) != "" {
+		v.TagGPGSign.SetValue(init.TagGPGSign)
+	}
+	if strings.TrimSpace(init.EnvVarsFile) != "" {
+		v.EnvFile.SetValue(init.EnvVarsFile)
+	}
+	if strings.TrimSpace(init.EnvVarsRaw) != "" {
+		v.EnvVars.SetValue(init.EnvVarsRaw)
+	}
+	if strings.TrimSpace(init.OriginalName) != "" {
+		v.IsEdit = true
+		v.OriginalName = init.OriginalName
+	}
+
+	return v
+}
+
 type ProjectFormView struct {
 	OriginalName   string
 	Name           components.Input
@@ -105,6 +159,7 @@ type ProjectFormView struct {
 	UserSigningKey components.Input
 	CommitGPGSign  components.Input
 	TagGPGSign     components.Input
+	EnvFile        components.Input
 	EnvVars        components.TextArea
 	SaveBtn        components.Button
 	Cancel         components.Button
@@ -146,6 +201,7 @@ func NewProjectFormView(
 			styles.Input,
 			styles.InputVal,
 		),
+		EnvFile: components.NewInput("Env vars file", ".env", ".env", styles.Input, styles.InputVal),
 		EnvVars: components.NewTextArea(
 			"# One per line (like .env)\nAPP_ENV=development\nDATABASE_URL=postgres://user:pass@localhost:5432/app\n# comments allowed",
 			"",
@@ -187,6 +243,7 @@ func NewProjectFormView(
 	v.UserSigningKey.SetWidth(40)
 	v.CommitGPGSign.SetWidth(40)
 	v.TagGPGSign.SetWidth(40)
+	v.EnvFile.SetWidth(40)
 	v.EnvVars.SetHeight(6)
 	v.EnvVars.SetWidth(60)
 
@@ -226,6 +283,7 @@ func (v ProjectFormView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					GitSigningKey: v.UserSigningKey.Value(),
 					CommitGPGSign: v.CommitGPGSign.Value(),
 					TagGPGSign:    v.TagGPGSign.Value(),
+					EnvVarsFile:   v.EnvFile.Value(),
 					EnvVarsRaw:    v.EnvVars.Value(),
 				}
 			}
@@ -305,6 +363,7 @@ func (v ProjectFormView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					GitSigningKey: v.UserSigningKey.Value(),
 					CommitGPGSign: v.CommitGPGSign.Value(),
 					TagGPGSign:    v.TagGPGSign.Value(),
+					EnvVarsFile:   v.EnvFile.Value(),
 					EnvVarsRaw:    v.EnvVars.Value(),
 				}
 			}
@@ -326,6 +385,7 @@ func (v ProjectFormView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					GitSigningKey: v.UserSigningKey.Value(),
 					CommitGPGSign: v.CommitGPGSign.Value(),
 					TagGPGSign:    v.TagGPGSign.Value(),
+					EnvVarsFile:   v.EnvFile.Value(),
 					EnvVarsRaw:    v.EnvVars.Value(),
 				}
 			}
@@ -374,10 +434,12 @@ func (v ProjectFormView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	v.CommitGPGSign = cg
 	tg, tgcmd := v.TagGPGSign.Update(msg)
 	v.TagGPGSign = tg
+	envf, envfcmd := v.EnvFile.Update(msg)
+	v.EnvFile = envf
 	e, ecmd := v.EnvVars.Update(msg)
 	v.EnvVars = e
 
-	return v, tea.Batch(ncmd, pcmd, scmd, shcmd, ucmd, uemcmd, ukcmd, cgcmd, tgcmd, ecmd)
+	return v, tea.Batch(ncmd, pcmd, scmd, shcmd, envfcmd, ucmd, uemcmd, ukcmd, cgcmd, tgcmd, ecmd)
 }
 
 func handleButtonGroupNav(base, last int, focused *int, g *components.ButtonGroup, k tea.KeyMsg) (tea.Cmd, bool) {
@@ -432,6 +494,7 @@ func (v *ProjectFormView) blurAll() {
 	v.UserSigningKey.Blur()
 	v.CommitGPGSign.Blur()
 	v.TagGPGSign.Blur()
+	v.EnvFile.Blur()
 	v.EnvVars.Blur()
 }
 
@@ -457,6 +520,8 @@ func (v *ProjectFormView) focusCurrent() {
 		v.CommitGPGSign.Focus()
 	case idxTagGPGSign:
 		v.TagGPGSign.Focus()
+	case idxEnvFile:
+		v.EnvFile.Focus()
 	case idxEnvVars:
 		v.EnvVars.Focus()
 	}
@@ -604,6 +669,16 @@ func (v ProjectFormView) View() string {
 	b.WriteString(v.TagGPGSign.View())
 	b.WriteString("\n\n")
 	b.WriteString(v.Section.Bold(true).Render("Environment variables"))
+	b.WriteString("\n")
+	{
+		p := v.Section
+		val := v.InputVal
+		v.EnvFile.SetPrompt(p.Render("Env vars file: "))
+		v.EnvFile.SetPromptStyle(v.Section)
+		v.EnvFile.SetPlaceholderStyle(v.Subtext)
+		v.EnvFile.SetTextStyle(val)
+	}
+	b.WriteString(v.EnvFile.View())
 	b.WriteString("\n")
 	b.WriteString(v.Subtext.Render("One KEY=VALUE per line; '#' comments allowed"))
 	b.WriteString("\n")

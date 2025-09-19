@@ -27,7 +27,7 @@ func NewInput(label, placeholder, value string, s, vs lipgloss.Style) Input {
 	ti := bti.New()
 	ti.Prompt = s.Render(label + ": ")
 	ti.PromptStyle = lipgloss.NewStyle()
-	ti.PlaceholderStyle = vs
+	ti.PlaceholderStyle = s
 	ti.TextStyle = vs
 	ti.Placeholder = placeholder
 	ti.SetValue(value)

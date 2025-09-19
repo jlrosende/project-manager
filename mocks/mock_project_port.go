@@ -55,18 +55,18 @@ func (mr *MockProjectServiceMockRecorder) AddEnvironment(projectName, env, envVa
 }
 
 // Create mocks base method.
-func (m *MockProjectService) Create(name, path, subproject string, envVars domain.EnvVars, git *domain.GitConfig) (*domain.Project, error) {
+func (m *MockProjectService) Create(name, path, subproject, envFile string, envVars domain.EnvVars, git *domain.GitConfig) (*domain.Project, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Create", name, path, subproject, envVars, git)
+	ret := m.ctrl.Call(m, "Create", name, path, subproject, envFile, envVars, git)
 	ret0, _ := ret[0].(*domain.Project)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Create indicates an expected call of Create.
-func (mr *MockProjectServiceMockRecorder) Create(name, path, subproject, envVars, git any) *gomock.Call {
+func (mr *MockProjectServiceMockRecorder) Create(name, path, subproject, envFile, envVars, git any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockProjectService)(nil).Create), name, path, subproject, envVars, git)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockProjectService)(nil).Create), name, path, subproject, envFile, envVars, git)
 }
 
 // Delete mocks base method.
@@ -180,18 +180,18 @@ func (mr *MockProjectRepositoryMockRecorder) AddEnvironment(projectName, env, en
 }
 
 // Create mocks base method.
-func (m *MockProjectRepository) Create(name, path, subproject string, envVars domain.EnvVars, git *domain.GitConfig) (*domain.Project, error) {
+func (m *MockProjectRepository) Create(name, path, subproject, envFile string, envVars domain.EnvVars, git *domain.GitConfig) (*domain.Project, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Create", name, path, subproject, envVars, git)
+	ret := m.ctrl.Call(m, "Create", name, path, subproject, envFile, envVars, git)
 	ret0, _ := ret[0].(*domain.Project)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Create indicates an expected call of Create.
-func (mr *MockProjectRepositoryMockRecorder) Create(name, path, subproject, envVars, git any) *gomock.Call {
+func (mr *MockProjectRepositoryMockRecorder) Create(name, path, subproject, envFile, envVars, git any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockProjectRepository)(nil).Create), name, path, subproject, envVars, git)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockProjectRepository)(nil).Create), name, path, subproject, envFile, envVars, git)
 }
 
 // Delete mocks base method.

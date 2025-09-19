@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -17,6 +18,7 @@ import (
 	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/v2/state"
 	stylespkg "github.com/jlrosende/project-manager/internal/adapters/handlers/tui/v2/styles"
 	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/v2/views"
+	"github.com/jlrosende/project-manager/internal/adapters/repositories"
 	"github.com/jlrosende/project-manager/internal/core/domain"
 	"github.com/jlrosende/project-manager/internal/core/services"
 )
@@ -259,7 +261,7 @@ func (m *Window) buildProjectFormStyles() views.ProjectFormViewStyles {
 		views.WithProjectFormSubtext(lipgloss.NewStyle().Foreground(lipgloss.Color(currentPalette["subtext"]))),
 		views.WithProjectFormAccent(lipgloss.NewStyle().Foreground(lipgloss.Color(currentPalette["error"]))),
 		views.WithProjectFormInput(m.cs.ListItem),
-		views.WithProjectFormInputVal(m.cs.ListItem),
+		views.WithProjectFormInputVal(lipgloss.NewStyle().Foreground(lipgloss.Color(currentPalette["text"]))),
 		views.WithProjectFormBtnPrimary(m.cs.ButtonPrimary),
 		views.WithProjectFormBtnSecondary(m.cs.ButtonSecondary),
 		views.WithProjectFormBtnPrimaryFocused(
@@ -269,6 +271,22 @@ func (m *Window) buildProjectFormStyles() views.ProjectFormViewStyles {
 			m.cs.ButtonSecondary.Background(lipgloss.Color(currentPalette["selectedBg"])),
 		),
 		views.WithProjectFormBtnDisabled(m.cs.ButtonDisabled),
+	)
+}
+
+func (m *Window) buildEnvFormStyles() views.EnvFormViewStyles {
+	return views.NewEnvFormViewStyles(
+		views.WithEnvFormTitle(m.theme.Title),
+		views.WithEnvFormItem(lipgloss.NewStyle().Foreground(lipgloss.Color(currentPalette["text"]))),
+		views.WithEnvFormSection(lipgloss.NewStyle().Foreground(lipgloss.Color(currentPalette["section"]))),
+		views.WithEnvFormSubtext(lipgloss.NewStyle().Foreground(lipgloss.Color(currentPalette["subtext"]))),
+		views.WithEnvFormBtnPrimary(m.cs.ButtonPrimary),
+		views.WithEnvFormBtnSecondary(m.cs.ButtonSecondary),
+		views.WithEnvFormBtnPrimaryFocused(
+			m.cs.ButtonPrimary.Background(lipgloss.Color(currentPalette["selectedBg"]))),
+		views.WithEnvFormBtnSecondaryFocused(
+			m.cs.ButtonSecondary.Background(lipgloss.Color(currentPalette["selectedBg"]))),
+		views.WithEnvFormBtnDisabled(m.cs.ButtonDisabled),
 	)
 }
 
@@ -518,16 +536,14 @@ func (m *Window) newProjectFlow() {
 }
 
 func (m *Window) newEnvironmentFlow(projectName string) {
+	styles := m.buildEnvFormStyles()
 	m.envForm = views.NewEnvFormView(
 		"",
 		"",
 		"",
 		"merge",
 		"",
-		m.theme.Title,
-		m.cs.ListItem,
-		m.cs.ButtonPrimary,
-		m.cs.ButtonSecondary,
+		styles,
 	)
 	m.envProjectName = projectName
 
@@ -680,17 +696,17 @@ func (m Window) View() string {
 
 								marker := "  "
 								if selected {
-									marker = lipgloss.NewStyle().Foreground(lipgloss.Color(e.Color)).Render("▌ ")
+									marker = lipgloss.NewStyle().Foreground(lipgloss.Color(normalizeColorInput(e.Color))).Render("▌ ")
 								}
 
 								var content string
 
 								if selected {
-									bullet := lipgloss.NewStyle().Foreground(lipgloss.Color(e.Color)).Render("● ")
+									bullet := lipgloss.NewStyle().Foreground(lipgloss.Color(normalizeColorInput(e.Color))).Render("● ")
 									name := lipgloss.NewStyle().Foreground(lipgloss.Color(currentPalette["selectedFg"])).Bold(true).Render(e.Name)
 									content = bullet + name
 								} else {
-									content = m.cs.ListItem.Foreground(lipgloss.Color(e.Color)).Render("● " + e.Name)
+									content = m.cs.ListItem.Foreground(lipgloss.Color(normalizeColorInput(e.Color))).Render("● " + e.Name)
 								}
 
 								if p.DefaultEnv != "" && e.Name == p.DefaultEnv {
@@ -971,6 +987,7 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		sub := strings.TrimSpace(msg.Subproject)
+		envFile := strings.TrimSpace(msg.EnvVarsFile)
 
 		envs := domain.EnvVars{}
 		if strings.TrimSpace(msg.EnvVarsRaw) != "" {
@@ -1010,12 +1027,22 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.ClearScreen
 		}
 
-		_, _ = m.projectSvc.Create(name, path, sub, envs, gitCfg)
-		m.prompt = views.NewPostCreateView(name, m.theme.Title, m.cs.ListItem, m.cs.ListSelected, m.theme.Help)
+		_, _ = m.projectSvc.Create(name, path, sub, envFile, envs, gitCfg)
 
-		m.mode = 2
+		if projects, err := m.projectSvc.List(); err == nil {
+			m.projects = projects
+			m.total = len(projects) + 1
+		}
+
+		m.mode = 0
+		m.form = nil
+
 		if m.r != nil {
-			m.r.NavigateTo(router.RouteUpdateFlow, nil)
+			m.r.NavigateTo(router.RouteProjects, nil)
+		}
+
+		if m.projectsView != nil {
+			return m, tea.Batch(cmd, m.projectsView.Init())
 		}
 
 		return m, tea.ClearScreen
@@ -1066,7 +1093,54 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		projFormStyles := m.buildProjectFormStyles()
-		m.form = views.NewProjectFormView(project.Name, project.Path, projFormStyles)
+		// Build initial data for edit form
+		envRaw := ""
+		envPath := project.EnvVarsFile
+		if !filepath.IsAbs(envPath) {
+			envPath = filepath.Join(project.Path, envPath)
+		}
+		if b, err := os.ReadFile(envPath); err == nil {
+			envRaw = string(b)
+		} else {
+			pairs := project.EnvVars.ToSlice()
+			sort.Strings(pairs)
+			envRaw = strings.Join(pairs, "\n")
+		}
+
+		gName, gEmail, gKey := "", "", ""
+		gCommit, gTag := "", ""
+		if gitRepo, err := repositories.NewGitRepository(); err == nil {
+			gitSvc := services.NewGitService(gitRepo)
+			gitPath := filepath.Join(project.Path, fmt.Sprintf(".%s.gitconfig", project.Name))
+			if _, err := os.Stat(gitPath); os.IsNotExist(err) {
+				if matches, _ := filepath.Glob(filepath.Join(project.Path, ".*.gitconfig")); len(matches) > 0 {
+					gitPath = matches[0]
+				}
+			}
+			if gc, e := gitSvc.Load(gitPath); e == nil {
+				gName = gc.User.Name
+				gEmail = gc.User.Email
+				gKey = gc.User.SigningKey
+				if gc.Commit.GPGSign { gCommit = "true" } else { gCommit = "false" }
+				if gc.Tag.GPGSign { gTag = "true" } else { gTag = "false" }
+			}
+		}
+
+		init := views.ProjectFormInit{
+			OriginalName:  project.Name,
+			Name:          project.Name,
+			Path:          project.Path,
+			Shell:         project.Shell,
+			GitUserName:   gName,
+			GitUserEmail:  gEmail,
+			GitSigningKey: gKey,
+			CommitGPGSign: gCommit,
+			TagGPGSign:    gTag,
+			EnvVarsFile:   project.EnvVarsFile,
+			EnvVarsRaw:    envRaw,
+		}
+
+		m.form = views.NewProjectFormViewWith(init, projFormStyles)
 		m.mode = 1
 
 		if m.r != nil {
@@ -1109,7 +1183,7 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if proj != nil {
 				for _, e := range proj.Environments {
 					if e.Name == msg.Name {
-						m.envForm = views.NewEnvFormView(e.Name, e.Name, e.Color, e.EnvVarsMode, "", m.theme.Title, m.cs.ListItem, m.cs.ButtonPrimary, m.cs.ButtonSecondary)
+						m.envForm = views.NewEnvFormView(e.Name, e.Name, e.Color, e.EnvVarsMode, "", m.buildEnvFormStyles())
 						m.envProjectName = pname
 
 						envPath := e.EnvVarsFile
@@ -1128,6 +1202,10 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							if f, ok := m.envForm.(*views.EnvFormView); ok {
 								f.EnvVars.SetValue(strings.Join(pairs, "\n"))
 							}
+						}
+
+						if f, ok := m.envForm.(*views.EnvFormView); ok {
+							f.EnvFile.SetValue(e.EnvVarsFile)
 						}
 
 						m.mode = 3
@@ -1156,8 +1234,16 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		env := &domain.Environment{
 			Name:        strings.TrimSpace(msg.Name),
-			Color:       normalizeColorInput(strings.TrimSpace(msg.Color)),
+			Color:       strings.TrimSpace(msg.Color),
 			EnvVarsMode: strings.TrimSpace(msg.Mode),
+			EnvVarsFile: strings.TrimSpace(msg.EnvVarsFile),
+		}
+
+		if strings.TrimSpace(env.EnvVarsFile) == "" {
+			slug := strings.ToLower(strings.TrimSpace(strings.ReplaceAll(env.Name, " ", "-")))
+			if slug != "" {
+				env.EnvVarsFile = "." + slug + ".env"
+			}
 		}
 
 		envs := domain.EnvVars{}
@@ -1217,6 +1303,7 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.total = len(projects) + 1
 		}
 
+		m.envVarsView = nil
 		m.mode = 0
 		if m.r != nil {
 			m.r.NavigateTo(router.RouteProjects, nil)
