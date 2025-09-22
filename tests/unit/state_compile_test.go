@@ -8,8 +8,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/v2/router"
-	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/v2/state"
+	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/router"
+	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/state"
 )
 
 func TestMessagesCompile(_ *testing.T) {

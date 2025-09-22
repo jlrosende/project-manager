@@ -1,7 +1,6 @@
-package v2
+package tui
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -13,12 +12,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/v2/components"
-	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/v2/router"
-	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/v2/state"
-	stylespkg "github.com/jlrosende/project-manager/internal/adapters/handlers/tui/v2/styles"
-	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/v2/views"
-	"github.com/jlrosende/project-manager/internal/adapters/repositories"
+	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/components"
+	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/router"
+	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/state"
+	stylespkg "github.com/jlrosende/project-manager/internal/adapters/handlers/tui/styles"
+	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/views"
 	"github.com/jlrosende/project-manager/internal/core/domain"
 	"github.com/jlrosende/project-manager/internal/core/services"
 )
@@ -1007,12 +1005,51 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			domain.WithTagSign(tagEnable),
 		)
 
-		if f, ok := m.form.(*views.ProjectFormView); ok && f.IsEdit && strings.TrimSpace(f.OriginalName) != "" {
-			proj, _ := m.projectSvc.Load(f.OriginalName)
+		if fv, ok := m.form.(views.ProjectFormView); ok && fv.IsEdit && strings.TrimSpace(fv.OriginalName) != "" {
+			proj, _ := m.projectSvc.Load(fv.OriginalName)
 			if proj != nil {
 				proj.Name = name
-				proj.Shell = strings.TrimSpace(msg.Shell)
+				s := strings.TrimSpace(msg.Shell)
+				proj.Shell = s
+
+				if envFile != "" {
+					proj.EnvVarsFile = envFile
+				}
+
 				_ = m.projectSvc.UpdateProject(proj)
+
+				raw := strings.TrimSpace(msg.EnvVarsRaw)
+				if raw != "" {
+					p := proj.EnvVarsFile
+					if !filepath.IsAbs(p) {
+						p = filepath.Join(proj.Path, p)
+					}
+
+					lines := strings.Split(raw, "\n")
+					ok := true
+
+					for _, line := range lines {
+						l := strings.TrimSpace(line)
+						if l == "" || strings.HasPrefix(l, "#") {
+							continue
+						}
+
+						kv := strings.SplitN(l, "=", 2)
+						if len(kv) != 2 || strings.TrimSpace(kv[0]) == "" {
+							ok = false
+							break
+						}
+					}
+
+					if ok {
+						_ = os.WriteFile(p, []byte(raw), 0o600)
+					}
+				}
+			}
+
+			if projects, err := m.projectSvc.List(); err == nil {
+				m.projects = projects
+				m.total = len(projects) + 1
 			}
 
 			m.mode = 0
@@ -1027,7 +1064,7 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.ClearScreen
 		}
 
-		_, _ = m.projectSvc.Create(name, path, sub, envFile, envs, gitCfg)
+		_, _ = m.projectSvc.Create(name, path, sub, strings.TrimSpace(msg.Shell), envFile, envs, gitCfg)
 
 		if projects, err := m.projectSvc.List(); err == nil {
 			m.projects = projects
@@ -1095,10 +1132,12 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		projFormStyles := m.buildProjectFormStyles()
 		// Build initial data for edit form
 		envRaw := ""
+
 		envPath := project.EnvVarsFile
 		if !filepath.IsAbs(envPath) {
 			envPath = filepath.Join(project.Path, envPath)
 		}
+
 		if b, err := os.ReadFile(envPath); err == nil {
 			envRaw = string(b)
 		} else {
@@ -1109,22 +1148,6 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		gName, gEmail, gKey := "", "", ""
 		gCommit, gTag := "", ""
-		if gitRepo, err := repositories.NewGitRepository(); err == nil {
-			gitSvc := services.NewGitService(gitRepo)
-			gitPath := filepath.Join(project.Path, fmt.Sprintf(".%s.gitconfig", project.Name))
-			if _, err := os.Stat(gitPath); os.IsNotExist(err) {
-				if matches, _ := filepath.Glob(filepath.Join(project.Path, ".*.gitconfig")); len(matches) > 0 {
-					gitPath = matches[0]
-				}
-			}
-			if gc, e := gitSvc.Load(gitPath); e == nil {
-				gName = gc.User.Name
-				gEmail = gc.User.Email
-				gKey = gc.User.SigningKey
-				if gc.Commit.GPGSign { gCommit = "true" } else { gCommit = "false" }
-				if gc.Tag.GPGSign { gTag = "true" } else { gTag = "false" }
-			}
-		}
 
 		init := views.ProjectFormInit{
 			OriginalName:  project.Name,
@@ -1304,6 +1327,7 @@ func (m *Window) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		m.envVarsView = nil
+
 		m.mode = 0
 		if m.r != nil {
 			m.r.NavigateTo(router.RouteProjects, nil)

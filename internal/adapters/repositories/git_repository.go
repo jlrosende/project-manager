@@ -1,9 +1,8 @@
 package repositories
 
 import (
-	"fmt"
-	"log/slog"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/go-git/go-git/v5/config"
@@ -13,7 +12,8 @@ import (
 )
 
 type GitRepository struct {
-	git *config.Config
+	git    *config.Config
+	global *config.Config
 }
 
 var _ ports.GitRepository = (*GitRepository)(nil)
@@ -86,18 +86,69 @@ func (g *GitRepository) Save(path string, gitConfig *domain.GitConfig) error {
 
 	_, _ = os.Stat(path)
 
-	fp, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o644)
+	fp, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return err
 	}
 	defer fp.Close()
 
-	nBytes, err := fp.Write(newGitConf)
+	_, err = fp.Write(newGitConf)
 	if err != nil {
 		return err
 	}
 
-	slog.Debug(fmt.Sprintf("%d Bytes written in %s", nBytes, path))
+	return nil
+}
+
+func (g *GitRepository) LoadGlobal() error {
+	c, err := config.LoadConfig(config.GlobalScope)
+	if err != nil {
+		return err
+	}
+
+	g.global = c
 
 	return nil
+}
+
+func (g *GitRepository) UpdateIncludeIf(gitdir, perProjectPath, subproject string) error {
+	if g.global == nil {
+		if err := g.LoadGlobal(); err != nil {
+			return err
+		}
+	}
+
+	includeIf := g.global.Raw.Section("includeIf").Subsection(gitdir)
+	includeIf.SetOption("path", perProjectPath)
+
+	if subproject != "" {
+		includeIf.SetOption("subproject", subproject)
+	}
+
+	return nil
+}
+
+func (g *GitRepository) SaveGlobal(home string) error {
+	if g.global == nil {
+		if err := g.LoadGlobal(); err != nil {
+			return err
+		}
+	}
+
+	b, err := g.global.Marshal()
+	if err != nil {
+		return err
+	}
+
+	fp, err := os.OpenFile(filepath.Join(home, ".gitconfig"), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	defer fp.Close()
+
+	if _, err := fp.Write(b); err != nil {
+		return err
+	}
+
+	return g.global.Validate()
 }

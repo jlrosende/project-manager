@@ -10,8 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"go.uber.org/mock/gomock"
 
-	v1 "github.com/jlrosende/project-manager/internal/adapters/handlers/tui/v1"
-	v2 "github.com/jlrosende/project-manager/internal/adapters/handlers/tui/v2"
+	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui"
 	"github.com/jlrosende/project-manager/internal/core/domain"
 	"github.com/jlrosende/project-manager/internal/core/ports"
 	"github.com/jlrosende/project-manager/internal/core/services"
@@ -44,7 +43,14 @@ func buildService(t *testing.T) ports.ProjectService {
 	mockRepo.EXPECT().List().Return(projects, nil).AnyTimes()
 	mockRepo.EXPECT().AddEnvironment(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	mockRepo.EXPECT().UpdateEnvironment(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	mockRepo.EXPECT().UpdateProject(gomock.Any()).Return(nil).AnyTimes()
+	mockRepo.EXPECT().UpdateProject(gomock.Any()).DoAndReturn(func(p *domain.Project) error {
+		for _, pr := range projects {
+			if pr.Path == p.Path {
+				pr.Name = p.Name
+			}
+		}
+		return nil
+	}).AnyTimes()
 	mockEnv.EXPECT().Load(gomock.Any()).Return(domain.EnvVars{}, nil).AnyTimes()
 	mockGit.EXPECT().Load(gomock.Any()).Return(&domain.GitConfig{}, nil).AnyTimes()
 
@@ -60,27 +66,10 @@ func normalize(s string) string {
 	return strings.Join(lines, "\n")
 }
 
-func renderV1(t *testing.T, svc ports.ProjectService, width int, focusRight bool) string {
+func render(t *testing.T, svc ports.ProjectService, width int, focusRight bool) string {
 	t.Helper()
 
-	w, err := v1.NewWindow(svc.(*services.ProjectService), v1.Options{})
-	if err != nil {
-		t.Fatalf("v1 window: %v", err)
-	}
-
-	w.Update(tea.WindowSizeMsg{Width: width, Height: 24})
-
-	if focusRight {
-		w.Update(tea.KeyMsg{Type: tea.KeyRight})
-	}
-
-	return w.View()
-}
-
-func renderV2(t *testing.T, svc ports.ProjectService, width int, focusRight bool) string {
-	t.Helper()
-
-	w, err := v2.NewWindow(svc.(*services.ProjectService), v2.Options{})
+	w, err := tui.NewWindow(svc.(*services.ProjectService), tui.Options{})
 	if err != nil {
 		t.Fatalf("v2 window: %v", err)
 	}

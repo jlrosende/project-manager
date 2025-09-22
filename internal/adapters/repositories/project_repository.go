@@ -4,18 +4,18 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
-	"log/slog"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/go-git/go-git/v5/config"
+	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/hashicorp/hcl/v2/hclsimple"
+	"github.com/hashicorp/hcl/v2/hclwrite"
 
 	"github.com/jlrosende/project-manager/internal/core/domain"
 	"github.com/jlrosende/project-manager/internal/core/ports"
+	"github.com/jlrosende/project-manager/internal/tools"
 )
 
 type ProjectRepository struct {
@@ -38,19 +38,15 @@ func NewProjectRepository() (*ProjectRepository, error) {
 func (p *ProjectRepository) Get(name string) (*domain.Project, error) {
 	for _, section := range p.git.Raw.Sections {
 		if section.IsName("includeIf") {
-			slog.Debug(fmt.Sprintf("Section: %+v\n", section))
-
 			for _, sub := range section.Subsections {
 				// Read subsections and get path of the project
-				slog.Debug(fmt.Sprintf("\t - SubSection: %+v\n", sub))
-
 				if path, ok := strings.CutPrefix(sub.Name, "gitdir/i:"); ok {
-					// read in path .project
+					path = filepath.Clean(path)
 					projetPath := filepath.Join(path, ".project.hcl")
 
-					project, err := loadDotProject(projetPath)
+					project, err := p.loadDotProject(projetPath)
 					if err != nil {
-						return nil, err
+						continue
 					}
 
 					if project.Name != name {
@@ -75,23 +71,16 @@ func (p *ProjectRepository) List() ([]*domain.Project, error) {
 		if section.IsName("includeIf") {
 			for _, sub := range section.Subsections {
 				if path, ok := strings.CutPrefix(sub.Name, "gitdir/i:"); ok {
+					path = filepath.Clean(path)
 					projetPath := filepath.Join(path, ".project.hcl")
 
-					project, err := loadDotProject(projetPath)
+					project, err := p.loadDotProject(projetPath)
 					if err != nil {
-						slog.Error(err.Error())
-
 						continue
 					}
 
-					if strings.HasPrefix(path, "~/") {
-						dirname, _ := os.UserHomeDir()
-						path = filepath.Join(dirname, path[2:])
-					}
-
+					path = tools.ExpandHome(path)
 					project.Path = path
-
-					slog.Debug("load project", "path", project.Path)
 
 					projects = append(projects, project)
 				}
@@ -111,9 +100,10 @@ NOTE: future work
   - If .project.hcl exist
 */
 func (p *ProjectRepository) Create(
-	name, path, subproject, envFile string,
-	envVars domain.EnvVars,
-	gitConfig *domain.GitConfig,
+	name, path, _ string,
+	shell, envFile string,
+	_ domain.EnvVars,
+	_ *domain.GitConfig,
 ) (*domain.Project, error) {
 	// Expand '~' to user home
 	if strings.HasPrefix(path, "~/") {
@@ -142,112 +132,16 @@ func (p *ProjectRepository) Create(
 
 	path = absPath
 
-	log.Println(path)
-
-	gitdir := fmt.Sprintf("gitdir/i:%s/", path)
-
 	// Create paths (idempotent)
 	if err := os.MkdirAll(path, 0o755); err != nil {
 		return nil, err
 	}
 
 	// Require empty directory to avoid clobbering existing projects
-	if isEmpty, err := IsDirEmpty(path); err != nil {
+	if isEmpty, err := tools.IsDirEmpty(path); err != nil {
 		return nil, err
 	} else if !isEmpty {
 		return nil, fmt.Errorf("directory %s, is not empty", path)
-	}
-
-	gitConfigName := fmt.Sprintf(".%s.gitconfig", name)
-	gitConfigPath := filepath.Join(path, gitConfigName)
-
-	includeIf := p.git.Raw.Section("includeIf").Subsection(gitdir)
-	includeIf.SetOption("path", gitConfigPath)
-
-	if subproject != "" {
-		includeIf.SetOption("subproject", subproject)
-	}
-
-	gitConf, _ := p.git.Marshal()
-	log.Printf("\n%s", string(gitConf))
-
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil, err
-	}
-
-	fpGit, err := os.OpenFile(filepath.Join(home, ".gitconfig"), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o644)
-	if err != nil {
-		return nil, err
-	}
-
-	defer fpGit.Close()
-
-	if _, err := fpGit.Write(gitConf); err != nil {
-		return nil, err
-	}
-
-	if err := p.git.Validate(); err != nil {
-		return nil, err
-	}
-
-	// Per-project git config
-	newConfig := config.NewConfig()
-	newConfig.User.Email = gitConfig.User.Email
-	newConfig.User.Name = gitConfig.User.Name
-	newConfig.Raw.AddOption("user", "", "signingkey", gitConfig.User.SigningKey)
-	newConfig.Raw.AddOption("commit", "", "gpgsign", strconv.FormatBool(gitConfig.Commit.GPGSign))
-	newConfig.Raw.AddOption("tag", "", "gpgsign", strconv.FormatBool(gitConfig.Tag.GPGSign))
-
-	newGitConf, err := newConfig.Marshal()
-	if err != nil {
-		return nil, err
-	}
-
-	if _, err := os.Stat(gitConfigPath); !os.IsNotExist(err) {
-		return nil, fmt.Errorf("%s already exists in directory %s", gitConfigName, path)
-	}
-
-	fp, err := os.OpenFile(gitConfigPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o644)
-	if err != nil {
-		return nil, err
-	}
-
-	defer fp.Close()
-
-	if _, err := fp.Write(newGitConf); err != nil {
-		return nil, err
-	}
-
-	if err := newConfig.Validate(); err != nil {
-		return nil, err
-	}
-
-	// env file with env_vars
-	if strings.TrimSpace(envFile) == "" {
-		envFile = ".env"
-	}
-
-	envPath := envFile
-	if !filepath.IsAbs(envFile) {
-		envPath = filepath.Join(path, envFile)
-	}
-
-	if _, err = os.Stat(envPath); !os.IsNotExist(err) {
-		return nil, fmt.Errorf("%s already exists in directory %s", filepath.Base(envPath), filepath.Dir(envPath))
-	}
-
-	fpEnv, err := os.OpenFile(envPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o644)
-	if err != nil {
-		return nil, err
-	}
-
-	defer fpEnv.Close()
-
-	for key, value := range envVars {
-		if _, err := fmt.Fprintf(fpEnv, "%s=%s\n", key, value); err != nil {
-			return nil, err
-		}
 	}
 
 	// .project.hcl
@@ -256,24 +150,30 @@ func (p *ProjectRepository) Create(
 		return nil, fmt.Errorf("%s already exists in directory %s", filepath.Base(projPath), path)
 	}
 
-	fpProj, err := os.OpenFile(projPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o644)
+	fpProj, err := os.OpenFile(projPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return nil, err
 	}
 
 	defer fpProj.Close()
 
-	projectHCL := fmt.Sprintf("name = \"%s\"\n\ndescription = \"\"\n\nenv_vars_file = \"%s\"\n", name, envFile)
-	if _, err := fpProj.WriteString(projectHCL); err != nil {
+	doc := hclwrite.NewEmptyFile()
+	body := doc.Body()
+	proj := &domain.Project{
+		Name:         name,
+		Description:  "",
+		Shell:        strings.TrimSpace(shell),
+		EnvVarsFile:  envFile,
+		Environments: []*domain.Environment{},
+	}
+	proj.Path = path
+	gohcl.EncodeIntoBody(proj, body)
+
+	if _, err := fpProj.Write(doc.Bytes()); err != nil {
 		return nil, err
 	}
 
-	return &domain.Project{
-		Name:        name,
-		Description: "",
-		Path:        path,
-		EnvVarsFile: envFile,
-	}, nil
+	return proj, nil
 }
 
 func (p *ProjectRepository) Delete(_ string) error {
@@ -285,6 +185,11 @@ func (p *ProjectRepository) UpdateProject(project *domain.Project) error {
 	if strings.HasPrefix(projPath, "~/") {
 		h, _ := os.UserHomeDir()
 		projPath = filepath.Join(h, projPath[2:])
+	}
+
+	// reload global git config to ensure we operate on latest state
+	if gg, err := config.LoadConfig(config.GlobalScope); err == nil {
+		p.git = gg
 	}
 
 	projectDir := filepath.Dir(projPath)
@@ -303,7 +208,7 @@ func (p *ProjectRepository) UpdateProject(project *domain.Project) error {
 		gitConf, _ := p.git.Marshal()
 
 		if home, err := os.UserHomeDir(); err == nil {
-			if fpGit, err := os.OpenFile(filepath.Join(home, ".gitconfig"), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o644); err == nil {
+			if fpGit, err := os.OpenFile(filepath.Join(home, ".gitconfig"), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600); err == nil {
 				_, _ = fpGit.Write(gitConf)
 				_ = fpGit.Close()
 				_ = p.git.Validate()
@@ -311,39 +216,35 @@ func (p *ProjectRepository) UpdateProject(project *domain.Project) error {
 		}
 	}
 
-	b := &strings.Builder{}
-	fmt.Fprintf(b, "name = \"%s\"\n\n", project.Name)
-	fmt.Fprintf(b, "description = \"%s\"\n\n", project.Description)
-
-	if project.Shell != "" {
-		fmt.Fprintf(b, "shell = \"%s\"\n\n", project.Shell)
-	}
-
-	fmt.Fprintf(b, "env_vars_file = \"%s\"\n\n", project.EnvVarsFile)
-
-	if project.DefaultEnv != "" {
-		fmt.Fprintf(b, "default_env = \"%s\"\n\n", project.DefaultEnv)
-	}
-
-	for _, e := range project.Environments {
-		fmt.Fprintf(b, "environment \"%s\" {\n", e.Name)
-
-		if e.Color != "" {
-			fmt.Fprintf(b, "  color = \"%s\"\n", e.Color)
+	// merge with existing .project.hcl to preserve fields like environments
+	cur, err := p.loadDotProject(projPath)
+	if err == nil && cur != nil {
+		if project.Description == "" {
+			project.Description = cur.Description
 		}
 
-		fmt.Fprintf(b, "  env_vars_mode = \"%s\"\n", e.EnvVarsMode)
-		fmt.Fprintf(b, "  env_vars_file = \"%s\"\n", e.EnvVarsFile)
-		b.WriteString("}\n\n")
+		if strings.TrimSpace(project.Shell) == "" {
+			project.Shell = cur.Shell
+		}
+
+		if strings.TrimSpace(project.EnvVarsFile) == "" {
+			project.EnvVarsFile = cur.EnvVarsFile
+		}
+
+		if len(project.Environments) == 0 && len(cur.Environments) > 0 {
+			project.Environments = cur.Environments
+		}
+
+		if strings.TrimSpace(project.DefaultEnv) == "" {
+			project.DefaultEnv = cur.DefaultEnv
+		}
 	}
 
-	fp, err := os.OpenFile(projPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o644)
-	if err != nil {
-		return err
-	}
-	defer fp.Close()
+	doc := hclwrite.NewEmptyFile()
+	body := doc.Body()
+	gohcl.EncodeIntoBody(project, body)
 
-	if _, err := io.WriteString(fp, b.String()); err != nil {
+	if err := os.WriteFile(projPath, doc.Bytes(), 0o600); err != nil {
 		return err
 	}
 
@@ -357,12 +258,14 @@ func (p *ProjectRepository) UpdateEnvironment(projectName, originalEnvName strin
 	}
 
 	idx := -1
+
 	for i, e := range project.Environments {
 		if e.Name == originalEnvName {
 			idx = i
 			break
 		}
 	}
+
 	if idx == -1 {
 		return fmt.Errorf("environment %s not found", originalEnvName)
 	}
@@ -371,6 +274,7 @@ func (p *ProjectRepository) UpdateEnvironment(projectName, originalEnvName strin
 
 	// Update basic fields
 	project.Environments[idx].Name = env.Name
+
 	project.Environments[idx].Color = env.Color
 	if env.EnvVarsMode == "" {
 		project.Environments[idx].EnvVarsMode = domain.EnvVarsModeMerge
@@ -392,14 +296,14 @@ func (p *ProjectRepository) UpdateEnvironment(projectName, originalEnvName strin
 		if !filepath.IsAbs(oldPath) {
 			oldPath = filepath.Join(projPath, oldPath)
 		}
+
 		if !filepath.IsAbs(newPath) {
 			newPath = filepath.Join(projPath, newPath)
 		}
 
-		_ = os.MkdirAll(filepath.Dir(newPath), 0o755)
 		if _, err := os.Stat(oldPath); err == nil {
 			if _, err := os.Stat(newPath); os.IsNotExist(err) {
-				_ = os.Rename(oldPath, newPath)
+				_ = tools.Rename(oldPath, newPath)
 			}
 		}
 
@@ -409,7 +313,7 @@ func (p *ProjectRepository) UpdateEnvironment(projectName, originalEnvName strin
 	return p.UpdateProject(project)
 }
 
-func (p *ProjectRepository) AddEnvironment(projectName string, env *domain.Environment, envVars domain.EnvVars) error {
+func (p *ProjectRepository) AddEnvironment(projectName string, env *domain.Environment, _ domain.EnvVars) error {
 	project, err := p.Get(projectName)
 	if err != nil {
 		return err
@@ -437,28 +341,6 @@ func (p *ProjectRepository) AddEnvironment(projectName string, env *domain.Envir
 			envFile = "." + slug + ".env"
 		} else {
 			envFile = ".env"
-		}
-	}
-
-	envPath := envFile
-	if !filepath.IsAbs(envFile) {
-		envPath = filepath.Join(project.Path, envFile)
-	}
-
-	if _, err := os.Stat(envPath); !os.IsNotExist(err) {
-		return fmt.Errorf("%s already exists in directory %s", filepath.Base(envPath), filepath.Dir(envPath))
-	}
-
-	fpEnv, err := os.OpenFile(envPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o644)
-	if err != nil {
-		return err
-	}
-
-	defer fpEnv.Close()
-
-	for k, v := range envVars {
-		if _, err := fmt.Fprintf(fpEnv, "%s=%s\n", k, v); err != nil {
-			return err
 		}
 	}
 
@@ -498,13 +380,10 @@ func (p *ProjectRepository) AddEnvironment(projectName string, env *domain.Envir
 	return nil
 }
 
-func loadDotProject(path string) (*domain.Project, error) {
+func (p *ProjectRepository) loadDotProject(path string) (*domain.Project, error) {
 	project := &domain.Project{}
 
-	if strings.HasPrefix(path, "~/") {
-		dirname, _ := os.UserHomeDir()
-		path = filepath.Join(dirname, path[2:])
-	}
+	path = tools.ExpandHome(path)
 
 	err := hclsimple.DecodeFile(path, nil, project)
 	if err != nil {
@@ -520,22 +399,4 @@ func loadDotProject(path string) (*domain.Project, error) {
 	}
 
 	return project, nil
-}
-
-func IsDirEmpty(path string) (bool, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return false, err
-	}
-	defer f.Close()
-
-	// read in ONLY one file
-	_, err = f.Readdir(1)
-
-	// and if the file is EOF... well, the dir is empty.
-	if err == io.EOF {
-		return true, nil
-	}
-
-	return false, err
 }

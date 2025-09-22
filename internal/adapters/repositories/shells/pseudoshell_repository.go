@@ -43,6 +43,10 @@ func NewPseudoShellRepository(project *domain.Project, env, path string) (*Pseud
 		fmt.Sprintf("PM_ACTIVE_PROJECT=%s", project.Name),
 	)
 
+	if env != "" {
+		shell.cmd.Env = append(shell.cmd.Env, fmt.Sprintf("PM_ACTIVE_ENV=%s", env))
+	}
+
 	if env == "" {
 		shell.cmd.Env = append(
 			shell.cmd.Env,

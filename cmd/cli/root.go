@@ -16,7 +16,7 @@ import (
 	cmdNew "github.com/jlrosende/project-manager/cmd/cli/new"
 	"github.com/jlrosende/project-manager/configs"
 	"github.com/jlrosende/project-manager/internal"
-	tui "github.com/jlrosende/project-manager/internal/adapters/handlers/tui/v2"
+	tui "github.com/jlrosende/project-manager/internal/adapters/handlers/tui"
 	"github.com/jlrosende/project-manager/internal/adapters/repositories"
 	"github.com/jlrosende/project-manager/internal/adapters/repositories/shells"
 	"github.com/jlrosende/project-manager/internal/core/domain"

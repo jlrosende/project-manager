@@ -6,7 +6,7 @@ package unit_test
 import (
 	"testing"
 
-	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/v2/router"
+	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/router"
 )
 
 func TestRouterCompile(_ *testing.T) {

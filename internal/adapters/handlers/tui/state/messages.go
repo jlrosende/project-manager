@@ -3,7 +3,7 @@ package state
 import (
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/v2/router"
+	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/router"
 )
 
 type NavigateToMsg struct {

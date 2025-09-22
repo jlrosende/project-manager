@@ -55,6 +55,20 @@ func (mr *MockGitServiceMockRecorder) Load(path any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Load", reflect.TypeOf((*MockGitService)(nil).Load), path)
 }
 
+// LoadGlobal mocks base method.
+func (m *MockGitService) LoadGlobal() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LoadGlobal")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// LoadGlobal indicates an expected call of LoadGlobal.
+func (mr *MockGitServiceMockRecorder) LoadGlobal() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadGlobal", reflect.TypeOf((*MockGitService)(nil).LoadGlobal))
+}
+
 // Save mocks base method.
 func (m *MockGitService) Save(path string, gitConfig *domain.GitConfig) error {
 	m.ctrl.T.Helper()
@@ -67,6 +81,34 @@ func (m *MockGitService) Save(path string, gitConfig *domain.GitConfig) error {
 func (mr *MockGitServiceMockRecorder) Save(path, gitConfig any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Save", reflect.TypeOf((*MockGitService)(nil).Save), path, gitConfig)
+}
+
+// SaveGlobal mocks base method.
+func (m *MockGitService) SaveGlobal(home string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveGlobal", home)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveGlobal indicates an expected call of SaveGlobal.
+func (mr *MockGitServiceMockRecorder) SaveGlobal(home any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveGlobal", reflect.TypeOf((*MockGitService)(nil).SaveGlobal), home)
+}
+
+// UpdateIncludeIf mocks base method.
+func (m *MockGitService) UpdateIncludeIf(gitdir, perProjectPath, subproject string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateIncludeIf", gitdir, perProjectPath, subproject)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateIncludeIf indicates an expected call of UpdateIncludeIf.
+func (mr *MockGitServiceMockRecorder) UpdateIncludeIf(gitdir, perProjectPath, subproject any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateIncludeIf", reflect.TypeOf((*MockGitService)(nil).UpdateIncludeIf), gitdir, perProjectPath, subproject)
 }
 
 // MockGitRepository is a mock of GitRepository interface.
@@ -108,6 +150,20 @@ func (mr *MockGitRepositoryMockRecorder) Load(path any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Load", reflect.TypeOf((*MockGitRepository)(nil).Load), path)
 }
 
+// LoadGlobal mocks base method.
+func (m *MockGitRepository) LoadGlobal() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LoadGlobal")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// LoadGlobal indicates an expected call of LoadGlobal.
+func (mr *MockGitRepositoryMockRecorder) LoadGlobal() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadGlobal", reflect.TypeOf((*MockGitRepository)(nil).LoadGlobal))
+}
+
 // Save mocks base method.
 func (m *MockGitRepository) Save(path string, gitConfig *domain.GitConfig) error {
 	m.ctrl.T.Helper()
@@ -120,4 +176,32 @@ func (m *MockGitRepository) Save(path string, gitConfig *domain.GitConfig) error
 func (mr *MockGitRepositoryMockRecorder) Save(path, gitConfig any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Save", reflect.TypeOf((*MockGitRepository)(nil).Save), path, gitConfig)
+}
+
+// SaveGlobal mocks base method.
+func (m *MockGitRepository) SaveGlobal(home string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveGlobal", home)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveGlobal indicates an expected call of SaveGlobal.
+func (mr *MockGitRepositoryMockRecorder) SaveGlobal(home any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveGlobal", reflect.TypeOf((*MockGitRepository)(nil).SaveGlobal), home)
+}
+
+// UpdateIncludeIf mocks base method.
+func (m *MockGitRepository) UpdateIncludeIf(gitdir, perProjectPath, subproject string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateIncludeIf", gitdir, perProjectPath, subproject)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateIncludeIf indicates an expected call of UpdateIncludeIf.
+func (mr *MockGitRepositoryMockRecorder) UpdateIncludeIf(gitdir, perProjectPath, subproject any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateIncludeIf", reflect.TypeOf((*MockGitRepository)(nil).UpdateIncludeIf), gitdir, perProjectPath, subproject)
 }

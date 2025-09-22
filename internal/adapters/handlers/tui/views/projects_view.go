@@ -6,8 +6,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/v2/components"
-	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/v2/state"
+	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/components"
+	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/state"
 )
 
 type projectsLoadedMsg struct{ Items []components.ListItem }

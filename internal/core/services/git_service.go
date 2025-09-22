@@ -24,3 +24,9 @@ func (g *GitService) Load(path string) (*domain.GitConfig, error) {
 func (g *GitService) Save(path string, gitConfig *domain.GitConfig) error {
 	return g.repo.Save(path, gitConfig)
 }
+
+func (g *GitService) LoadGlobal() error { return g.repo.LoadGlobal() }
+func (g *GitService) UpdateIncludeIf(gitdir, perProjectPath, subproject string) error {
+	return g.repo.UpdateIncludeIf(gitdir, perProjectPath, subproject)
+}
+func (g *GitService) SaveGlobal(home string) error { return g.repo.SaveGlobal(home) }

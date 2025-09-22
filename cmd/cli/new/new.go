@@ -1,6 +1,8 @@
 package newcmd
 
 import (
+	"strings"
+
 	"github.com/spf13/cobra"
 
 	"github.com/jlrosende/project-manager/internal/adapters/repositories"
@@ -37,7 +39,6 @@ func init() {
 }
 
 func run(cmd *cobra.Command, args []string) error {
-	// ask for a name if not set
 	name := args[0]
 	path := ""
 
@@ -92,19 +93,23 @@ func run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// convert map[string]string to domain.EnvVars
+	shell, err := cmd.Flags().GetString("shell")
+	if err != nil {
+		return err
+	}
+
 	dv := domain.EnvVars{}
 	for k, v := range envVars {
 		dv[k] = v
 	}
 
-	// default env vars file
 	envFile := ".env"
 
-	_, err = svc.Create(
+	proj, err := svc.Create(
 		name,
 		path,
 		subproject,
+		shell,
 		envFile,
 		dv,
 		domain.New(
@@ -117,6 +122,13 @@ func run(cmd *cobra.Command, args []string) error {
 	)
 	if err != nil {
 		return err
+	}
+
+	if s := strings.TrimSpace(shell); s != "" {
+		proj.Shell = s
+		if err := svc.UpdateProject(proj); err != nil {
+			return err
+		}
 	}
 
 	return nil

@@ -8,14 +8,14 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	v2 "github.com/jlrosende/project-manager/internal/adapters/handlers/tui/v2"
+	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui"
 	"github.com/jlrosende/project-manager/internal/core/services"
 )
 
 func TestSelectProjectWithDefaultOnEnter(t *testing.T) {
 	svc := buildService(t)
 
-	w, err := v2.NewWindow(svc.(*services.ProjectService), v2.Options{})
+	w, err := tui.NewWindow(svc.(*services.ProjectService), tui.Options{})
 	if err != nil {
 		t.Fatalf("v2 window: %v", err)
 	}
@@ -51,7 +51,7 @@ func TestSelectProjectWithDefaultOnEnter(t *testing.T) {
 func TestSelectProjectWithoutDefaultOnEnter(t *testing.T) {
 	svc := buildService(t)
 
-	w, err := v2.NewWindow(svc.(*services.ProjectService), v2.Options{})
+	w, err := tui.NewWindow(svc.(*services.ProjectService), tui.Options{})
 	if err != nil {
 		t.Fatalf("v2 window: %v", err)
 	}
@@ -87,7 +87,7 @@ func TestSelectProjectWithoutDefaultOnEnter(t *testing.T) {
 func TestSelectEnvironmentOnEnter(t *testing.T) {
 	svc := buildService(t)
 
-	w, err := v2.NewWindow(svc.(*services.ProjectService), v2.Options{})
+	w, err := tui.NewWindow(svc.(*services.ProjectService), tui.Options{})
 	if err != nil {
 		t.Fatalf("v2 window: %v", err)
 	}

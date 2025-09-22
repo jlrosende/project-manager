@@ -6,8 +6,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/v2/components"
-	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/v2/state"
+	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/components"
+	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/state"
 )
 
 const (
@@ -96,18 +96,18 @@ func WithProjectFormAccent(s lipgloss.Style) ProjectFormViewStyleOption {
 }
 
 type ProjectFormInit struct {
-	OriginalName   string
-	Name           string
-	Path           string
-	Subproject     string
-	Shell          string
-	GitUserName    string
-	GitUserEmail   string
-	GitSigningKey  string
-	CommitGPGSign  string
-	TagGPGSign     string
-	EnvVarsFile    string
-	EnvVarsRaw     string
+	OriginalName  string
+	Name          string
+	Path          string
+	Subproject    string
+	Shell         string
+	GitUserName   string
+	GitUserEmail  string
+	GitSigningKey string
+	CommitGPGSign string
+	TagGPGSign    string
+	EnvVarsFile   string
+	EnvVarsRaw    string
 }
 
 func NewProjectFormViewWith(init ProjectFormInit, styles ProjectFormViewStyles) ProjectFormView {
@@ -116,30 +116,39 @@ func NewProjectFormViewWith(init ProjectFormInit, styles ProjectFormViewStyles) 
 	if strings.TrimSpace(init.Subproject) != "" {
 		v.Subproject.SetValue(init.Subproject)
 	}
+
 	if strings.TrimSpace(init.Shell) != "" {
 		v.Shell.SetValue(init.Shell)
 	}
+
 	if strings.TrimSpace(init.GitUserName) != "" {
 		v.UserName.SetValue(init.GitUserName)
 	}
+
 	if strings.TrimSpace(init.GitUserEmail) != "" {
 		v.UserEmail.SetValue(init.GitUserEmail)
 	}
+
 	if strings.TrimSpace(init.GitSigningKey) != "" {
 		v.UserSigningKey.SetValue(init.GitSigningKey)
 	}
+
 	if strings.TrimSpace(init.CommitGPGSign) != "" {
 		v.CommitGPGSign.SetValue(init.CommitGPGSign)
 	}
+
 	if strings.TrimSpace(init.TagGPGSign) != "" {
 		v.TagGPGSign.SetValue(init.TagGPGSign)
 	}
+
 	if strings.TrimSpace(init.EnvVarsFile) != "" {
 		v.EnvFile.SetValue(init.EnvVarsFile)
 	}
+
 	if strings.TrimSpace(init.EnvVarsRaw) != "" {
 		v.EnvVars.SetValue(init.EnvVarsRaw)
 	}
+
 	if strings.TrimSpace(init.OriginalName) != "" {
 		v.IsEdit = true
 		v.OriginalName = init.OriginalName
@@ -183,7 +192,7 @@ func NewProjectFormView(
 		Name:           components.NewInput("Name*", "my-awesome-app", name, styles.Input, styles.InputVal),
 		Path:           components.NewInput("Path*", "~/my-awesome-app", path, styles.Input, styles.InputVal),
 		Subproject:     components.NewInput("Subproject", "services/api", "", styles.Input, styles.InputVal),
-		Shell:          components.NewInput("Shell", "/bin/bash", "", styles.Input, styles.InputVal),
+		Shell:          components.NewInput("Shell", "bash", "", styles.Input, styles.InputVal),
 		UserName:       components.NewInput("Git user.name", "Jane Doe", "", styles.Input, styles.InputVal),
 		UserEmail:      components.NewInput("Git user.email", "jane@example.com", "", styles.Input, styles.InputVal),
 		UserSigningKey: components.NewInput("Git user.signingkey", "0xDEADBEEF", "", styles.Input, styles.InputVal),
@@ -678,6 +687,7 @@ func (v ProjectFormView) View() string {
 		v.EnvFile.SetPlaceholderStyle(v.Subtext)
 		v.EnvFile.SetTextStyle(val)
 	}
+
 	b.WriteString(v.EnvFile.View())
 	b.WriteString("\n")
 	b.WriteString(v.Subtext.Render("One KEY=VALUE per line; '#' comments allowed"))

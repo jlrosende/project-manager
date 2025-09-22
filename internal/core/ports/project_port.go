@@ -7,7 +7,11 @@ import "github.com/jlrosende/project-manager/internal/core/domain"
 type ProjectService interface {
 	Load(name string) (*domain.Project, error)
 	List() ([]*domain.Project, error)
-	Create(name, path, subproject, envFile string, envVars domain.EnvVars, git *domain.GitConfig) (*domain.Project, error)
+	Create(
+		name, path, subproject, shell, envFile string,
+		envVars domain.EnvVars,
+		git *domain.GitConfig,
+	) (*domain.Project, error)
 	AddEnvironment(projectName string, env *domain.Environment, envVars domain.EnvVars) error
 	UpdateProject(project *domain.Project) error
 	UpdateEnvironment(projectName, originalEnvName string, env *domain.Environment) error
@@ -16,7 +20,11 @@ type ProjectService interface {
 
 type ProjectRepository interface {
 	List() ([]*domain.Project, error)
-	Create(name, path, subproject, envFile string, envVars domain.EnvVars, git *domain.GitConfig) (*domain.Project, error)
+	Create(
+		name, path, subproject, shell, envFile string,
+		envVars domain.EnvVars,
+		git *domain.GitConfig,
+	) (*domain.Project, error)
 	AddEnvironment(projectName string, env *domain.Environment, envVars domain.EnvVars) error
 	UpdateProject(project *domain.Project) error
 	UpdateEnvironment(projectName, originalEnvName string, env *domain.Environment) error

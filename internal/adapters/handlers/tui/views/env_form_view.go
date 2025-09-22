@@ -6,8 +6,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/v2/components"
-	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/v2/state"
+	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/components"
+	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/state"
 	"github.com/jlrosende/project-manager/internal/core/domain"
 )
 
@@ -166,30 +166,11 @@ func (v *EnvFormView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m := msg.(type) {
 	case components.ButtonPressedMsg:
 		if m.Label == "Save" {
-			v.Err = ""
-			name := strings.TrimSpace(v.Name.Value())
-
-			mode := strings.TrimSpace(v.Mode.Value())
-			if name == "" {
-				v.Err = "name is required"
-				return v, nil
+			if cmd, ok := v.makeSaveCmd(); ok {
+				return v, cmd
 			}
 
-			if mode != domain.EnvVarsModeMerge && mode != domain.EnvVarsModeReplace {
-				v.Err = "mode must be merge or replace"
-				return v, nil
-			}
-
-			return v, func() tea.Msg {
-				return state.SaveEnvFormMsg{
-					OriginalName: v.OriginalName,
-					Name:         name,
-					Color:        strings.TrimSpace(v.Color.Value()),
-					Mode:         mode,
-					EnvVarsFile:  strings.TrimSpace(v.EnvFile.Value()),
-					EnvVarsRaw:   v.EnvVars.Value(),
-				}
-			}
+			return v, nil
 		}
 
 		if m.Label == "Cancel" {
@@ -212,30 +193,11 @@ func (v *EnvFormView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return v, nil
 	case components.ButtonChosenMsg:
 		if m.Label == "Save" {
-			v.Err = ""
-			name := strings.TrimSpace(v.Name.Value())
-
-			mode := strings.TrimSpace(v.Mode.Value())
-			if name == "" {
-				v.Err = "name is required"
-				return v, nil
+			if cmd, ok := v.makeSaveCmd(); ok {
+				return v, cmd
 			}
 
-			if mode != domain.EnvVarsModeMerge && mode != domain.EnvVarsModeReplace {
-				v.Err = "mode must be merge or replace"
-				return v, nil
-			}
-
-			return v, func() tea.Msg {
-				return state.SaveEnvFormMsg{
-					OriginalName: v.OriginalName,
-					Name:         name,
-					Color:        strings.TrimSpace(v.Color.Value()),
-					Mode:         mode,
-					EnvVarsFile:  strings.TrimSpace(v.EnvFile.Value()),
-					EnvVarsRaw:   v.EnvVars.Value(),
-				}
-			}
+			return v, nil
 		}
 
 		if m.Label == "Cancel" {
@@ -287,40 +249,23 @@ func (v *EnvFormView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		s := m.String()
 		switch s {
 		case "ctrl+s":
-			v.Err = ""
-			name := strings.TrimSpace(v.Name.Value())
-
-			mode := strings.TrimSpace(v.Mode.Value())
-			if name == "" {
-				v.Err = "name is required"
-				return v, nil
+			if cmd, ok := v.makeSaveCmd(); ok {
+				return v, cmd
 			}
 
-			if mode != domain.EnvVarsModeMerge && mode != domain.EnvVarsModeReplace {
-				v.Err = "mode must be merge or replace"
-				return v, nil
-			}
-
-			return v, func() tea.Msg {
-				return state.SaveEnvFormMsg{
-					OriginalName: v.OriginalName,
-					Name:         name,
-					Color:        strings.TrimSpace(v.Color.Value()),
-					Mode:         mode,
-					EnvVarsFile:  strings.TrimSpace(v.EnvFile.Value()),
-					EnvVarsRaw:   v.EnvVars.Value(),
-				}
-			}
+			return v, nil
 		}
 	}
 
 	oldName := strings.TrimSpace(v.Name.Value())
 	n, nameCmd := v.Name.Update(msg)
 	v.Name = n
+
 	newName := strings.TrimSpace(v.Name.Value())
 	if newName != oldName {
 		slug := strings.ToLower(strings.TrimSpace(strings.ReplaceAll(newName, " ", "-")))
 		cur := strings.TrimSpace(v.EnvFile.Value())
+
 		oldSlug := strings.ToLower(strings.TrimSpace(strings.ReplaceAll(oldName, " ", "-")))
 		if slug == "" {
 			if cur == "" || cur == "."+oldSlug+".env" {
@@ -328,10 +273,11 @@ func (v *EnvFormView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		} else {
 			if cur == "" || cur == "."+oldSlug+".env" {
-				v.EnvFile.SetValue("."+slug+".env")
+				v.EnvFile.SetValue("." + slug + ".env")
 			}
 		}
 	}
+
 	c, colorCmd := v.Color.Update(msg)
 	v.Color = c
 	mo, modeCmd := v.Mode.Update(msg)
@@ -342,6 +288,33 @@ func (v *EnvFormView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	v.EnvVars = e
 
 	return v, tea.Batch(nameCmd, colorCmd, modeCmd, efCmd, envCmd)
+}
+
+func (v *EnvFormView) makeSaveCmd() (tea.Cmd, bool) {
+	v.Err = ""
+	name := strings.TrimSpace(v.Name.Value())
+
+	mode := strings.TrimSpace(v.Mode.Value())
+	if name == "" {
+		v.Err = "name is required"
+		return nil, false
+	}
+
+	if mode != domain.EnvVarsModeMerge && mode != domain.EnvVarsModeReplace {
+		v.Err = "mode must be merge or replace"
+		return nil, false
+	}
+
+	return func() tea.Msg {
+		return state.SaveEnvFormMsg{
+			OriginalName: v.OriginalName,
+			Name:         name,
+			Color:        strings.TrimSpace(v.Color.Value()),
+			Mode:         mode,
+			EnvVarsFile:  strings.TrimSpace(v.EnvFile.Value()),
+			EnvVarsRaw:   v.EnvVars.Value(),
+		}
+	}, true
 }
 
 func (v *EnvFormView) View() string {
@@ -373,10 +346,12 @@ func (v *EnvFormView) View() string {
 	{
 		p := v.Section
 		val := v.Item
+
 		cc := normalizeEnvColorInput(strings.TrimSpace(v.Color.Value()))
 		if cc != "" {
 			val = val.Foreground(lipgloss.Color(cc))
 		}
+
 		v.Color.SetPrompt(p.Render("Color (name/#hex/0-255): "))
 		v.Color.SetPromptStyle(v.Section)
 		v.Color.SetPlaceholderStyle(v.Subtext)
@@ -395,6 +370,7 @@ func (v *EnvFormView) View() string {
 		v.EnvFile.SetPlaceholderStyle(v.Subtext)
 		v.EnvFile.SetTextStyle(val)
 	}
+
 	b.WriteString(v.EnvFile.View())
 	b.WriteString("\n")
 	{
@@ -474,21 +450,27 @@ func normalizeEnvColorInput(s string) string {
 	if ss == "" {
 		return ""
 	}
+
 	if strings.HasPrefix(ss, "#") {
 		return ss
 	}
+
 	if v, ok := envColorNameMap[ss]; ok {
 		return v
 	}
+
 	isNum := true
+
 	for _, r := range ss {
 		if r < '0' || r > '9' {
 			isNum = false
 			break
 		}
 	}
+
 	if isNum {
 		return ss
 	}
+
 	return ""
 }
