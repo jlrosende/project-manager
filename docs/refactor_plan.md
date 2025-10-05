@@ -2,6 +2,10 @@
 
 Goal: Reduce repository responsibilities, keep clear boundaries, add tests to ensure behavior parity.
 
+## Release notes snippet
+- Add `pm delete` CLI workflow with confirmation prompts, scope flags, optional backups, and structured logging so projects can be removed safely.
+- Document the delete command and ship integration/unit coverage to guard logging and domain validation helpers.
+
 ## Architecture targets
 - Repositories:
   - ProjectRepository: only read/write .project.hcl and in-memory project aggregate

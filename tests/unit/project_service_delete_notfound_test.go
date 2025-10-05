@@ -8,7 +8,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
 
 	"github.com/jlrosende/project-manager/internal/core/domain"
 	"github.com/jlrosende/project-manager/internal/core/services"
@@ -32,10 +32,10 @@ func TestProjectServiceDeleteProjectMissingTarget(t *testing.T) {
 
 	notFoundErr := domain.ErrProjectNotFound
 
-	projectRepo.EXPECT().LoadIdentifier(gomock.Any(), opts.Target).Return(domain.ProjectIdentifier{}, notFoundErr)
-	envRepo.EXPECT().RemoveProjectEnv(gomock.Any()).Times(0)
+	projectRepo.EXPECT().ResolveIdentifier(gomock.Any(), opts.Target).Return(domain.ProjectIdentifier{}, notFoundErr)
+	envRepo.EXPECT().Delete(gomock.Any(), gomock.Any()).Times(0)
 	fs.EXPECT().PlanDeletion(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-	gitRepo.EXPECT().RemoveHooks(gomock.Any()).Times(0)
+	gitRepo.EXPECT().RemoveHooks(gomock.Any(), gomock.Any()).Times(0)
 
 	result, err := svc.DeleteProject(context.Background(), opts)
 	if !errors.Is(err, notFoundErr) {

@@ -46,6 +46,38 @@ var currentPalette = map[string]string{
 	"help":            "#7C818C",
 }
 
+// DefaultPalette returns a copy of the base colour palette used by the TUI.
+func DefaultPalette() map[string]string {
+	dup := make(map[string]string, len(currentPalette))
+	for k, v := range currentPalette {
+		dup[k] = v
+	}
+
+	return dup
+}
+
+// PaletteForTheme returns a palette initialised with the base colours, the
+// preset identified by name (when available), and the provided overrides.
+func PaletteForTheme(name string, overrides map[string]string) map[string]string {
+	palette := DefaultPalette()
+
+	if preset, ok := presetPalettes[strings.ToLower(strings.TrimSpace(name))]; ok {
+		for k, v := range preset {
+			palette[k] = v
+		}
+	}
+
+	for k, v := range overrides {
+		if strings.TrimSpace(v) == "" {
+			continue
+		}
+
+		palette[k] = v
+	}
+
+	return palette
+}
+
 var presetPalettes = map[string]map[string]string{
 	"nord": {
 		"title":           "#88C0D0",

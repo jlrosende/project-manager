@@ -90,7 +90,6 @@ func (e *EnvVarsRepository) Delete(_ context.Context, path string) error {
 }
 
 func needsQuote(value string) bool {
-
 	if value == "" {
 		return false
 	}

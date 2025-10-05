@@ -289,13 +289,14 @@ func defaultProjectConfigSkeleton() domain.ConfigInput {
 
 // DeleteCLIFlags captures the parsed CLI flags for project deletion.
 type DeleteCLIFlags struct {
-	All               bool
-	KeepFiles         bool
-	OnlyEnv           bool
-	DryRun            bool
-	Force             bool
-	Backup            bool
-	BackupDestination string
+	All                    bool
+	KeepFiles              bool
+	OnlyEnv                bool
+	DryRun                 bool
+	Force                  bool
+	Backup                 bool
+	BackupDestination      string
+	DefaultBackupDirectory string
 }
 
 var errConflictingDeleteScopes = errors.New("conflicting delete scope flags")
@@ -307,9 +308,11 @@ func ResolveDeleteScope(flags DeleteCLIFlags) (domain.DeleteScope, error) {
 	if flags.All {
 		selected++
 	}
+
 	if flags.KeepFiles {
 		selected++
 	}
+
 	if flags.OnlyEnv {
 		selected++
 	}
@@ -347,8 +350,14 @@ func BuildDeleteOptions(target domain.ProjectIdentifier, flags DeleteCLIFlags) (
 
 	if flags.Backup {
 		destination := strings.TrimSpace(flags.BackupDestination)
+
+		baseDir := strings.TrimSpace(flags.DefaultBackupDirectory)
+		if baseDir == "" {
+			baseDir = filepath.Join("~", ".pm", "backups")
+		}
+
 		if destination == "" {
-			destination = defaultBackupDestination(target)
+			destination = defaultBackupDestination(baseDir, target)
 		}
 
 		options.Backup = &domain.BackupRequest{
@@ -364,7 +373,7 @@ func BuildDeleteOptions(target domain.ProjectIdentifier, flags DeleteCLIFlags) (
 	return options, nil
 }
 
-func defaultBackupDestination(target domain.ProjectIdentifier) string {
+func defaultBackupDestination(baseDir string, target domain.ProjectIdentifier) string {
 	label := strings.TrimSpace(target.Name)
 	if label == "" {
 		label = strings.TrimSpace(target.Path)
@@ -377,7 +386,11 @@ func defaultBackupDestination(target domain.ProjectIdentifier) string {
 	timestamp := time.Now().UTC().Format("20060102-150405")
 	filename := fmt.Sprintf("%s-%s.zip", timestamp, slug)
 
-	return filepath.Join("~", ".pm", "backups", filename)
+	if strings.TrimSpace(baseDir) == "" {
+		baseDir = filepath.Join("~", ".pm", "backups")
+	}
+
+	return filepath.Join(baseDir, filename)
 }
 
 func sanitizeBackupLabel(input string) string {
@@ -387,24 +400,29 @@ func sanitizeBackupLabel(input string) string {
 	}
 
 	var builder strings.Builder
+
 	lastDash := false
 
 	for _, r := range input {
 		switch {
 		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
 			builder.WriteRune(r)
+
 			lastDash = false
 		case r == '-' || r == '_' || r == '.':
 			builder.WriteRune(r)
+
 			lastDash = false
 		case unicode.IsSpace(r):
 			if !lastDash {
 				builder.WriteByte('-')
+
 				lastDash = true
 			}
 		default:
 			if !lastDash {
 				builder.WriteByte('-')
+
 				lastDash = true
 			}
 		}

@@ -91,7 +91,12 @@ func (Filesystem) Remove(path string) error { return os.Remove(path) }
 
 func (Filesystem) UserHomeDir() (string, error) { return os.UserHomeDir() }
 
-func (fsys Filesystem) PlanDeletion(ctx context.Context, target domain.ProjectIdentifier, scope domain.DeleteScope, backup *domain.BackupRequest) (*domain.ProjectDeletePlan, error) {
+func (fsys Filesystem) PlanDeletion(
+	ctx context.Context,
+	target domain.ProjectIdentifier,
+	scope domain.DeleteScope,
+	backup *domain.BackupRequest,
+) (*domain.ProjectDeletePlan, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -102,6 +107,7 @@ func (fsys Filesystem) PlanDeletion(ctx context.Context, target domain.ProjectId
 		if err != nil {
 			return nil, err
 		}
+
 		root = abs
 	}
 
@@ -176,13 +182,23 @@ func (fsys Filesystem) PlanDeletion(ctx context.Context, target domain.ProjectId
 	return plan, nil
 }
 
-func (Filesystem) PlanBackup(ctx context.Context, target domain.ProjectIdentifier, req *domain.BackupRequest, dryRun bool) (*domain.BackupArtifact, error) {
+func (Filesystem) PlanBackup(
+	ctx context.Context,
+	target domain.ProjectIdentifier,
+	req *domain.BackupRequest,
+	dryRun bool,
+) (*domain.BackupArtifact, error) {
 	if req == nil {
 		return nil, nil
 	}
 
 	if err := ctx.Err(); err != nil {
 		return nil, err
+	}
+
+	projectRoot := strings.TrimSpace(target.Path)
+	if projectRoot == "" {
+		return nil, fmt.Errorf("backup target path is empty")
 	}
 
 	destination := strings.TrimSpace(req.Destination)
@@ -200,7 +216,11 @@ func (Filesystem) PlanBackup(ctx context.Context, target domain.ProjectIdentifie
 	return artifact, nil
 }
 
-func (fsys Filesystem) CreateBackup(ctx context.Context, target domain.ProjectIdentifier, req *domain.BackupRequest) (*domain.BackupArtifact, error) {
+func (fsys Filesystem) CreateBackup(
+	ctx context.Context,
+	target domain.ProjectIdentifier,
+	req *domain.BackupRequest,
+) (*domain.BackupArtifact, error) {
 	if req == nil {
 		return nil, nil
 	}
@@ -225,6 +245,7 @@ func (fsys Filesystem) CreateBackup(ctx context.Context, target domain.ProjectId
 	}
 
 	cleanup := true
+
 	defer func() {
 		if cleanup {
 			_ = tmpFile.Close()
@@ -241,6 +262,7 @@ func (fsys Filesystem) CreateBackup(ctx context.Context, target domain.ProjectId
 			zipWriter.Close()
 			return nil, err
 		}
+
 		root = abs
 	}
 
@@ -259,6 +281,7 @@ func (fsys Filesystem) CreateBackup(ctx context.Context, target domain.ProjectId
 	if cerr := zipWriter.Close(); err == nil {
 		err = cerr
 	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -285,7 +308,10 @@ func (fsys Filesystem) CreateBackup(ctx context.Context, target domain.ProjectId
 	}, nil
 }
 
-func (fsys Filesystem) ExecuteDeletion(ctx context.Context, plan *domain.ProjectDeletePlan) ([]domain.DeletionArtifact, error) {
+func (fsys Filesystem) ExecuteDeletion(
+	ctx context.Context,
+	plan *domain.ProjectDeletePlan,
+) ([]domain.DeletionArtifact, error) {
 	if plan == nil {
 		return nil, nil
 	}
@@ -304,12 +330,14 @@ func (fsys Filesystem) ExecuteDeletion(ctx context.Context, plan *domain.Project
 			if err := removeFile(path); err != nil {
 				return removed, err
 			}
+
 			removed = append(removed, artifact)
 		case domain.ArtifactGitIgnore:
 			changed, err := fsys.cleanupGitignore(path)
 			if err != nil {
 				return removed, err
 			}
+
 			if changed {
 				removed = append(removed, artifact)
 			}
@@ -317,6 +345,7 @@ func (fsys Filesystem) ExecuteDeletion(ctx context.Context, plan *domain.Project
 			if err := os.RemoveAll(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
 				return removed, err
 			}
+
 			removed = append(removed, artifact)
 		default:
 			// handled elsewhere
@@ -332,6 +361,7 @@ func loadProjectDefinition(root string) (*domain.Project, error) {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
+
 		return nil, err
 	}
 
@@ -382,6 +412,7 @@ func (fsys Filesystem) collectEnvFiles(root string, project *domain.Project) []s
 		add(".env")
 	} else {
 		add(project.EnvVarsFile)
+
 		for _, env := range project.Environments {
 			add(env.EnvVarsFile)
 		}
@@ -399,11 +430,13 @@ func (fsys Filesystem) collectEnvFiles(root string, project *domain.Project) []s
 
 func (fsys Filesystem) gitignoreNeedsCleanup(root string) (bool, error) {
 	path := filepath.Join(root, ".gitignore")
+
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return false, nil
 		}
+
 		return false, err
 	}
 
@@ -423,6 +456,7 @@ func (fsys Filesystem) cleanupGitignore(path string) (bool, error) {
 		if os.IsNotExist(err) {
 			return false, nil
 		}
+
 		return false, err
 	}
 
@@ -460,15 +494,21 @@ func (fsys Filesystem) cleanupGitignore(path string) (bool, error) {
 		content += "\n"
 	}
 
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		return false, err
 	}
 
 	return true, nil
 }
 
-func (fsys Filesystem) addMetadataToZip(ctx context.Context, writer *zip.Writer, root string, project *domain.Project) error {
+func (fsys Filesystem) addMetadataToZip(
+	ctx context.Context,
+	writer *zip.Writer,
+	root string,
+	project *domain.Project,
+) error {
 	files := fsys.collectEnvFiles(root, project)
+
 	projectFile := filepath.Join(root, ".project.hcl")
 	if _, err := os.Stat(projectFile); err == nil {
 		files = append(files, projectFile)
@@ -484,6 +524,7 @@ func (fsys Filesystem) addMetadataToZip(ctx context.Context, writer *zip.Writer,
 		if _, seen := dedup[file]; seen {
 			continue
 		}
+
 		dedup[file] = struct{}{}
 
 		info, err := os.Stat(file)
@@ -491,6 +532,7 @@ func (fsys Filesystem) addMetadataToZip(ctx context.Context, writer *zip.Writer,
 			if os.IsNotExist(err) {
 				continue
 			}
+
 			return err
 		}
 
@@ -545,6 +587,7 @@ func writePathToZip(writer *zip.Writer, absPath, rel string, info fs.FileInfo) e
 	if info.IsDir() {
 		header.Name += "/"
 		_, err = writer.CreateHeader(header)
+
 		return err
 	}
 
@@ -562,6 +605,7 @@ func writePathToZip(writer *zip.Writer, absPath, rel string, info fs.FileInfo) e
 	defer file.Close()
 
 	_, err = io.Copy(entry, file)
+
 	return err
 }
 
@@ -570,6 +614,7 @@ func removeFile(path string) error {
 		if os.IsNotExist(err) {
 			return nil
 		}
+
 		return err
 	}
 

@@ -25,7 +25,6 @@ import (
 )
 
 func newRootCommand() *cobra.Command {
-
 	cmd := &cobra.Command{
 		Use:          "pm [project] [env|[path]] ",
 		Short:        "pm is a tool to create and organize projects in your computer",

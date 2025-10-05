@@ -334,7 +334,10 @@ func (svc *ProjectService) Delete(name string) error {
 	return nil
 }
 
-func (svc *ProjectService) DeleteProject(ctx context.Context, options domain.ProjectDeleteOptions) (*domain.ProjectDeleteResult, error) {
+func (svc *ProjectService) DeleteProject(
+	ctx context.Context,
+	options domain.ProjectDeleteOptions,
+) (*domain.ProjectDeleteResult, error) {
 	if err := options.Validate(); err != nil {
 		return nil, err
 	}
@@ -377,6 +380,7 @@ func (svc *ProjectService) DeleteProject(ctx context.Context, options domain.Pro
 			field("scope", plan.Scope.String()),
 			field("artifacts", len(plan.Artifacts)),
 		)
+
 		return result, nil
 	}
 
@@ -387,6 +391,7 @@ func (svc *ProjectService) DeleteProject(ctx context.Context, options domain.Pro
 	)
 
 	hasGitArtifacts := false
+
 	for _, artifact := range plan.Artifacts {
 		if artifact.Type == domain.ArtifactHook || artifact.Type == domain.ArtifactGitInclude {
 			hasGitArtifacts = true
@@ -428,6 +433,7 @@ func (svc *ProjectService) DeleteProject(ctx context.Context, options domain.Pro
 		}
 
 		svc.logInfo("git hooks removed", field("name", identifier.Name))
+
 		gitCleaned = true
 	}
 
@@ -441,6 +447,7 @@ func (svc *ProjectService) DeleteProject(ctx context.Context, options domain.Pro
 				skipped = append(skipped, artifact)
 				failureIndex = idx
 			}
+
 			if failureIndex == -1 {
 				removed = append(removed, artifact)
 			}
@@ -473,9 +480,8 @@ func (svc *ProjectService) DeleteProject(ctx context.Context, options domain.Pro
 		}
 
 		if failureIndex != -1 {
-			for _, pending := range plan.Artifacts[idx+1:] {
-				skipped = append(skipped, pending)
-			}
+			skipped = append(skipped, plan.Artifacts[idx+1:]...)
+
 			break
 		}
 	}
@@ -489,6 +495,7 @@ func (svc *ProjectService) DeleteProject(ctx context.Context, options domain.Pro
 				if artifact.Type == domain.ArtifactRegistry {
 					continue
 				}
+
 				removed = append(removed, artifact)
 			}
 		}
@@ -507,7 +514,12 @@ func (svc *ProjectService) DeleteProject(ctx context.Context, options domain.Pro
 	result.Errors = errs
 
 	if len(errs) > 0 {
-		svc.logWarn("project deletion completed with errors", field("name", identifier.Name), field("errors", len(errs)))
+		svc.logWarn(
+			"project deletion completed with errors",
+			field("name", identifier.Name),
+			field("errors", len(errs)),
+		)
+
 		return result, fmt.Errorf("delete project: %w", domain.ErrPartialDeletion)
 	}
 

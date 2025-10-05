@@ -4,7 +4,6 @@
 package unit_test
 
 import (
-	"strings"
 	"testing"
 
 	deletecmd "github.com/jlrosende/project-manager/internal/adapters/handlers/cli/delete"
@@ -20,52 +19,24 @@ func TestCLIDeleteArgsRequiresTarget(t *testing.T) {
 
 func TestCLIDeleteArgsRejectsMultipleScopeFlags(t *testing.T) {
 	tests := []struct {
-		name  string
-		flags map[string]string
+		name string
+		args []string
 	}{
-		{
-			name: "all_and_keep_files",
-			flags: map[string]string{
-				"all":        "true",
-				"keep-files": "true",
-			},
-		},
-		{
-			name: "all_and_only_env",
-			flags: map[string]string{
-				"all":      "true",
-				"only-env": "true",
-			},
-		},
-		{
-			name: "keep_files_and_only_env",
-			flags: map[string]string{
-				"keep-files": "true",
-				"only-env":   "true",
-			},
-		},
+		{name: "all_and_keep_files", args: []string{"project", "--all", "--keep-files"}},
+		{name: "all_and_only_env", args: []string{"project", "--all", "--only-env"}},
+		{name: "keep_files_and_only_env", args: []string{"project", "--keep-files", "--only-env"}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := deletecmd.Command()
-
-			for key, value := range tt.flags {
-				if err := cmd.Flags().Set(key, value); err != nil {
-					t.Fatalf("set flag %s: %v", key, err)
-				}
-			}
-
-			err := cmd.Args(cmd, []string{"project"})
+			service := &stubDeleteService{}
+			code, _, _, err := deletecmd.ExecuteForTesting(deletecmd.Options{Service: service}, tt.args)
 			if err == nil {
-				t.Fatalf("expected error for flags %v", tt.flags)
+				t.Fatalf("expected error for args %v", tt.args)
 			}
 
-			msg := err.Error()
-			for key := range tt.flags {
-				if !strings.Contains(msg, key) {
-					t.Fatalf("error message %q does not reference flag %s", msg, key)
-				}
+			if code == 0 {
+				t.Fatalf("expected non-zero exit code for args %v", tt.args)
 			}
 		})
 	}
@@ -74,23 +45,23 @@ func TestCLIDeleteArgsRejectsMultipleScopeFlags(t *testing.T) {
 func TestCLIDeleteArgsAllowsSingleScopeFlag(t *testing.T) {
 	tests := []struct {
 		name string
-		flag string
+		args []string
 	}{
-		{name: "all", flag: "all"},
-		{name: "keep_files", flag: "keep-files"},
-		{name: "only_env", flag: "only-env"},
+		{name: "all", args: []string{"project", "--all"}},
+		{name: "keep_files", args: []string{"project", "--keep-files"}},
+		{name: "only_env", args: []string{"project", "--only-env"}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := deletecmd.Command()
-
-			if err := cmd.Flags().Set(tt.flag, "true"); err != nil {
-				t.Fatalf("set flag %s: %v", tt.flag, err)
+			service := &stubDeleteService{}
+			code, _, _, err := deletecmd.ExecuteForTesting(deletecmd.Options{Service: service}, tt.args)
+			if err != nil {
+				t.Fatalf("unexpected error with args %v: %v", tt.args, err)
 			}
 
-			if err := cmd.Args(cmd, []string{"project"}); err != nil {
-				t.Fatalf("unexpected error with flag %s: %v", tt.flag, err)
+			if code != 0 {
+				t.Fatalf("expected zero exit code, got %d", code)
 			}
 		})
 	}

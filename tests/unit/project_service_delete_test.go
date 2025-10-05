@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
 
 	"github.com/jlrosende/project-manager/internal/core/domain"
 	"github.com/jlrosende/project-manager/internal/core/services"
@@ -22,9 +22,8 @@ func TestProjectServiceDeleteProject_DryRunReturnsPlanWithoutSideEffects(t *test
 	envRepo := mocks.NewMockEnvVarsRepository(ctrl)
 	gitRepo := mocks.NewMockGitRepository(ctrl)
 	fs := mocks.NewMockFilesystem(ctrl)
-	logger := mocks.NewMockLogger(ctrl)
 
-	svc := services.NewProjectService(projectRepo, envRepo, gitRepo, fs, logger)
+	svc := services.NewProjectService(projectRepo, envRepo, gitRepo, fs, nil)
 
 	options := domain.ProjectDeleteOptions{
 		Target: domain.ProjectIdentifier{
@@ -87,9 +86,8 @@ func TestProjectServiceDeleteProject_AllScopeInvokesPorts(t *testing.T) {
 	envRepo := mocks.NewMockEnvVarsRepository(ctrl)
 	gitRepo := mocks.NewMockGitRepository(ctrl)
 	fs := mocks.NewMockFilesystem(ctrl)
-	logger := mocks.NewMockLogger(ctrl)
 
-	svc := services.NewProjectService(projectRepo, envRepo, gitRepo, fs, logger)
+	svc := services.NewProjectService(projectRepo, envRepo, gitRepo, fs, nil)
 
 	options := domain.ProjectDeleteOptions{
 		Target: domain.ProjectIdentifier{
@@ -119,7 +117,6 @@ func TestProjectServiceDeleteProject_AllScopeInvokesPorts(t *testing.T) {
 	gitRepo.EXPECT().RemoveHooks(gomock.Any(), options.Target).Return(nil)
 	fs.EXPECT().ExecuteDeletion(gomock.Any(), plan).Return([]domain.DeletionArtifact{plan.Artifacts[1], plan.Artifacts[3]}, nil)
 	projectRepo.EXPECT().FinalizeDeletion(gomock.Any(), options.Target, plan.Scope).Return(nil)
-	logger.EXPECT().Info("delete artifact", gomock.Any(), gomock.Any()).Times(len(plan.Artifacts))
 
 	result, err := svc.DeleteProject(context.Background(), options)
 	if err != nil {

@@ -50,10 +50,55 @@ func (l *loggerAdapter) log(fn func(string, ...any), msg string, fields ...ports
 			continue
 		}
 
-		args = append(args, slog.Any(f.Key, f.Value))
+		args = append(args, makeAttr(f))
 	}
 
 	fn(msg, args...)
+}
+
+func makeAttr(f ports.LogField) slog.Attr {
+	switch v := f.Value.(type) {
+	case []ports.LogField:
+		return slog.Group(f.Key, fieldsToArgs(v)...)
+	case map[string]any:
+		return slog.Group(f.Key, mapToArgs(v)...)
+	default:
+		return slog.Any(f.Key, v)
+	}
+}
+
+func fieldsToArgs(fields []ports.LogField) []any {
+	if len(fields) == 0 {
+		return nil
+	}
+
+	args := make([]any, 0, len(fields))
+	for _, field := range fields {
+		if field.Key == "" {
+			continue
+		}
+
+		args = append(args, makeAttr(field))
+	}
+
+	return args
+}
+
+func mapToArgs(values map[string]any) []any {
+	if len(values) == 0 {
+		return nil
+	}
+
+	args := make([]any, 0, len(values))
+	for key, value := range values {
+		if key == "" {
+			continue
+		}
+
+		args = append(args, slog.Any(key, value))
+	}
+
+	return args
 }
 
 // SetupLogger configures a slog logger writing to the provided path (or a default

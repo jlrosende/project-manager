@@ -4,6 +4,7 @@
 package unit_test
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -21,6 +22,9 @@ func (f failingGitRepo) Save(string, *domain.GitConfig) error         { return n
 func (f failingGitRepo) LoadGlobal() error                            { return nil }
 func (f failingGitRepo) UpdateIncludeIf(string, string, string) error { return errors.New("boom") }
 func (f failingGitRepo) SaveGlobal(string) error                      { return nil }
+func (f failingGitRepo) RemoveHooks(context.Context, domain.ProjectIdentifier) error {
+	return nil
+}
 
 func TestService_Create_RollbackOnGitFailure(t *testing.T) {
 	home := t.TempDir()

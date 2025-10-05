@@ -1,5 +1,7 @@
 package ports
 
+//go:generate go tool mockgen -source=logger_port.go -destination=../../../mocks/mock_logger_port.go -package=mocks
+
 // LogField represents a structured logging attribute passed across layers.
 type LogField struct {
 	Key   string

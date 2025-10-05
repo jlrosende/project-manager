@@ -382,7 +382,10 @@ func (p *ProjectRepository) AddEnvironment(projectName string, env *domain.Envir
 	return nil
 }
 
-func (p *ProjectRepository) ResolveIdentifier(_ context.Context, lookup domain.ProjectIdentifier) (domain.ProjectIdentifier, error) {
+func (p *ProjectRepository) ResolveIdentifier(
+	_ context.Context,
+	lookup domain.ProjectIdentifier,
+) (domain.ProjectIdentifier, error) {
 	name := strings.TrimSpace(lookup.Name)
 	targetPath := strings.TrimSpace(lookup.Path)
 
@@ -397,6 +400,7 @@ func (p *ProjectRepository) ResolveIdentifier(_ context.Context, lookup domain.P
 				targetPath = abs
 			}
 		}
+
 		targetPath = filepath.Clean(targetPath)
 	}
 
@@ -440,7 +444,11 @@ func (p *ProjectRepository) ResolveIdentifier(_ context.Context, lookup domain.P
 	return domain.ProjectIdentifier{}, domain.ErrProjectNotFound
 }
 
-func (p *ProjectRepository) FinalizeDeletion(_ context.Context, identifier domain.ProjectIdentifier, _ domain.DeleteScope) error {
+func (p *ProjectRepository) FinalizeDeletion(
+	_ context.Context,
+	identifier domain.ProjectIdentifier,
+	_ domain.DeleteScope,
+) error {
 	includeIf := p.git.Raw.Section("includeIf")
 	if includeIf != nil {
 		targetPath := filepath.Clean(p.fs.ExpandHome(identifier.Path))

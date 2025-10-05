@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jlrosende/project-manager/configs"
 	"github.com/jlrosende/project-manager/internal/core/domain"
 )
 
@@ -20,19 +21,21 @@ const (
 	flagBackupDestination = "backup-destination"
 )
 
-// DeleteService defines the subset of the project service required by the CLI
+// Service defines the subset of the project service required by the CLI
 // delete command.
-type DeleteService interface {
+type Service interface {
 	DeleteProject(context.Context, domain.ProjectDeleteOptions) (*domain.ProjectDeleteResult, error)
 }
 
 // Options configures command execution for testing and dependency injection.
 type Options struct {
-	Service DeleteService
+	Service Service
 	Confirm ConfirmationFunc
 	In      io.Reader
 	Out     io.Writer
 	Err     io.Writer
+	Palette map[string]string
+	Config  *configs.Config
 }
 
 // Command returns the cobra command that wires the delete workflow into the CLI.
@@ -68,6 +71,7 @@ func ExecuteForTesting(opts Options, args []string) (int, string, string, error)
 	var stdoutBuf, stderrBuf bytes.Buffer
 
 	opts.Out = &stdoutBuf
+
 	opts.Err = &stderrBuf
 	if opts.In == nil {
 		opts.In = bytes.NewBuffer(nil)

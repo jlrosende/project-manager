@@ -26,6 +26,19 @@ func main() {
 	root := cmd.Root()
 	root.DisableAutoGenTag = true // stable, reproducible files (no timestamp footer)
 
+	hasDelete := false
+
+	for _, c := range root.Commands() {
+		if c.Name() == "delete" {
+			hasDelete = true
+			break
+		}
+	}
+
+	if !hasDelete {
+		log.Fatal("delete command not registered; ensure CLI wiring before generating docs")
+	}
+
 	switch *format {
 	case "markdown":
 		if *front {

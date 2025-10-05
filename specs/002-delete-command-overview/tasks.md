@@ -50,7 +50,7 @@
 - [X] T040 Update env vars repository with delete operations in `/workspaces/project-manager/internal/adapters/repositories/env_vars_repository.go`.
 - [X] T041 Update git repository to remove include-if and hooks in `/workspaces/project-manager/internal/adapters/repositories/git_repository.go`.
 - [X] T042 Update project repository to drop registry entries and set status flags in `/workspaces/project-manager/internal/adapters/repositories/project_repository.go`.
-- [ ] T043 Regenerate mocks for updated ports (`/workspaces/project-manager/mocks/*`).
+- [X] T043 Regenerate mocks for updated ports (`/workspaces/project-manager/mocks/*`).
 - [X] T044 Implement CLI confirmation helper in `/workspaces/project-manager/internal/adapters/handlers/cli/delete/confirm.go`.
 - [X] T045 Implement Cobra command with flag setup and validation in `/workspaces/project-manager/internal/adapters/handlers/cli/delete/command.go`.
 - [X] T046 Map CLI options to service call and render summaries in `/workspaces/project-manager/internal/adapters/handlers/cli/delete/run.go`.
@@ -58,18 +58,18 @@
 - [X] T048 Wire new dependencies in bootstrap container in `/workspaces/project-manager/internal/bootstrap/bootstrap.go`.
 
 ## Phase 3.4: Integration
-- [ ] T049 Ensure logger adapter emits structured delete events in `/workspaces/project-manager/internal/adapters/repositories/logger.go` if required.
-- [ ] T050 Add backup directory initialization to configuration defaults in `/workspaces/project-manager/configs/config.default.hcl` or applicable config.
-- [ ] T051 Verify doc generator picks up new command by updating `/workspaces/project-manager/tools/docgen/main.go` if needed.
+- [X] T049 Ensure logger adapter emits structured delete events in `/workspaces/project-manager/internal/adapters/repositories/logger.go` if required.
+- [X] T050 Add backup directory initialization to configuration defaults in `/workspaces/project-manager/configs/config.default.hcl` or applicable config.
+- [X] T051 Verify doc generator picks up new command by updating `/workspaces/project-manager/tools/docgen/main.go` if needed.
 
 ## Phase 3.5: Polish
-- [ ] T052 [P] Add automated test coverage confirming logger emits per-artifact entries in `/workspaces/project-manager/tests/integration/cli_delete_logging_test.go`.
-- [ ] T053 [P] Add unit tests for new domain validation helpers in `/workspaces/project-manager/tests/unit/domain_delete_validation_test.go`.
-- [ ] T054 [P] Update CLI docs with delete command usage in `/workspaces/project-manager/docs/cli/pm_delete.md` and `/workspaces/project-manager/docs/rest/pm_delete.rst`.
-- [ ] T055 [P] Add `pm delete` man page in `/workspaces/project-manager/man/pm-delete.1` and link from `/workspaces/project-manager/man/pm.1`.
-- [ ] T056 [P] Update README and changelog entries referencing delete command in `/workspaces/project-manager/README.md` and `/workspaces/project-manager/docs/cli/pm.md`.
-- [ ] T057 Run `make lint`, `make unit`, and `make integration` to confirm all suites pass (`/workspaces/project-manager`).
-- [ ] T058 Capture release notes snippet for delete command in `/workspaces/project-manager/docs/refactor_plan.md` or relevant summary.
+- [X] T052 [P] Add automated test coverage confirming logger emits per-artifact entries in `/workspaces/project-manager/tests/integration/cli_delete_logging_test.go`.
+- [X] T053 [P] Add unit tests for new domain validation helpers in `/workspaces/project-manager/tests/unit/domain_delete_validation_test.go`.
+- [X] T054 [P] Update CLI docs with delete command usage in `/workspaces/project-manager/docs/cli/pm_delete.md` and `/workspaces/project-manager/docs/rest/pm_delete.rst`.
+- [X] T055 [P] Add `pm delete` man page in `/workspaces/project-manager/man/pm-delete.1` and link from `/workspaces/project-manager/man/pm.1`.
+- [X] T056 [P] Update README and changelog entries referencing delete command in `/workspaces/project-manager/README.md` and `/workspaces/project-manager/docs/cli/pm.md`.
+- [X] T057 Run `make lint`, `make unit`, and `make integration` to confirm all suites pass (`/workspaces/project-manager`).
+- [X] T058 Capture release notes snippet for delete command in `/workspaces/project-manager/docs/refactor_plan.md` or relevant summary.
 
 ## Dependencies
 - T001 → T002 (workspace readiness before lint check).

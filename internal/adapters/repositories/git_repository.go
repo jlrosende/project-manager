@@ -172,6 +172,7 @@ func (g *GitRepository) RemoveHooks(_ context.Context, project domain.ProjectIde
 	}
 
 	hooksDir := filepath.Join(project.Path, ".git", "hooks")
+
 	entries, err := os.ReadDir(hooksDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -187,6 +188,7 @@ func (g *GitRepository) RemoveHooks(_ context.Context, project domain.ProjectIde
 			if err := os.RemoveAll(full); err != nil {
 				return err
 			}
+
 			continue
 		}
 
