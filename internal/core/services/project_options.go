@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
+	"unicode"
 
 	"gopkg.in/yaml.v3"
 
@@ -283,4 +285,135 @@ func defaultProjectConfigSkeleton() domain.ConfigInput {
 			"description": "Describe your project",
 		},
 	}
+}
+
+// DeleteCLIFlags captures the parsed CLI flags for project deletion.
+type DeleteCLIFlags struct {
+	All               bool
+	KeepFiles         bool
+	OnlyEnv           bool
+	DryRun            bool
+	Force             bool
+	Backup            bool
+	BackupDestination string
+}
+
+var errConflictingDeleteScopes = errors.New("conflicting delete scope flags")
+
+// ResolveDeleteScope determines which scope should be executed given the parsed
+// flags.
+func ResolveDeleteScope(flags DeleteCLIFlags) (domain.DeleteScope, error) {
+	selected := 0
+	if flags.All {
+		selected++
+	}
+	if flags.KeepFiles {
+		selected++
+	}
+	if flags.OnlyEnv {
+		selected++
+	}
+
+	if selected > 1 {
+		return domain.DeleteScopeMetadata, errConflictingDeleteScopes
+	}
+
+	switch {
+	case flags.All:
+		return domain.DeleteScopeAll, nil
+	case flags.KeepFiles:
+		return domain.DeleteScopeKeepFiles, nil
+	case flags.OnlyEnv:
+		return domain.DeleteScopeEnvOnly, nil
+	default:
+		return domain.DeleteScopeMetadata, nil
+	}
+}
+
+// BuildDeleteOptions creates a domain-level ProjectDeleteOptions structure based
+// on the resolved CLI flags.
+func BuildDeleteOptions(target domain.ProjectIdentifier, flags DeleteCLIFlags) (domain.ProjectDeleteOptions, error) {
+	scope, err := ResolveDeleteScope(flags)
+	if err != nil {
+		return domain.ProjectDeleteOptions{}, err
+	}
+
+	options := domain.ProjectDeleteOptions{
+		Target: target,
+		Scope:  scope,
+		DryRun: flags.DryRun,
+		Force:  flags.Force,
+	}
+
+	if flags.Backup {
+		destination := strings.TrimSpace(flags.BackupDestination)
+		if destination == "" {
+			destination = defaultBackupDestination(target)
+		}
+
+		options.Backup = &domain.BackupRequest{
+			Destination:      destination,
+			IncludeWorkspace: scope.IncludesWorkspace(),
+		}
+	}
+
+	if err := options.Validate(); err != nil {
+		return domain.ProjectDeleteOptions{}, err
+	}
+
+	return options, nil
+}
+
+func defaultBackupDestination(target domain.ProjectIdentifier) string {
+	label := strings.TrimSpace(target.Name)
+	if label == "" {
+		label = strings.TrimSpace(target.Path)
+		if label != "" {
+			label = filepath.Base(label)
+		}
+	}
+
+	slug := sanitizeBackupLabel(label)
+	timestamp := time.Now().UTC().Format("20060102-150405")
+	filename := fmt.Sprintf("%s-%s.zip", timestamp, slug)
+
+	return filepath.Join("~", ".pm", "backups", filename)
+}
+
+func sanitizeBackupLabel(input string) string {
+	input = strings.TrimSpace(strings.ToLower(input))
+	if input == "" {
+		return "project"
+	}
+
+	var builder strings.Builder
+	lastDash := false
+
+	for _, r := range input {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			builder.WriteRune(r)
+			lastDash = false
+		case r == '-' || r == '_' || r == '.':
+			builder.WriteRune(r)
+			lastDash = false
+		case unicode.IsSpace(r):
+			if !lastDash {
+				builder.WriteByte('-')
+				lastDash = true
+			}
+		default:
+			if !lastDash {
+				builder.WriteByte('-')
+				lastDash = true
+			}
+		}
+	}
+
+	slug := strings.Trim(builder.String(), "-_")
+	if slug == "" {
+		return "project"
+	}
+
+	return slug
 }

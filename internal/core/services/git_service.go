@@ -1,6 +1,8 @@
 package services
 
 import (
+	"context"
+
 	"github.com/jlrosende/project-manager/internal/core/domain"
 	"github.com/jlrosende/project-manager/internal/core/ports"
 )
@@ -30,3 +32,6 @@ func (g *GitService) UpdateIncludeIf(gitdir, perProjectPath, subproject string) 
 	return g.repo.UpdateIncludeIf(gitdir, perProjectPath, subproject)
 }
 func (g *GitService) SaveGlobal(home string) error { return g.repo.SaveGlobal(home) }
+func (g *GitService) RemoveHooks(ctx context.Context, project domain.ProjectIdentifier) error {
+	return g.repo.RemoveHooks(ctx, project)
+}

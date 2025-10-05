@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"sort"
@@ -70,7 +71,26 @@ func (e *EnvVarsRepository) Save(path string, envVars map[string]string) error {
 	return os.WriteFile(path, []byte(builder.String()), 0o600)
 }
 
+func (e *EnvVarsRepository) Delete(_ context.Context, path string) error {
+	if strings.TrimSpace(path) == "" {
+		return nil
+	}
+
+	if strings.HasPrefix(path, "~/") {
+		dirname, _ := os.UserHomeDir()
+		path = filepath.Join(dirname, path[2:])
+	}
+
+	err := os.Remove(path)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	return nil
+}
+
 func needsQuote(value string) bool {
+
 	if value == "" {
 		return false
 	}

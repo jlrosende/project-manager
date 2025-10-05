@@ -1,9 +1,12 @@
 package repositories
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/go-git/go-git/v5/config"
 
@@ -151,4 +154,46 @@ func (g *GitRepository) SaveGlobal(home string) error {
 	}
 
 	return g.global.Validate()
+}
+
+func (g *GitRepository) RemoveHooks(_ context.Context, project domain.ProjectIdentifier) error {
+	if strings.TrimSpace(project.Path) == "" {
+		return nil
+	}
+
+	name := strings.TrimSpace(project.Name)
+	if name == "" {
+		name = filepath.Base(project.Path)
+	}
+
+	perProject := filepath.Join(project.Path, fmt.Sprintf(".%s.gitconfig", name))
+	if err := os.Remove(perProject); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	hooksDir := filepath.Join(project.Path, ".git", "hooks")
+	entries, err := os.ReadDir(hooksDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+
+		return err
+	}
+
+	for _, entry := range entries {
+		full := filepath.Join(hooksDir, entry.Name())
+		if entry.IsDir() {
+			if err := os.RemoveAll(full); err != nil {
+				return err
+			}
+			continue
+		}
+
+		if err := os.Remove(full); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	}
+
+	return nil
 }
