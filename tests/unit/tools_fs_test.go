@@ -5,13 +5,15 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jlrosende/project-manager/internal/tools"
+	repositories "github.com/jlrosende/project-manager/internal/adapters/repositories"
 )
 
 func TestIsDirEmpty(t *testing.T) {
 	dir := t.TempDir()
 
-	empty, err := tools.IsDirEmpty(dir)
+	fsys := repositories.NewFilesystem()
+
+	empty, err := fsys.IsDirEmpty(dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -25,7 +27,7 @@ func TestIsDirEmpty(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 
-	empty, err = tools.IsDirEmpty(dir)
+	empty, err = fsys.IsDirEmpty(dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -37,7 +39,10 @@ func TestIsDirEmpty(t *testing.T) {
 
 func TestEnsureDir(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "a", "b")
-	if err := tools.EnsureDir(dir, 0o755); err != nil {
+
+	fsys := repositories.NewFilesystem()
+
+	if err := fsys.EnsureDir(dir, 0o755); err != nil {
 		t.Fatalf("EnsureDir: %v", err)
 	}
 
@@ -52,11 +57,13 @@ func TestRenameAndWriteFile(t *testing.T) {
 	old := filepath.Join(dir, "old", "f.txt")
 	newp := filepath.Join(dir, "new", "f.txt")
 
-	if err := tools.WriteFile(old, []byte("hi"), 0o644); err != nil {
+	fsys := repositories.NewFilesystem()
+
+	if err := fsys.WriteFile(old, []byte("hi"), 0o644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	if err := tools.Rename(old, newp); err != nil {
+	if err := fsys.Rename(old, newp); err != nil {
 		t.Fatalf("Rename: %v", err)
 	}
 

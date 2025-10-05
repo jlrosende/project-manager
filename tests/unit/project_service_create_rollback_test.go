@@ -16,11 +16,11 @@ import (
 
 type failingGitRepo struct{ repositories.GitRepository }
 
-func (f failingGitRepo) Load(string) (*domain.GitConfig, error) { return &domain.GitConfig{}, nil }
-func (f failingGitRepo) Save(string, *domain.GitConfig) error  { return nil }
-func (f failingGitRepo) LoadGlobal() error                     { return nil }
+func (f failingGitRepo) Load(string) (*domain.GitConfig, error)       { return &domain.GitConfig{}, nil }
+func (f failingGitRepo) Save(string, *domain.GitConfig) error         { return nil }
+func (f failingGitRepo) LoadGlobal() error                            { return nil }
 func (f failingGitRepo) UpdateIncludeIf(string, string, string) error { return errors.New("boom") }
-func (f failingGitRepo) SaveGlobal(string) error               { return nil }
+func (f failingGitRepo) SaveGlobal(string) error                      { return nil }
 
 func TestService_Create_RollbackOnGitFailure(t *testing.T) {
 	home := t.TempDir()
@@ -31,7 +31,7 @@ func TestService_Create_RollbackOnGitFailure(t *testing.T) {
 	gitRepo := failingGitRepo{}
 	envRepo, _ := repositories.NewEnvVarsRepository()
 	projRepo, _ := repositories.NewProjectRepository()
-	svc := services.NewProjectService(projRepo, envRepo, gitRepo)
+	svc := services.NewProjectService(projRepo, envRepo, gitRepo, repositories.NewFilesystem(), nil)
 
 	_, err := svc.Create("p", projDir, "", "/bin/sh", ".env", domain.EnvVars{"K": "V"}, domain.New())
 	if err == nil {

@@ -74,3 +74,6 @@ unit:
 .PHONY: integration
 integration:
 	go  test ./tests/... -v -tags integration
+
+.PHONY: ci 
+ci: lint test

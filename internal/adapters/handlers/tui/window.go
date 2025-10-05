@@ -18,7 +18,7 @@ import (
 	stylespkg "github.com/jlrosende/project-manager/internal/adapters/handlers/tui/styles"
 	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui/views"
 	"github.com/jlrosende/project-manager/internal/core/domain"
-	"github.com/jlrosende/project-manager/internal/core/services"
+	"github.com/jlrosende/project-manager/internal/core/ports"
 )
 
 var currentPalette = map[string]string{
@@ -324,7 +324,7 @@ func (k formKeyMap) FullHelp() [][]key.Binding {
 }
 
 type Window struct {
-	projectSvc *services.ProjectService
+	projectSvc ports.ProjectService
 	r          *router.Router
 
 	projects        []*domain.Project
@@ -353,7 +353,7 @@ type Window struct {
 	fkeys          formKeyMap
 }
 
-func NewWindow(projectSvc *services.ProjectService, opts Options) (*Window, error) {
+func NewWindow(projectSvc ports.ProjectService, opts Options) (*Window, error) {
 	if strings.TrimSpace(opts.Theme) != "" {
 		setPaletteByName(opts.Theme)
 	}

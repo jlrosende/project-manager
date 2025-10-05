@@ -10,7 +10,7 @@ import (
 
 	"github.com/spf13/cobra/doc"
 
-	cmd "github.com/jlrosende/project-manager/cmd/cli" // update to your module path
+	cmd "github.com/jlrosende/project-manager/internal/adapters/handlers/cli" // update to your module path
 )
 
 func main() {

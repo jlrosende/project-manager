@@ -71,6 +71,7 @@ What gets created:
 -   Directory at the selected Path
 -   `.project.hcl` with project metadata
 -   `.env` containing initial environment variables (if provided)
+-   `.gitignore` entry ensuring `.env` stays uncommitted
 -   Per-project `.gitconfig` and includeIf entry added to your global `~/.gitconfig`
 
 ### Add a new environment (TUI)
@@ -99,6 +100,16 @@ This repository also contains basic subcommands:
 -   `pm edit` – edit project configuration (if present in your build)
 
 Tip: Use `pm --help` or `pm <subcommand> --help` for details available in your version.
+
+## Architecture
+
+Project Manager follows a hexagonal architecture split across three primary layers:
+
+-   **Core (`internal/core`)** – domain entities, validation, and ports describing the operations the app needs. Services depend on `Logger` and `Filesystem` ports instead of concrete OS/log packages.
+-   **Adapters (`internal/adapters`)** – driving adapters (CLI/TUI) and driven adapters (repositories, shells, system filesystem, slog logger) implement the ports and handle side effects.
+-   **Bootstrap (`internal/bootstrap`)** – central wiring that composes repositories, services, and shared infrastructure for CLI/TUI entry points.
+
+Keeping these boundaries documented helps contributors plug new adapters (REST/gRPC, alternate logging) without bleeding infrastructure details into the core.
 
 ## Troubleshooting
 

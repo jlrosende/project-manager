@@ -2,20 +2,18 @@ package services
 
 import (
 	"fmt"
-	"log/slog"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/jlrosende/project-manager/internal/core/domain"
 	"github.com/jlrosende/project-manager/internal/core/ports"
-	"github.com/jlrosende/project-manager/internal/tools"
 )
 
 type ProjectService struct {
 	git     ports.GitRepository
 	envVars ports.EnvVarsRepository
 	project ports.ProjectRepository
+	fs      ports.Filesystem
+	logger  ports.Logger
 }
 
 var _ ports.ProjectService = (*ProjectService)(nil)
@@ -24,20 +22,28 @@ func NewProjectService(
 	project ports.ProjectRepository,
 	envVars ports.EnvVarsRepository,
 	git ports.GitRepository,
+	fs ports.Filesystem,
+	logger ports.Logger,
 ) *ProjectService {
+	if project == nil || envVars == nil || git == nil || fs == nil {
+		panic("project service dependencies must not be nil")
+	}
+
 	return &ProjectService{
 		project: project,
 		envVars: envVars,
 		git:     git,
+		fs:      fs,
+		logger:  logger,
 	}
 }
 
 func (svc *ProjectService) Load(name string) (*domain.Project, error) {
-	slog.Debug("load project", slog.String("name", name))
+	svc.logDebug("load project", field("name", name))
 
 	projects, err := svc.project.List()
 	if err != nil {
-		slog.Error("list projects failed", slog.String("err", err.Error()))
+		svc.logError("list projects failed", field("err", err))
 		return nil, err
 	}
 
@@ -46,49 +52,40 @@ func (svc *ProjectService) Load(name string) (*domain.Project, error) {
 			continue
 		}
 
-		var envVarsPath string
-		if filepath.IsAbs(project.EnvVarsFile) {
-			envVarsPath = project.EnvVarsFile
-		} else {
-			envVarsPath = filepath.Join(project.Path, project.EnvVarsFile)
+		envVarsPath := project.EnvVarsFile
+		if !svc.fs.IsAbs(envVarsPath) {
+			envVarsPath = svc.fs.Join(project.Path, envVarsPath)
 		}
 
 		project.EnvVars, err = svc.envVars.Load(envVarsPath)
 		if err != nil {
-			slog.Error(
-				"load project env vars failed",
-				slog.String("path", envVarsPath),
-				slog.String("err", err.Error()),
-			)
-
+			svc.logError("load project env vars failed", field("path", envVarsPath), field("err", err))
 			return nil, err
 		}
 
 		for _, env := range project.Environments {
-			var envVarsPath string
-			if filepath.IsAbs(env.EnvVarsFile) {
-				envVarsPath = env.EnvVarsFile
-			} else {
-				envVarsPath = filepath.Join(project.Path, env.EnvVarsFile)
+			envVarsPath := env.EnvVarsFile
+			if !svc.fs.IsAbs(envVarsPath) {
+				envVarsPath = svc.fs.Join(project.Path, envVarsPath)
 			}
 
 			env.EnvVars, err = svc.envVars.Load(envVarsPath)
 			if err != nil {
-				slog.Warn(
+				svc.logWarn(
 					"env vars load failed; using empty",
-					slog.String("env", env.Name),
-					slog.String("path", envVarsPath),
+					field("env", env.Name),
+					field("path", envVarsPath),
 				)
 				env.EnvVars = domain.EnvVars{}
 			}
 		}
 
-		slog.Debug("loaded project", slog.String("name", project.Name))
+		svc.logDebug("loaded project", field("name", project.Name))
 
 		return project, nil
 	}
 
-	slog.Warn("project not found", slog.String("name", name))
+	svc.logWarn("project not found", field("name", name))
 
 	return nil, fmt.Errorf("project '%s' not found, projects are case sensitive", name)
 }
@@ -102,11 +99,11 @@ func (svc *ProjectService) Create(
 	envVars domain.EnvVars,
 	gitConfig *domain.GitConfig,
 ) (*domain.Project, error) {
-	slog.Info(
+	svc.logInfo(
 		"create project",
-		slog.String("name", name),
-		slog.String("path", path),
-		slog.String("subproject", subproject),
+		field("name", name),
+		field("path", path),
+		field("subproject", subproject),
 	)
 
 	file := strings.TrimSpace(envFile)
@@ -116,95 +113,105 @@ func (svc *ProjectService) Create(
 
 	proj, err := svc.project.Create(name, path, subproject, shell, file, envVars, gitConfig)
 	if err != nil {
-		slog.Error("project create failed", slog.String("err", err.Error()))
+		svc.logError("project create failed", field("err", err))
 		return nil, err
 	}
 
 	if proj != nil {
-		created := []string{}
+		projectFile := svc.fs.Join(proj.Path, ".project.hcl")
 
 		p := file
-		if !tools.IsAbs(p) {
-			p = filepath.Join(proj.Path, p)
+		if !svc.fs.IsAbs(p) {
+			p = svc.fs.Join(proj.Path, p)
 		}
 
 		if err := svc.envVars.Save(p, envVars); err != nil {
-			slog.Error("env file save failed", slog.String("path", p), slog.String("err", err.Error()))
-
-			_ = os.Remove(filepath.Join(proj.Path, ".project.hcl"))
+			svc.logError("env file save failed", field("path", p), field("err", err))
+			_ = svc.fs.Remove(projectFile)
 
 			return nil, err
 		}
 
-		created = append(created, p)
-
 		if err := svc.git.LoadGlobal(); err != nil {
-			slog.Error("git load global failed", slog.String("err", err.Error()))
-
-			_ = os.Remove(p)
-			_ = os.Remove(filepath.Join(proj.Path, ".project.hcl"))
+			svc.logError("git load global failed", field("err", err))
+			_ = svc.fs.Remove(p)
+			_ = svc.fs.Remove(projectFile)
 
 			return nil, err
 		}
 
 		gitdir := fmt.Sprintf("gitdir/i:%s/", proj.Path)
+		perProj := svc.fs.Join(proj.Path, fmt.Sprintf(".%s.gitconfig", proj.Name))
 
-		perProj := filepath.Join(proj.Path, fmt.Sprintf(".%s.gitconfig", proj.Name))
 		if err := svc.git.UpdateIncludeIf(gitdir, perProj, subproject); err != nil {
-			slog.Error(
+			svc.logError(
 				"git includeIf update failed",
-				slog.String("gitdir", gitdir),
-				slog.String("path", perProj),
-				slog.String("err", err.Error()),
+				field("gitdir", gitdir),
+				field("path", perProj),
+				field("err", err),
 			)
-
-			_ = os.Remove(p)
-			_ = os.Remove(filepath.Join(proj.Path, ".project.hcl"))
+			_ = svc.fs.Remove(p)
+			_ = svc.fs.Remove(projectFile)
 
 			return nil, err
 		}
 
-		if home, e := os.UserHomeDir(); e != nil || svc.git.SaveGlobal(home) != nil {
-			slog.Error("git save global failed")
+		home, homeErr := svc.fs.UserHomeDir()
+		if homeErr != nil {
+			svc.logError("resolve user home failed", field("err", homeErr))
+			_ = svc.fs.Remove(p)
+			_ = svc.fs.Remove(projectFile)
 
-			_ = os.Remove(p)
-			_ = os.Remove(filepath.Join(proj.Path, ".project.hcl"))
+			return nil, fmt.Errorf("failed to resolve user home directory")
+		}
+
+		if err := svc.git.SaveGlobal(home); err != nil {
+			svc.logError("git save global failed", field("err", err))
+			_ = svc.fs.Remove(p)
+			_ = svc.fs.Remove(projectFile)
 
 			return nil, fmt.Errorf("failed to save global git config")
 		}
 
 		if gitConfig != nil {
 			if err := svc.git.Save(perProj, gitConfig); err != nil {
-				slog.Error("per-project git save failed", slog.String("path", perProj), slog.String("err", err.Error()))
-
-				_ = os.Remove(p)
-				_ = os.Remove(filepath.Join(proj.Path, ".project.hcl"))
+				svc.logError("per-project git save failed", field("path", perProj), field("err", err))
+				_ = svc.fs.Remove(p)
+				_ = svc.fs.Remove(projectFile)
 
 				return nil, err
 			}
+		} else {
+			if err := svc.fs.WriteFile(perProj, []byte{}, 0o600); err != nil {
+				svc.logError("per-project git file create failed", field("path", perProj), field("err", err))
+				_ = svc.fs.Remove(p)
+				_ = svc.fs.Remove(projectFile)
 
-			created = append(created, perProj)
+				return nil, err
+			}
 		}
 
-		_ = created
-
-		slog.Info("project created", slog.String("name", proj.Name))
+		svc.logInfo("project created", field("name", proj.Name))
 	}
 
 	return proj, nil
 }
 
 func (svc *ProjectService) AddEnvironment(projectName string, env *domain.Environment, envVars domain.EnvVars) error {
-	slog.Info("add environment", slog.String("project", projectName), slog.String("env", func() string {
-		if env != nil {
-			return env.Name
-		}
+	svc.logInfo(
+		"add environment",
+		field("project", projectName),
+		field("env", func() string {
+			if env != nil {
+				return env.Name
+			}
 
-		return ""
-	}()))
+			return ""
+		}()),
+	)
 
 	if env == nil {
-		slog.Error("add environment failed: nil env")
+		svc.logError("add environment failed: nil env")
 		return fmt.Errorf("env is nil")
 	}
 
@@ -223,65 +230,64 @@ func (svc *ProjectService) AddEnvironment(projectName string, env *domain.Enviro
 
 	proj, err := svc.Load(projectName)
 	if err != nil {
-		slog.Error("load project failed", slog.String("project", projectName), slog.String("err", err.Error()))
+		svc.logError("load project failed", field("project", projectName), field("err", err))
 		return err
 	}
 
 	for _, e := range proj.Environments {
 		if e.Name == env.Name {
-			slog.Warn("environment exists", slog.String("project", projectName), slog.String("env", env.Name))
+			svc.logWarn("environment exists", field("project", projectName), field("env", env.Name))
 			return fmt.Errorf("environment %s already exists", env.Name)
 		}
 	}
 
 	p := env.EnvVarsFile
-	if !tools.IsAbs(p) {
-		p = filepath.Join(proj.Path, p)
+	if !svc.fs.IsAbs(p) {
+		p = svc.fs.Join(proj.Path, p)
 	}
 
 	if err := svc.envVars.Save(p, envVars); err != nil {
-		slog.Error("env file save failed", slog.String("path", p), slog.String("err", err.Error()))
+		svc.logError("env file save failed", field("path", p), field("err", err))
 		return err
 	}
 
 	if err := svc.project.AddEnvironment(projectName, env, envVars); err != nil {
-		slog.Error(
+		svc.logError(
 			"add environment repo failed",
-			slog.String("project", projectName),
-			slog.String("env", env.Name),
-			slog.String("err", err.Error()),
+			field("project", projectName),
+			field("env", env.Name),
+			field("err", err),
 		)
-
-		_ = os.Remove(p)
+		_ = svc.fs.Remove(p)
 
 		return err
 	}
 
-	slog.Info("environment added", slog.String("project", projectName), slog.String("env", env.Name))
+	svc.logInfo("environment added", field("project", projectName), field("env", env.Name))
 
 	return nil
 }
 
 func (svc *ProjectService) UpdateProject(project *domain.Project) error {
-	slog.Info("update project", slog.String("name", project.Name))
+	svc.logInfo("update project", field("name", project.Name))
 
 	err := svc.project.UpdateProject(project)
 	if err != nil {
-		slog.Error("update project failed", slog.String("name", project.Name), slog.String("err", err.Error()))
+		svc.logError("update project failed", field("name", project.Name), field("err", err))
 		return err
 	}
 
-	slog.Info("project updated", slog.String("name", project.Name))
+	svc.logInfo("project updated", field("name", project.Name))
 
 	return nil
 }
 
 func (svc *ProjectService) UpdateEnvironment(projectName, originalEnvName string, env *domain.Environment) error {
-	slog.Info(
+	svc.logInfo(
 		"update environment",
-		slog.String("project", projectName),
-		slog.String("original", originalEnvName),
-		slog.String("env", func() string {
+		field("project", projectName),
+		field("original", originalEnvName),
+		field("env", func() string {
 			if env != nil {
 				return env.Name
 			}
@@ -292,17 +298,17 @@ func (svc *ProjectService) UpdateEnvironment(projectName, originalEnvName string
 
 	err := svc.project.UpdateEnvironment(projectName, originalEnvName, env)
 	if err != nil {
-		slog.Error(
+		svc.logError(
 			"update environment failed",
-			slog.String("project", projectName),
-			slog.String("original", originalEnvName),
-			slog.String("err", err.Error()),
+			field("project", projectName),
+			field("original", originalEnvName),
+			field("err", err),
 		)
 
 		return err
 	}
 
-	slog.Info("environment updated", slog.String("project", projectName), slog.String("env", func() string {
+	svc.logInfo("environment updated", field("project", projectName), field("env", func() string {
 		if env != nil {
 			return env.Name
 		}
@@ -314,15 +320,43 @@ func (svc *ProjectService) UpdateEnvironment(projectName, originalEnvName string
 }
 
 func (svc *ProjectService) Delete(name string) error {
-	slog.Info("delete project", slog.String("name", name))
+	svc.logInfo("delete project", field("name", name))
 
 	err := svc.project.Delete(name)
 	if err != nil {
-		slog.Error("delete project failed", slog.String("name", name), slog.String("err", err.Error()))
+		svc.logError("delete project failed", field("name", name), field("err", err))
 		return err
 	}
 
-	slog.Info("project deleted", slog.String("name", name))
+	svc.logInfo("project deleted", field("name", name))
 
 	return nil
+}
+
+func (svc *ProjectService) logDebug(msg string, fields ...ports.LogField) {
+	if svc.logger != nil {
+		svc.logger.Debug(msg, fields...)
+	}
+}
+
+func (svc *ProjectService) logInfo(msg string, fields ...ports.LogField) {
+	if svc.logger != nil {
+		svc.logger.Info(msg, fields...)
+	}
+}
+
+func (svc *ProjectService) logWarn(msg string, fields ...ports.LogField) {
+	if svc.logger != nil {
+		svc.logger.Warn(msg, fields...)
+	}
+}
+
+func (svc *ProjectService) logError(msg string, fields ...ports.LogField) {
+	if svc.logger != nil {
+		svc.logger.Error(msg, fields...)
+	}
+}
+
+func field(key string, value any) ports.LogField {
+	return ports.LogField{Key: key, Value: value}
 }
