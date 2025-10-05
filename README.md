@@ -6,6 +6,7 @@ A simple CLI/TUI tool to manage development projects and their environments. It 
 -   Manage per-project environments (e.g., dev/staging) with .env-style variables
 -   Generate project configuration files (.project.hcl, .env, .env.<name>)
 -   Configure per-project Git settings via includeIf in your global ~/.gitconfig
+-   Cleanly remove projects with optional dry-run previews and backups
 
 ## Requirements
 
@@ -97,6 +98,7 @@ This repository also contains basic subcommands:
 -   `pm` – launches the TUI
 -   `pm list` – lists known projects
 -   `pm new` – creates a project (interactive; flags may be available depending on version)
+-   `pm delete` – removes a registered project by name or path, with confirmation, dry-run, backup, and scope flags
 -   `pm edit` – edit project configuration (if present in your build)
 
 Tip: Use `pm --help` or `pm <subcommand> --help` for details available in your version.
@@ -145,6 +147,16 @@ The project manager also managed the user git configuration updating the `.gitco
 
 ## Delete Projects
 
+Use `pm delete <target>` to clean up a project by registry name or filesystem path. By default the command removes registry metadata, stored environment files, and Git include entries while leaving the workspace directory intact. Key flags include:
+
+-   `--keep-files` to explicitly preserve workspace files while clearing metadata
+-   `--only-env` to drop stored environment variables without touching registry data
+-   `--all` to remove workspace contents after confirmation
+-   `--dry-run` to preview the deletion plan without making changes
+-   `--backup` with optional `--backup-destination` to archive the project before deletion; the destination defaults to the configured `backup_directory` or `~/.pm/backups`
+
+Unless `--force` is provided, the CLI shows a themed confirmation modal that respects global configuration and `--theme` overrides before executing the deletion.
+
 # TUI and Cli
 
 The project manager allow the user interact with a Terminal User Interface or with a set of cli commands.
@@ -161,8 +173,7 @@ The project manager allow the user interact with a Terminal User Interface or wi
 -   `pm config` open the configuration to edit global configs
 -   `pm edit [project]` edit the selected project
 -   `pm edit [project] [env]` edit the selected environment of a project
--   `pm delete [project]` delete a project and all associated environments
--   `pm delete [project] [env]` delete the selected environment of a project
+-   `pm delete <target>` remove project metadata, env files, and optionally workspace content; combine with `--dry-run`, `--keep-files`, `--only-env`, `--all`, and `--backup`
 
 # Commands
 

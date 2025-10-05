@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	domain "github.com/jlrosende/project-manager/internal/core/domain"
@@ -38,6 +39,20 @@ func NewMockEnvVarsService(ctrl *gomock.Controller) *MockEnvVarsService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockEnvVarsService) EXPECT() *MockEnvVarsServiceMockRecorder {
 	return m.recorder
+}
+
+// Delete mocks base method.
+func (m *MockEnvVarsService) Delete(ctx context.Context, path string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Delete", ctx, path)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Delete indicates an expected call of Delete.
+func (mr *MockEnvVarsServiceMockRecorder) Delete(ctx, path any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockEnvVarsService)(nil).Delete), ctx, path)
 }
 
 // Load mocks base method.
@@ -91,6 +106,20 @@ func NewMockEnvVarsRepository(ctrl *gomock.Controller) *MockEnvVarsRepository {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockEnvVarsRepository) EXPECT() *MockEnvVarsRepositoryMockRecorder {
 	return m.recorder
+}
+
+// Delete mocks base method.
+func (m *MockEnvVarsRepository) Delete(ctx context.Context, path string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Delete", ctx, path)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Delete indicates an expected call of Delete.
+func (mr *MockEnvVarsRepositoryMockRecorder) Delete(ctx, path any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockEnvVarsRepository)(nil).Delete), ctx, path)
 }
 
 // Load mocks base method.

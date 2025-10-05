@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	domain "github.com/jlrosende/project-manager/internal/core/domain"
@@ -81,6 +82,21 @@ func (m *MockProjectService) Delete(name string) error {
 func (mr *MockProjectServiceMockRecorder) Delete(name any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockProjectService)(nil).Delete), name)
+}
+
+// DeleteProject mocks base method.
+func (m *MockProjectService) DeleteProject(ctx context.Context, options domain.ProjectDeleteOptions) (*domain.ProjectDeleteResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteProject", ctx, options)
+	ret0, _ := ret[0].(*domain.ProjectDeleteResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeleteProject indicates an expected call of DeleteProject.
+func (mr *MockProjectServiceMockRecorder) DeleteProject(ctx, options any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteProject", reflect.TypeOf((*MockProjectService)(nil).DeleteProject), ctx, options)
 }
 
 // List mocks base method.
@@ -208,6 +224,20 @@ func (mr *MockProjectRepositoryMockRecorder) Delete(name any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockProjectRepository)(nil).Delete), name)
 }
 
+// FinalizeDeletion mocks base method.
+func (m *MockProjectRepository) FinalizeDeletion(ctx context.Context, identifier domain.ProjectIdentifier, scope domain.DeleteScope) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FinalizeDeletion", ctx, identifier, scope)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// FinalizeDeletion indicates an expected call of FinalizeDeletion.
+func (mr *MockProjectRepositoryMockRecorder) FinalizeDeletion(ctx, identifier, scope any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FinalizeDeletion", reflect.TypeOf((*MockProjectRepository)(nil).FinalizeDeletion), ctx, identifier, scope)
+}
+
 // List mocks base method.
 func (m *MockProjectRepository) List() ([]*domain.Project, error) {
 	m.ctrl.T.Helper()
@@ -221,6 +251,21 @@ func (m *MockProjectRepository) List() ([]*domain.Project, error) {
 func (mr *MockProjectRepositoryMockRecorder) List() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockProjectRepository)(nil).List))
+}
+
+// ResolveIdentifier mocks base method.
+func (m *MockProjectRepository) ResolveIdentifier(ctx context.Context, lookup domain.ProjectIdentifier) (domain.ProjectIdentifier, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResolveIdentifier", ctx, lookup)
+	ret0, _ := ret[0].(domain.ProjectIdentifier)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ResolveIdentifier indicates an expected call of ResolveIdentifier.
+func (mr *MockProjectRepositoryMockRecorder) ResolveIdentifier(ctx, lookup any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveIdentifier", reflect.TypeOf((*MockProjectRepository)(nil).ResolveIdentifier), ctx, lookup)
 }
 
 // UpdateEnvironment mocks base method.

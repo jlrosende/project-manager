@@ -9,8 +9,9 @@ import (
 )
 
 type Config struct {
-	Theme        string        `hcl:"theme"`
-	CustomThemes []CustomTheme `hcl:"custom_theme,block"`
+	Theme           string        `hcl:"theme"`
+	BackupDirectory string        `hcl:"backup_directory,optional"`
+	CustomThemes    []CustomTheme `hcl:"custom_theme,block"`
 }
 
 type CustomTheme struct {
@@ -49,16 +50,17 @@ func GetConfig(cfgFile string) (*Config, error) {
 			return nil, err
 		}
 
-		if strings.TrimSpace(cfg.Theme) == "" {
-			cfg.Theme = "nord"
-		}
+		applyDefaults(&cfg)
 
 		return &cfg, nil
 	}
 
 	configDir, err := os.UserConfigDir()
 	if err != nil {
-		return &Config{Theme: "nord"}, nil
+		cfg := &Config{}
+		applyDefaults(cfg)
+
+		return cfg, nil
 	}
 
 	defaultPath := filepath.Join(configDir, "pm", "config.hcl")
@@ -68,12 +70,23 @@ func GetConfig(cfgFile string) (*Config, error) {
 			return nil, err
 		}
 
-		if strings.TrimSpace(cfg.Theme) == "" {
-			cfg.Theme = "nord"
-		}
+		applyDefaults(&cfg)
 
 		return &cfg, nil
 	}
 
-	return &Config{Theme: "nord"}, nil
+	cfg := &Config{}
+	applyDefaults(cfg)
+
+	return cfg, nil
+}
+
+func applyDefaults(cfg *Config) {
+	if strings.TrimSpace(cfg.Theme) == "" {
+		cfg.Theme = "nord"
+	}
+
+	if strings.TrimSpace(cfg.BackupDirectory) == "" {
+		cfg.BackupDirectory = filepath.Join("~", ".pm", "backups")
+	}
 }

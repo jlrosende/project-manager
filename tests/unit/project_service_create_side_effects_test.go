@@ -4,6 +4,7 @@
 package unit_test
 
 import (
+	"context"
 	"errors"
 	"io/fs"
 	"path/filepath"
@@ -30,6 +31,18 @@ func (stubFilesystem) Abs(path string) (string, error) { return filepath.Abs(pat
 func (stubFilesystem) ExpandHome(path string) string   { return path }
 func (s *stubFilesystem) Remove(path string) error     { s.removed = append(s.removed, path); return nil }
 func (stubFilesystem) UserHomeDir() (string, error)    { return "/home/test", nil }
+func (stubFilesystem) PlanDeletion(context.Context, domain.ProjectIdentifier, domain.DeleteScope, *domain.BackupRequest) (*domain.ProjectDeletePlan, error) {
+	return nil, nil
+}
+func (stubFilesystem) PlanBackup(context.Context, domain.ProjectIdentifier, *domain.BackupRequest, bool) (*domain.BackupArtifact, error) {
+	return nil, nil
+}
+func (stubFilesystem) CreateBackup(context.Context, domain.ProjectIdentifier, *domain.BackupRequest) (*domain.BackupArtifact, error) {
+	return nil, nil
+}
+func (stubFilesystem) ExecuteDeletion(context.Context, *domain.ProjectDeletePlan) ([]domain.DeletionArtifact, error) {
+	return nil, nil
+}
 
 func TestProjectService_Create_CleansProjectOnEnvSaveFailure(t *testing.T) {
 	ctrl := gomock.NewController(t)

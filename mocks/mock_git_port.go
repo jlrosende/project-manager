@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	domain "github.com/jlrosende/project-manager/internal/core/domain"
@@ -67,6 +68,20 @@ func (m *MockGitService) LoadGlobal() error {
 func (mr *MockGitServiceMockRecorder) LoadGlobal() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadGlobal", reflect.TypeOf((*MockGitService)(nil).LoadGlobal))
+}
+
+// RemoveHooks mocks base method.
+func (m *MockGitService) RemoveHooks(ctx context.Context, project domain.ProjectIdentifier) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveHooks", ctx, project)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveHooks indicates an expected call of RemoveHooks.
+func (mr *MockGitServiceMockRecorder) RemoveHooks(ctx, project any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveHooks", reflect.TypeOf((*MockGitService)(nil).RemoveHooks), ctx, project)
 }
 
 // Save mocks base method.
@@ -162,6 +177,20 @@ func (m *MockGitRepository) LoadGlobal() error {
 func (mr *MockGitRepositoryMockRecorder) LoadGlobal() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadGlobal", reflect.TypeOf((*MockGitRepository)(nil).LoadGlobal))
+}
+
+// RemoveHooks mocks base method.
+func (m *MockGitRepository) RemoveHooks(ctx context.Context, project domain.ProjectIdentifier) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveHooks", ctx, project)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveHooks indicates an expected call of RemoveHooks.
+func (mr *MockGitRepositoryMockRecorder) RemoveHooks(ctx, project any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveHooks", reflect.TypeOf((*MockGitRepository)(nil).RemoveHooks), ctx, project)
 }
 
 // Save mocks base method.

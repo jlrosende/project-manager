@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -375,6 +376,125 @@ func (p *ProjectRepository) AddEnvironment(projectName string, env *domain.Envir
 	b.WriteString("}\n")
 
 	if _, err := io.WriteString(fp, b.String()); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p *ProjectRepository) ResolveIdentifier(
+	_ context.Context,
+	lookup domain.ProjectIdentifier,
+) (domain.ProjectIdentifier, error) {
+	name := strings.TrimSpace(lookup.Name)
+	targetPath := strings.TrimSpace(lookup.Path)
+
+	if name == "" && targetPath == "" {
+		return domain.ProjectIdentifier{}, domain.ErrProjectNotFound
+	}
+
+	if targetPath != "" {
+		targetPath = p.fs.ExpandHome(targetPath)
+		if !filepath.IsAbs(targetPath) {
+			if abs, err := filepath.Abs(targetPath); err == nil {
+				targetPath = abs
+			}
+		}
+
+		targetPath = filepath.Clean(targetPath)
+	}
+
+	for _, section := range p.git.Raw.Sections {
+		if !section.IsName("includeIf") {
+			continue
+		}
+
+		for _, sub := range section.Subsections {
+			if !strings.HasPrefix(sub.Name, "gitdir/i:") {
+				continue
+			}
+
+			rawPath := strings.TrimPrefix(sub.Name, "gitdir/i:")
+			rawPath = strings.TrimSuffix(rawPath, "/")
+			expanded := p.fs.ExpandHome(rawPath)
+			expanded = filepath.Clean(expanded)
+
+			if targetPath != "" && expanded != targetPath {
+				continue
+			}
+
+			project, err := p.loadDotProject(filepath.Join(expanded, ".project.hcl"))
+			if err != nil {
+				continue
+			}
+
+			if name != "" && project.Name != name {
+				continue
+			}
+
+			return domain.ProjectIdentifier{
+				Name:       project.Name,
+				Path:       expanded,
+				RegistryID: sub.Name,
+				Status:     domain.ProjectStatus{},
+			}, nil
+		}
+	}
+
+	return domain.ProjectIdentifier{}, domain.ErrProjectNotFound
+}
+
+func (p *ProjectRepository) FinalizeDeletion(
+	_ context.Context,
+	identifier domain.ProjectIdentifier,
+	_ domain.DeleteScope,
+) error {
+	includeIf := p.git.Raw.Section("includeIf")
+	if includeIf != nil {
+		targetPath := filepath.Clean(p.fs.ExpandHome(identifier.Path))
+
+		subsections := includeIf.Subsections
+		writeIdx := 0
+
+		for _, sub := range subsections {
+			if strings.HasPrefix(sub.Name, "gitdir/i:") {
+				rawPath := strings.TrimPrefix(sub.Name, "gitdir/i:")
+				rawPath = strings.TrimSuffix(rawPath, "/")
+				expanded := filepath.Clean(p.fs.ExpandHome(rawPath))
+
+				if expanded == targetPath {
+					continue
+				}
+			}
+
+			subsections[writeIdx] = sub
+			writeIdx++
+		}
+
+		includeIf.Subsections = subsections[:writeIdx]
+	}
+
+	if err := p.git.Validate(); err != nil {
+		return err
+	}
+
+	data, err := p.git.Marshal()
+	if err != nil {
+		return err
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+
+	fp, err := os.OpenFile(filepath.Join(home, ".gitconfig"), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	defer fp.Close()
+
+	if _, err := fp.Write(data); err != nil {
 		return err
 	}
 

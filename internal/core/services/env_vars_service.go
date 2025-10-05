@@ -1,6 +1,8 @@
 package services
 
 import (
+	"context"
+
 	"github.com/jlrosende/project-manager/internal/core/domain"
 	"github.com/jlrosende/project-manager/internal/core/ports"
 )
@@ -23,4 +25,8 @@ func (e *EnvVarsService) Load(path string) (domain.EnvVars, error) {
 
 func (e *EnvVarsService) Save(path string, envVars map[string]string) error {
 	return e.repo.Save(path, envVars)
+}
+
+func (e *EnvVarsService) Delete(ctx context.Context, path string) error {
+	return e.repo.Delete(ctx, path)
 }

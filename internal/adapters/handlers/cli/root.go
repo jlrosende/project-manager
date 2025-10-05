@@ -11,6 +11,7 @@ import (
 
 	"github.com/jlrosende/project-manager/configs"
 	"github.com/jlrosende/project-manager/internal"
+	cmdDelete "github.com/jlrosende/project-manager/internal/adapters/handlers/cli/delete"
 	cmdEdit "github.com/jlrosende/project-manager/internal/adapters/handlers/cli/edit"
 	cmdInit "github.com/jlrosende/project-manager/internal/adapters/handlers/cli/init"
 	cmdList "github.com/jlrosende/project-manager/internal/adapters/handlers/cli/list"
@@ -72,6 +73,7 @@ func newRootCommand() *cobra.Command {
 	cmd.AddCommand(cmdNew.Command())
 	cmd.AddCommand(cmdList.ListCmd)
 	cmd.AddCommand(cmdEdit.EditCmd)
+	cmd.AddCommand(cmdDelete.Command())
 
 	return cmd
 }

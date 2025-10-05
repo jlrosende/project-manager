@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -331,6 +332,200 @@ func (svc *ProjectService) Delete(name string) error {
 	svc.logInfo("project deleted", field("name", name))
 
 	return nil
+}
+
+func (svc *ProjectService) DeleteProject(
+	ctx context.Context,
+	options domain.ProjectDeleteOptions,
+) (*domain.ProjectDeleteResult, error) {
+	if err := options.Validate(); err != nil {
+		return nil, err
+	}
+
+	identifier, err := svc.project.ResolveIdentifier(ctx, options.Target)
+	if err != nil {
+		svc.logError("resolve delete target failed", field("target", options.Target.Name), field("err", err))
+		return nil, err
+	}
+
+	if identifier.Status.Locked {
+		svc.logWarn("project locked", field("name", identifier.Name))
+		return nil, domain.ErrProjectLocked
+	}
+
+	if identifier.Status.ReadOnly {
+		svc.logWarn("workspace read-only", field("name", identifier.Name))
+		return nil, domain.ErrWorkspaceReadOnly
+	}
+
+	plan, err := svc.fs.PlanDeletion(ctx, identifier, options.Scope, options.Backup)
+	if err != nil {
+		svc.logError("plan project deletion failed", field("name", identifier.Name), field("err", err))
+		return nil, fmt.Errorf("plan deletion: %w", err)
+	}
+
+	result := &domain.ProjectDeleteResult{
+		Scope: options.Scope,
+		Plan:  plan,
+	}
+
+	if options.DryRun && options.RequiresBackup() && options.Backup != nil {
+		result.BackupPath = options.Backup.Destination
+	}
+
+	if options.DryRun {
+		svc.logInfo(
+			"delete preview",
+			field("name", identifier.Name),
+			field("scope", plan.Scope.String()),
+			field("artifacts", len(plan.Artifacts)),
+		)
+
+		return result, nil
+	}
+
+	var (
+		removed []domain.DeletionArtifact
+		skipped []domain.DeletionArtifact
+		errs    []error
+	)
+
+	hasGitArtifacts := false
+
+	for _, artifact := range plan.Artifacts {
+		if artifact.Type == domain.ArtifactHook || artifact.Type == domain.ArtifactGitInclude {
+			hasGitArtifacts = true
+			break
+		}
+	}
+
+	var backupMeta *domain.BackupArtifact
+	if options.RequiresBackup() {
+		backupMeta, err = svc.fs.CreateBackup(ctx, identifier, options.Backup)
+		if err != nil {
+			svc.logError("create backup failed", field("name", identifier.Name), field("err", err))
+			return nil, fmt.Errorf("create backup: %w", err)
+		}
+
+		if backupMeta != nil && backupMeta.Completed() {
+			result.BackupPath = backupMeta.FinalPath
+			svc.logInfo("backup created", field("path", backupMeta.FinalPath))
+		}
+	}
+
+	failureIndex := -1
+	gitCleaned := false
+
+	if !hasGitArtifacts && plan.Scope.IncludesMetadata() {
+		if err := svc.git.RemoveHooks(ctx, identifier); err != nil {
+			errs = append(errs, fmt.Errorf("remove git hooks: %w", err))
+			skipped = append(skipped, domain.DeletionArtifact{
+				Type:        domain.ArtifactGitInclude,
+				Path:        identifier.Path,
+				Description: "git hooks",
+			})
+
+			result.ArtifactsRemoved = removed
+			result.ArtifactsSkipped = skipped
+			result.Errors = errs
+
+			return result, fmt.Errorf("delete project: %w", domain.ErrPartialDeletion)
+		}
+
+		svc.logInfo("git hooks removed", field("name", identifier.Name))
+
+		gitCleaned = true
+	}
+
+	for idx, artifact := range plan.Artifacts {
+		svc.logInfo("delete artifact", field("type", artifact.Type), field("path", artifact.Path))
+
+		switch artifact.Type {
+		case domain.ArtifactEnvVars:
+			if err := svc.envVars.Delete(ctx, artifact.Path); err != nil {
+				errs = append(errs, fmt.Errorf("remove env vars: %w", err))
+				skipped = append(skipped, artifact)
+				failureIndex = idx
+			}
+
+			if failureIndex == -1 {
+				removed = append(removed, artifact)
+			}
+		case domain.ArtifactHook, domain.ArtifactGitInclude:
+			if gitCleaned {
+				removed = append(removed, artifact)
+				continue
+			}
+
+			if err := svc.git.RemoveHooks(ctx, identifier); err != nil {
+				errs = append(errs, fmt.Errorf("remove git hooks: %w", err))
+				skipped = append(skipped, artifact)
+				failureIndex = idx
+			} else {
+				removed = append(removed, artifact)
+				gitCleaned = true
+			}
+		case domain.ArtifactBackup:
+			if options.RequiresBackup() {
+				if backupMeta != nil && backupMeta.Completed() {
+					removed = append(removed, artifact)
+				} else {
+					errs = append(errs, fmt.Errorf("backup artifact not created"))
+					skipped = append(skipped, artifact)
+					failureIndex = idx
+				}
+			}
+		default:
+			// handled by filesystem execution below
+		}
+
+		if failureIndex != -1 {
+			skipped = append(skipped, plan.Artifacts[idx+1:]...)
+
+			break
+		}
+	}
+
+	if failureIndex == -1 {
+		fsRemoved, execErr := svc.fs.ExecuteDeletion(ctx, plan)
+		if execErr != nil {
+			errs = append(errs, fmt.Errorf("execute deletion: %w", execErr))
+		} else if len(fsRemoved) > 0 {
+			for _, artifact := range fsRemoved {
+				if artifact.Type == domain.ArtifactRegistry {
+					continue
+				}
+
+				removed = append(removed, artifact)
+			}
+		}
+
+		if len(errs) == 0 {
+			if err := svc.project.FinalizeDeletion(ctx, identifier, plan.Scope); err != nil {
+				errs = append(errs, fmt.Errorf("finalize deletion: %w", err))
+			} else {
+				svc.logInfo("project deletion finalized", field("name", identifier.Name))
+			}
+		}
+	}
+
+	result.ArtifactsRemoved = removed
+	result.ArtifactsSkipped = skipped
+	result.Errors = errs
+
+	if len(errs) > 0 {
+		svc.logWarn(
+			"project deletion completed with errors",
+			field("name", identifier.Name),
+			field("errors", len(errs)),
+		)
+
+		return result, fmt.Errorf("delete project: %w", domain.ErrPartialDeletion)
+	}
+
+	svc.logInfo("project deletion complete", field("name", identifier.Name), field("scope", plan.Scope.String()))
+
+	return result, nil
 }
 
 func (svc *ProjectService) logDebug(msg string, fields ...ports.LogField) {

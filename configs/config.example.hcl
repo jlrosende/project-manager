@@ -1,5 +1,6 @@
 
 theme = "mytheme"
+backup_directory = "~/.pm/backups"
 
 custom_theme "mytheme" {
   # Any of these are optional; missing values fall back to base theme (nord/catppuccin/dracula/ayu)
