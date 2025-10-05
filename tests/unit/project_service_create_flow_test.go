@@ -22,7 +22,7 @@ func TestService_Create_SuccessPath(t *testing.T) {
 	gitRepo, _ := repositories.NewGitRepository()
 	envRepo, _ := repositories.NewEnvVarsRepository()
 	projRepo, _ := repositories.NewProjectRepository()
-	svc := services.NewProjectService(projRepo, envRepo, gitRepo)
+	svc := services.NewProjectService(projRepo, envRepo, gitRepo, repositories.NewFilesystem(), nil)
 
 	gitCfg := domain.New(domain.WithName("U"), domain.WithEmail("u@e"))
 	proj, err := svc.Create("p", projDir, "", "/bin/sh", ".env", domain.EnvVars{"K": "V"}, gitCfg)

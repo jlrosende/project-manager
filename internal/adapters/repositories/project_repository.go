@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/go-git/go-git/v5/config"
@@ -15,14 +16,17 @@ import (
 
 	"github.com/jlrosende/project-manager/internal/core/domain"
 	"github.com/jlrosende/project-manager/internal/core/ports"
-	"github.com/jlrosende/project-manager/internal/tools"
 )
 
 type ProjectRepository struct {
 	git *config.Config
+	fs  ports.Filesystem
 }
 
-var _ ports.ProjectRepository = (*ProjectRepository)(nil)
+var (
+	_             ports.ProjectRepository = (*ProjectRepository)(nil)
+	equalsSpacing                         = regexp.MustCompile(`\s*=\s*`)
+)
 
 func NewProjectRepository() (*ProjectRepository, error) {
 	git, err := config.LoadConfig(config.GlobalScope)
@@ -32,6 +36,7 @@ func NewProjectRepository() (*ProjectRepository, error) {
 
 	return &ProjectRepository{
 		git: git,
+		fs:  NewFilesystem(),
 	}, nil
 }
 
@@ -79,7 +84,7 @@ func (p *ProjectRepository) List() ([]*domain.Project, error) {
 						continue
 					}
 
-					path = tools.ExpandHome(path)
+					path = p.fs.ExpandHome(path)
 					project.Path = path
 
 					projects = append(projects, project)
@@ -137,13 +142,6 @@ func (p *ProjectRepository) Create(
 		return nil, err
 	}
 
-	// Require empty directory to avoid clobbering existing projects
-	if isEmpty, err := tools.IsDirEmpty(path); err != nil {
-		return nil, err
-	} else if !isEmpty {
-		return nil, fmt.Errorf("directory %s, is not empty", path)
-	}
-
 	// .project.hcl
 	projPath := filepath.Join(path, ".project.hcl")
 	if _, err = os.Stat(projPath); !os.IsNotExist(err) {
@@ -169,7 +167,10 @@ func (p *ProjectRepository) Create(
 	proj.Path = path
 	gohcl.EncodeIntoBody(proj, body)
 
-	if _, err := fpProj.Write(doc.Bytes()); err != nil {
+	rendered := hclwrite.Format(doc.Bytes())
+
+	rendered = equalsSpacing.ReplaceAll(rendered, []byte(" = "))
+	if _, err := fpProj.Write(rendered); err != nil {
 		return nil, err
 	}
 
@@ -303,7 +304,7 @@ func (p *ProjectRepository) UpdateEnvironment(projectName, originalEnvName strin
 
 		if _, err := os.Stat(oldPath); err == nil {
 			if _, err := os.Stat(newPath); os.IsNotExist(err) {
-				_ = tools.Rename(oldPath, newPath)
+				_ = p.fs.Rename(oldPath, newPath)
 			}
 		}
 
@@ -383,7 +384,7 @@ func (p *ProjectRepository) AddEnvironment(projectName string, env *domain.Envir
 func (p *ProjectRepository) loadDotProject(path string) (*domain.Project, error) {
 	project := &domain.Project{}
 
-	path = tools.ExpandHome(path)
+	path = p.fs.ExpandHome(path)
 
 	err := hclsimple.DecodeFile(path, nil, project)
 	if err != nil {

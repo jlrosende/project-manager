@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/jlrosende/project-manager/internal/adapters/repositories"
 	"github.com/jlrosende/project-manager/internal/core/domain"
 	"github.com/jlrosende/project-manager/internal/core/services"
 	"github.com/jlrosende/project-manager/mocks"
@@ -21,7 +22,7 @@ func TestProjectService_AddEnvironment_DefaultsAndIdempotency(t *testing.T) {
 	envRepo := mocks.NewMockEnvVarsRepository(ctrl)
 	gitRepo := mocks.NewMockGitRepository(ctrl)
 
-	svc := services.NewProjectService(projRepo, envRepo, gitRepo)
+	svc := services.NewProjectService(projRepo, envRepo, gitRepo, repositories.NewFilesystem(), nil)
 
 	proj := &domain.Project{Name: "Foo", Path: t.TempDir(), EnvVarsFile: ".env"}
 	projRepo.EXPECT().List().Return([]*domain.Project{proj}, nil).AnyTimes()
