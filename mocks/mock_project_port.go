@@ -238,6 +238,51 @@ func (mr *MockProjectRepositoryMockRecorder) FinalizeDeletion(ctx, identifier, s
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FinalizeDeletion", reflect.TypeOf((*MockProjectRepository)(nil).FinalizeDeletion), ctx, identifier, scope)
 }
 
+// LoadProjectDefinition mocks base method.
+func (m *MockProjectRepository) LoadProjectDefinition(ctx context.Context, identifier domain.ProjectIdentifier) (*domain.Project, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LoadProjectDefinition", ctx, identifier)
+	ret0, _ := ret[0].(*domain.Project)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LoadProjectDefinition indicates an expected call of LoadProjectDefinition.
+func (mr *MockProjectRepositoryMockRecorder) LoadProjectDefinition(ctx, identifier any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadProjectDefinition", reflect.TypeOf((*MockProjectRepository)(nil).LoadProjectDefinition), ctx, identifier)
+}
+
+// ApplyEditChangeSet mocks base method.
+func (m *MockProjectRepository) ApplyEditChangeSet(ctx context.Context, identifier domain.ProjectIdentifier, changeSet *domain.EditChangeSet) (*domain.Project, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApplyEditChangeSet", ctx, identifier, changeSet)
+	ret0, _ := ret[0].(*domain.Project)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ApplyEditChangeSet indicates an expected call of ApplyEditChangeSet.
+func (mr *MockProjectRepositoryMockRecorder) ApplyEditChangeSet(ctx, identifier, changeSet any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyEditChangeSet", reflect.TypeOf((*MockProjectRepository)(nil).ApplyEditChangeSet), ctx, identifier, changeSet)
+}
+
+// AcquireEditLock mocks base method.
+func (m *MockProjectRepository) AcquireEditLock(ctx context.Context, identifier domain.ProjectIdentifier) (*domain.ProjectLock, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AcquireEditLock", ctx, identifier)
+	ret0, _ := ret[0].(*domain.ProjectLock)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AcquireEditLock indicates an expected call of AcquireEditLock.
+func (mr *MockProjectRepositoryMockRecorder) AcquireEditLock(ctx, identifier any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcquireEditLock", reflect.TypeOf((*MockProjectRepository)(nil).AcquireEditLock), ctx, identifier)
+}
+
 // List mocks base method.
 func (m *MockProjectRepository) List() ([]*domain.Project, error) {
 	m.ctrl.T.Helper()

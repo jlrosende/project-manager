@@ -24,11 +24,11 @@ func TestProjectRepository_UpdateEnvironment_RenameRelativeAbsolute(t *testing.T
 	_ = os.WriteFile(filepath.Join(dir, ".old.env"), []byte("K=V\n"), 0o600)
 
 	gc := config.NewConfig()
-	gc.Raw.Section("includeIf").Subsection("gitdir/i:" + dir + "/").SetOption("path", filepath.Join(dir, ".p.gitconfig"))
+	gc.Raw.Section("includeIf").Subsection("gitdir/i:"+dir+"/").SetOption("path", filepath.Join(dir, ".p.gitconfig"))
 	b, _ := gc.Marshal()
 	_ = os.WriteFile(filepath.Join(home, ".gitconfig"), b, 0o644)
 
-	repo, _ := repositories.NewProjectRepository()
+	repo, _ := repositories.NewProjectRepository(nil)
 	_ = repo.AddEnvironment("P", &domain.Environment{Name: "Dev", EnvVarsMode: domain.EnvVarsModeMerge, EnvVarsFile: ".old.env"}, nil)
 
 	if err := repo.UpdateEnvironment("P", "Dev", &domain.Environment{Name: "Dev", EnvVarsMode: domain.EnvVarsModeMerge, EnvVarsFile: ".new.env"}); err != nil {

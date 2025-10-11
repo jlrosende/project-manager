@@ -31,7 +31,7 @@ SEE ALSO
 ~~~~~~~~
 
 * `pm delete <pm_delete.rst>`_ 	 - Delete a registered project and its artifacts
-* `pm edit <pm_edit.rst>`_ 	 - edit project
+* `pm edit <pm_edit.rst>`_ 	 - Edit project configuration
 * `pm init <pm_init.rst>`_ 	 - Initialize a your workspace
 * `pm list <pm_list.rst>`_ 	 - list projects
 * `pm new <pm_new.rst>`_ 	 - Create a new project from arguments or configuration

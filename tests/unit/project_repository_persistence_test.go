@@ -38,14 +38,14 @@ func TestProjectRepository_ListGetUpdateProject(t *testing.T) {
 	writeProjectHCL(t, p2, "P2")
 
 	gc := config.NewConfig()
-	gc.Raw.Section("includeIf").Subsection("gitdir/i:" + p1 + "/").SetOption("path", filepath.Join(p1, ".p1.gitconfig"))
-	gc.Raw.Section("includeIf").Subsection("gitdir/i:" + p2 + "/").SetOption("path", filepath.Join(p2, ".p2.gitconfig"))
+	gc.Raw.Section("includeIf").Subsection("gitdir/i:"+p1+"/").SetOption("path", filepath.Join(p1, ".p1.gitconfig"))
+	gc.Raw.Section("includeIf").Subsection("gitdir/i:"+p2+"/").SetOption("path", filepath.Join(p2, ".p2.gitconfig"))
 	b, _ := gc.Marshal()
 	if err := os.WriteFile(filepath.Join(home, ".gitconfig"), b, 0o644); err != nil {
 		t.Fatalf("write global git: %v", err)
 	}
 
-	repo, err := repositories.NewProjectRepository()
+	repo, err := repositories.NewProjectRepository(nil)
 	if err != nil {
 		t.Fatalf("new repo: %v", err)
 	}
@@ -72,4 +72,6 @@ func TestProjectRepository_ListGetUpdateProject(t *testing.T) {
 	}
 }
 
-func contains(s, sub string) bool { return len(s) >= len(sub) && (s == sub || (len(sub) > 0 && (len(s) > 0 && (s[0:len(sub)] == sub || contains(s[1:], sub))))) }
+func contains(s, sub string) bool {
+	return len(s) >= len(sub) && (s == sub || (len(sub) > 0 && (len(s) > 0 && (s[0:len(sub)] == sub || contains(s[1:], sub)))))
+}

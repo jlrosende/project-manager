@@ -43,13 +43,13 @@ func TestProjectRepository_UpdateProject_RenamesPerProjectGitconfigAndUpdatesInc
 
 	// prepare global includeIf pointing to old path
 	gc := config.NewConfig()
-	gc.Raw.Section("includeIf").Subsection("gitdir/i:" + projDir + "/").SetOption("path", oldGit)
+	gc.Raw.Section("includeIf").Subsection("gitdir/i:"+projDir+"/").SetOption("path", oldGit)
 	b, _ := gc.Marshal()
 	if err := os.WriteFile(filepath.Join(home, ".gitconfig"), b, 0o600); err != nil {
 		t.Fatalf("write global git: %v", err)
 	}
 
-	repo, err := repositories.NewProjectRepository()
+	repo, err := repositories.NewProjectRepository(nil)
 	if err != nil {
 		t.Fatalf("new repo: %v", err)
 	}

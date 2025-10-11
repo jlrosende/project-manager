@@ -2,20 +2,8 @@
 
 Delete a registered project and its artifacts
 
-### Synopsis
-
-`pm delete` removes registry metadata, environment variables, and optional workspace files for a registered project. The `<target>` positional argument accepts either a registered project name or a filesystem path. Unless `--force` is provided, the CLI displays a themed confirmation modal before removing anything. Use `--dry-run` to print the planned artifacts without making changes. When `--backup` is set the command writes an archive to `--backup-destination`, falling back to the configured backup directory or `~/.pm/backups`.
-
 ```
 pm delete <target> [flags]
-```
-
-### Examples
-
-```
-pm delete sample-app
-pm delete sample-app --keep-files
-pm delete ~/work/sample-app --all --backup --backup-destination ~/archives/sample-app.zip
 ```
 
 ### Options

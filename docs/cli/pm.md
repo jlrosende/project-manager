@@ -4,7 +4,7 @@ pm is a tool to create and organize projects in your computer
 
 ### Synopsis
 
-A tool to manage the configuration and structure of multiple projects inside your computer. Launch the TUI with `pm`, create new projects with `pm new`, and remove existing projects with `pm delete` using optional dry-run and backup support.
+A tool to manage the configuration and estructure of multiple projects inside your computer
 
 ```
 pm [project] [env|[path]]  [flags]
@@ -24,7 +24,7 @@ pm [project] [env|[path]]  [flags]
 ### SEE ALSO
 
 * [pm delete](pm_delete.md)	 - Delete a registered project and its artifacts
-* [pm edit](pm_edit.md)	 - edit project
+* [pm edit](pm_edit.md)	 - Edit project configuration
 * [pm init](pm_init.md)	 - Initialize a your workspace
 * [pm list](pm_list.md)	 - list projects
 * [pm new](pm_new.md)	 - Create a new project from arguments or configuration

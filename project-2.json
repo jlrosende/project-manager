@@ -1,0 +1,8 @@
+{
+  "project": {
+    "default_env": "",
+    "description": "a Test porject v2",
+    "env_vars_file": ".env",
+    "shell": "bash"
+  }
+}
