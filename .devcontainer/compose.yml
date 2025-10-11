@@ -6,7 +6,26 @@ services:
       dockerfile: ./.devcontainer/Dockerfile
     volumes:
       - ../..:/workspaces:cached
+      - /lib/modules:/lib/modules:ro
     command: sleep infinity
     env_file:
       - ./.env
+    environment:
+      - DAGGER_RUNNER_HOST=container://dagger-engine:8080
+      - _EXPERIMENTAL_DAGGER_RUNNER_HOST=container://dagger-engine
+    depends_on:
+      - dagger-engine
 
+  dagger-engine:
+    container_name: dagger-engine
+    image: registry.dagger.io/engine:v0.19.2
+    command:
+      - --oci-worker-net
+      - host
+    privileged: true
+    volumes:
+      - dagger-engine-state:/var/lib/dagger
+      # - ./.devcontainer/engine.toml:/etc/dagger/engine.toml
+
+volumes:
+  dagger-engine-state:

@@ -32,7 +32,7 @@ func New(opts Options) (*Container, error) {
 
 	logger := opts.Logger
 
-	repoProject, err := repositories.NewProjectRepository()
+	repoProject, err := repositories.NewProjectRepository(fsys)
 	if err != nil {
 		return nil, err
 	}

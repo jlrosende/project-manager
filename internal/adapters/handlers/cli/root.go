@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -16,7 +17,7 @@ import (
 	cmdInit "github.com/jlrosende/project-manager/internal/adapters/handlers/cli/init"
 	cmdList "github.com/jlrosende/project-manager/internal/adapters/handlers/cli/list"
 	cmdNew "github.com/jlrosende/project-manager/internal/adapters/handlers/cli/new"
-	tui "github.com/jlrosende/project-manager/internal/adapters/handlers/tui"
+	"github.com/jlrosende/project-manager/internal/adapters/handlers/tui"
 	repositories "github.com/jlrosende/project-manager/internal/adapters/repositories"
 	"github.com/jlrosende/project-manager/internal/adapters/repositories/shells"
 	"github.com/jlrosende/project-manager/internal/bootstrap"
@@ -72,7 +73,7 @@ func newRootCommand() *cobra.Command {
 	cmd.AddCommand(cmdInit.InitCmd)
 	cmd.AddCommand(cmdNew.Command())
 	cmd.AddCommand(cmdList.ListCmd)
-	cmd.AddCommand(cmdEdit.EditCmd)
+	cmd.AddCommand(cmdEdit.Command())
 	cmd.AddCommand(cmdDelete.Command())
 
 	return cmd
@@ -80,13 +81,31 @@ func newRootCommand() *cobra.Command {
 
 func Execute() {
 	if err := newRootCommand().Execute(); err != nil {
-		slog.Error("something wrong happened", slog.Any("err", err))
-		os.Exit(1)
+		code := exitCodeFromError(err)
+		slog.Error("something wrong happened", slog.Any("err", err), slog.Int("exit_code", code))
+		os.Exit(code)
 	}
 }
 
 // Root exposes the root command for tools like doc generators.
 func Root() *cobra.Command { return newRootCommand() }
+
+type exitCoder interface {
+	ExitCode() int
+}
+
+func exitCodeFromError(err error) int {
+	if err == nil {
+		return 0
+	}
+
+	var ec exitCoder
+	if errors.As(err, &ec) {
+		return ec.ExitCode()
+	}
+
+	return 1
+}
 
 func root(cmd *cobra.Command, args []string) error {
 	container, err := bootstrap.New(bootstrap.Options{

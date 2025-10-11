@@ -22,7 +22,7 @@ func TestProjectService_UpdateProject_ChangesPersist(t *testing.T) {
 	projDir := filepath.Join(home, "proj-upd")
 	gitRepo, _ := repositories.NewGitRepository()
 	envRepo, _ := repositories.NewEnvVarsRepository()
-	projRepo, _ := repositories.NewProjectRepository()
+	projRepo, _ := repositories.NewProjectRepository(nil)
 	svc := services.NewProjectService(projRepo, envRepo, gitRepo, repositories.NewFilesystem(), nil)
 
 	proj, err := svc.Create("p", projDir, "", "/bin/sh", ".env", nil, domain.New())

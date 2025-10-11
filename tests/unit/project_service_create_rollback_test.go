@@ -34,7 +34,7 @@ func TestService_Create_RollbackOnGitFailure(t *testing.T) {
 	projDir := filepath.Join(home, "p-rollback")
 	gitRepo := failingGitRepo{}
 	envRepo, _ := repositories.NewEnvVarsRepository()
-	projRepo, _ := repositories.NewProjectRepository()
+	projRepo, _ := repositories.NewProjectRepository(nil)
 	svc := services.NewProjectService(projRepo, envRepo, gitRepo, repositories.NewFilesystem(), nil)
 
 	_, err := svc.Create("p", projDir, "", "/bin/sh", ".env", domain.EnvVars{"K": "V"}, domain.New())

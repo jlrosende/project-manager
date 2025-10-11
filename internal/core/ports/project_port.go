@@ -8,6 +8,9 @@ import (
 	"github.com/jlrosende/project-manager/internal/core/domain"
 )
 
+// ProjectService orchestrates project workflows consumed by CLI adapters.
+// The shared Cobra argument guard ensures the `<project>` argument is supplied
+// before any edit-specific methods are invoked.
 type ProjectService interface {
 	Load(name string) (*domain.Project, error)
 	List() ([]*domain.Project, error)
@@ -36,4 +39,11 @@ type ProjectRepository interface {
 	Delete(name string) error
 	ResolveIdentifier(ctx context.Context, lookup domain.ProjectIdentifier) (domain.ProjectIdentifier, error)
 	FinalizeDeletion(ctx context.Context, identifier domain.ProjectIdentifier, scope domain.DeleteScope) error
+	LoadProjectDefinition(ctx context.Context, identifier domain.ProjectIdentifier) (*domain.Project, error)
+	ApplyEditChangeSet(
+		ctx context.Context,
+		identifier domain.ProjectIdentifier,
+		changeSet *domain.EditChangeSet,
+	) (*domain.Project, error)
+	AcquireEditLock(ctx context.Context, identifier domain.ProjectIdentifier) (*domain.ProjectLock, error)
 }

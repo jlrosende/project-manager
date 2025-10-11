@@ -21,7 +21,7 @@ func TestProjectService_Create_WritesGitIncludeAndPerProjectConfig(t *testing.T)
 	projDir := filepath.Join(home, "proj")
 	gitRepo, _ := repositories.NewGitRepository()
 	envRepo, _ := repositories.NewEnvVarsRepository()
-	projRepo, _ := repositories.NewProjectRepository()
+	projRepo, _ := repositories.NewProjectRepository(nil)
 
 	svc := services.NewProjectService(projRepo, envRepo, gitRepo, repositories.NewFilesystem(), nil)
 

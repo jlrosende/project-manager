@@ -6,24 +6,11 @@ pm-delete - Delete a registered project and its artifacts
 
 
 .SH SYNOPSIS
-\fBpm delete <target> [flags]\fP
+\fBpm delete  [flags]\fP
 
 
 .SH DESCRIPTION
-Delete registry metadata, environment files, and optional workspace directories for a registered project. The \fI<target>\fP argument accepts either a registered project name or a filesystem path. Unless \fB--force\fP is provided, the command displays a themed confirmation prompt before removing anything. Use \fB--dry-run\fP to preview the planned artifacts without changes. When \fB--backup\fP is enabled the archive is written to \fB--backup-destination\fP, falling back to the configured backup directory or \fB~/.pm/backups\fP.
-
-.SH EXAMPLES
-.B pm delete sample-app
-.PP
-Remove registry metadata and environment files while keeping workspace contents.
-
-.B pm delete sample-app --keep-files
-.PP
-Explicitly retain workspace files while clearing project metadata.
-
-.B pm delete ~/work/sample-app --all --backup --backup-destination ~/archives/sample-app.zip
-.PP
-Remove every artifact for the project and store a backup archive at a custom location.
+Delete a registered project and its artifacts
 
 
 .SH OPTIONS

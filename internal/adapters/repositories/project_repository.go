@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/go-git/go-git/v5/config"
 	"github.com/hashicorp/hcl/v2/gohcl"
@@ -24,20 +25,29 @@ type ProjectRepository struct {
 	fs  ports.Filesystem
 }
 
+type renameOperation struct {
+	from string
+	to   string
+}
+
 var (
 	_             ports.ProjectRepository = (*ProjectRepository)(nil)
 	equalsSpacing                         = regexp.MustCompile(`\s*=\s*`)
 )
 
-func NewProjectRepository() (*ProjectRepository, error) {
+func NewProjectRepository(fsys ports.Filesystem) (*ProjectRepository, error) {
 	git, err := config.LoadConfig(config.GlobalScope)
 	if err != nil {
 		return nil, err
 	}
 
+	if fsys == nil {
+		fsys = NewFilesystem()
+	}
+
 	return &ProjectRepository{
 		git: git,
-		fs:  NewFilesystem(),
+		fs:  fsys,
 	}, nil
 }
 
@@ -520,4 +530,518 @@ func (p *ProjectRepository) loadDotProject(path string) (*domain.Project, error)
 	}
 
 	return project, nil
+}
+
+func (p *ProjectRepository) LoadProjectDefinition(
+	ctx context.Context,
+	identifier domain.ProjectIdentifier,
+) (*domain.Project, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	configPath, root, err := p.projectConfigPath(identifier)
+	if err != nil {
+		return nil, err
+	}
+
+	project, err := p.loadDotProject(configPath)
+	if err != nil {
+		return nil, err
+	}
+
+	project.Path = root
+
+	return project, nil
+}
+
+func (p *ProjectRepository) ApplyEditChangeSet(
+	ctx context.Context,
+	identifier domain.ProjectIdentifier,
+	changeSet *domain.EditChangeSet,
+) (*domain.Project, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	if changeSet == nil || (!changeSet.HasProjectChanges() && !changeSet.HasEnvironmentChanges()) {
+		return nil, errors.New("edit change set has no mutations")
+	}
+
+	configPath, root, err := p.projectConfigPath(identifier)
+	if err != nil {
+		return nil, err
+	}
+
+	project, err := p.loadDotProject(configPath)
+	if err != nil {
+		return nil, err
+	}
+
+	project.Path = root
+	preview := cloneProject(project)
+	preview.Path = root
+
+	var renameOps []renameOperation
+
+	if changeSet.Project != nil {
+		if err := applyProjectMutations(preview, changeSet.Project.Fields); err != nil {
+			return nil, err
+		}
+	}
+
+	if changeSet.Environment != nil {
+		op, err := p.planEnvironmentMutations(preview, root, changeSet.Environment)
+		if err != nil {
+			return nil, err
+		}
+
+		renameOps = append(renameOps, op...)
+	}
+
+	if errs := validateEditSnapshot(preview, root, changeSet); len(errs) > 0 {
+		return nil, errs
+	}
+
+	performed := make([]renameOperation, 0, len(renameOps))
+	for _, op := range renameOps {
+		if err := p.performRename(op); err != nil {
+			for i := len(performed) - 1; i >= 0; i-- {
+				_ = p.performRename(renameOperation{from: performed[i].to, to: performed[i].from})
+			}
+
+			return nil, err
+		}
+
+		performed = append(performed, op)
+	}
+
+	if err := p.persistProjectDefinition(configPath, preview); err != nil {
+		for i := len(performed) - 1; i >= 0; i-- {
+			_ = p.performRename(renameOperation{from: performed[i].to, to: performed[i].from})
+		}
+
+		return nil, err
+	}
+
+	return preview, nil
+}
+
+func (p *ProjectRepository) AcquireEditLock(
+	ctx context.Context,
+	identifier domain.ProjectIdentifier,
+) (*domain.ProjectLock, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	lockPath, _, err := p.projectLockPath(identifier)
+	if err != nil {
+		return nil, err
+	}
+
+	fp, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return nil, domain.ErrProjectLocked
+		}
+
+		return nil, err
+	}
+
+	timestamp := time.Now().UTC().Format(time.RFC3339Nano)
+	metadata := fmt.Sprintf("pid=%d\ntimestamp=%s\n", os.Getpid(), timestamp)
+
+	if _, err := fp.WriteString(metadata); err != nil {
+		fp.Close()
+		_ = os.Remove(lockPath)
+		return nil, err
+	}
+
+	if err := fp.Close(); err != nil {
+		_ = os.Remove(lockPath)
+		return nil, err
+	}
+
+	release := func() error {
+		if err := os.Remove(lockPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+
+		return nil
+	}
+
+	return domain.NewProjectLock(lockPath, release), nil
+}
+
+func (p *ProjectRepository) projectRoot(identifier domain.ProjectIdentifier) (string, error) {
+	root := strings.TrimSpace(identifier.Path)
+	if root == "" {
+		return "", errors.New("project path is required")
+	}
+
+	root = p.fs.ExpandHome(root)
+	if !p.fs.IsAbs(root) {
+		abs, err := p.fs.Abs(root)
+		if err != nil {
+			return "", err
+		}
+
+		root = abs
+	}
+
+	return filepath.Clean(root), nil
+}
+
+func (p *ProjectRepository) projectConfigPath(identifier domain.ProjectIdentifier) (string, string, error) {
+	root, err := p.projectRoot(identifier)
+	if err != nil {
+		return "", "", err
+	}
+
+	return filepath.Join(root, ".project.hcl"), root, nil
+}
+
+func (p *ProjectRepository) projectLockPath(identifier domain.ProjectIdentifier) (string, string, error) {
+	root, err := p.projectRoot(identifier)
+	if err != nil {
+		return "", "", err
+	}
+
+	return filepath.Join(root, "._pm.edit.lock"), root, nil
+}
+
+func (p *ProjectRepository) persistProjectDefinition(configPath string, project *domain.Project) error {
+	dir := filepath.Dir(configPath)
+
+	tmp, err := os.CreateTemp(dir, ".project-edit-*.tmp")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+
+	doc := hclwrite.NewEmptyFile()
+	gohcl.EncodeIntoBody(project, doc.Body())
+	rendered := equalsSpacing.ReplaceAll(hclwrite.Format(doc.Bytes()), []byte(" = "))
+
+	if _, err := tmp.Write(rendered); err != nil {
+		tmp.Close()
+		return err
+	}
+
+	if err := tmp.Chmod(0o600); err != nil {
+		tmp.Close()
+		return err
+	}
+
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+
+	return os.Rename(tmp.Name(), configPath)
+}
+
+func applyProjectMutations(project *domain.Project, fields map[string]*domain.FieldMutation) error {
+	if len(fields) == 0 {
+		return nil
+	}
+
+	for key, mutation := range fields {
+		if mutation == nil {
+			continue
+		}
+
+		value, err := mutation.StringValue()
+		if err != nil {
+			return fmt.Errorf("project mutation %s: %w", key, err)
+		}
+
+		switch key {
+		case domain.ProjectFieldDescription:
+			project.Description = value
+		case domain.ProjectFieldShell:
+			project.Shell = strings.TrimSpace(value)
+		case domain.ProjectFieldEnvVarsFile:
+			project.EnvVarsFile = strings.TrimSpace(value)
+		case domain.ProjectFieldDefaultEnv:
+			project.DefaultEnv = strings.TrimSpace(value)
+		default:
+			return fmt.Errorf("unsupported project field mutation %q", key)
+		}
+	}
+
+	return nil
+}
+
+func (p *ProjectRepository) planEnvironmentMutations(
+	project *domain.Project,
+	root string,
+	changeSet *domain.EnvironmentChangeSet,
+) ([]renameOperation, error) {
+	if changeSet == nil || changeSet.Name == "" {
+		return nil, errors.New("environment change set requires a target name")
+	}
+
+	env := findEnvironment(project, changeSet.Name)
+	if env == nil {
+		return nil, fmt.Errorf("environment %s not found", changeSet.Name)
+	}
+
+	renames := []renameOperation{}
+
+	for key, mutation := range changeSet.Fields {
+		if mutation == nil {
+			continue
+		}
+
+		value, err := mutation.StringValue()
+		if err != nil {
+			return nil, fmt.Errorf("environment mutation %s: %w", key, err)
+		}
+
+		switch key {
+		case domain.EnvironmentFieldColor:
+			env.Color = value
+		case domain.EnvironmentFieldEnvVarsMode:
+			mode := strings.TrimSpace(strings.ToLower(value))
+			if mode == "" {
+				env.EnvVarsMode = domain.EnvVarsModeMerge
+			} else {
+				env.EnvVarsMode = mode
+			}
+		case domain.EnvironmentFieldEnvVarsFile:
+			trimmed := strings.TrimSpace(value)
+			oldFile := strings.TrimSpace(env.EnvVarsFile)
+			env.EnvVarsFile = trimmed
+
+			if trimmed == "" || oldFile == trimmed {
+				continue
+			}
+
+			from := resolveEnvironmentPath(root, oldFile)
+			to := resolveEnvironmentPath(root, trimmed)
+			if from != "" && to != "" && from != to {
+				renames = append(renames, renameOperation{from: from, to: to})
+			}
+		default:
+			return nil, fmt.Errorf("unsupported environment field mutation %q", key)
+		}
+	}
+
+	return renames, nil
+}
+
+func cloneProject(in *domain.Project) *domain.Project {
+	if in == nil {
+		return nil
+	}
+
+	out := *in
+	if len(in.Environments) > 0 {
+		out.Environments = make([]*domain.Environment, len(in.Environments))
+		for i, env := range in.Environments {
+			if env == nil {
+				continue
+			}
+
+			copyEnv := *env
+			out.Environments[i] = &copyEnv
+		}
+	}
+
+	return &out
+}
+
+func findEnvironment(project *domain.Project, name string) *domain.Environment {
+	if project == nil {
+		return nil
+	}
+
+	for _, env := range project.Environments {
+		if env != nil && env.Name == name {
+			return env
+		}
+	}
+
+	return nil
+}
+
+func resolveEnvironmentPath(root, target string) string {
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return ""
+	}
+
+	if filepath.IsAbs(target) {
+		return filepath.Clean(target)
+	}
+
+	root = strings.TrimSpace(root)
+	if root == "" {
+		return ""
+	}
+
+	return filepath.Clean(filepath.Join(root, target))
+}
+
+func validateEditSnapshot(project *domain.Project, root string, changeSet *domain.EditChangeSet) domain.ProjectValidationErrors {
+	var errs domain.ProjectValidationErrors
+
+	if project == nil || changeSet == nil {
+		return errs
+	}
+
+	if changeSet.Project != nil {
+		if _, ok := changeSet.Project.Fields[domain.ProjectFieldShell]; ok {
+			if strings.TrimSpace(project.Shell) == "" {
+				errs = append(errs, domain.ProjectValidationError{
+					Field:   domain.ProjectFieldShell,
+					Message: "shell cannot be empty",
+				})
+			}
+		}
+
+		if _, ok := changeSet.Project.Fields[domain.ProjectFieldEnvVarsFile]; ok {
+			trimmed := strings.TrimSpace(project.EnvVarsFile)
+			if trimmed == "" {
+				errs = append(errs, domain.ProjectValidationError{
+					Field:   domain.ProjectFieldEnvVarsFile,
+					Message: "env vars file cannot be empty",
+				})
+			} else if ok, _, err := pathWithinRoot(root, trimmed); err != nil {
+				errs = append(errs, domain.ProjectValidationError{
+					Field:   domain.ProjectFieldEnvVarsFile,
+					Message: fmt.Sprintf("validate env vars file: %v", err),
+				})
+			} else if !ok {
+				errs = append(errs, domain.ProjectValidationError{
+					Field:   domain.ProjectFieldEnvVarsFile,
+					Message: fmt.Sprintf("env vars file must be within project root (%s)", root),
+				})
+			}
+		}
+
+		if _, ok := changeSet.Project.Fields[domain.ProjectFieldDefaultEnv]; ok {
+			value := strings.TrimSpace(project.DefaultEnv)
+			if value != "" && findEnvironment(project, value) == nil {
+				errs = append(errs, domain.ProjectValidationError{
+					Field:   domain.ProjectFieldDefaultEnv,
+					Message: fmt.Sprintf("environment %q does not exist", value),
+				})
+			}
+		}
+	}
+
+	if changeSet.Environment != nil {
+		env := findEnvironment(project, changeSet.Environment.Name)
+		if env == nil {
+			errs = append(errs, domain.ProjectValidationError{
+				Field:   domain.EnvironmentFieldEnvVarsFile,
+				Message: fmt.Sprintf("environment %q not found", changeSet.Environment.Name),
+			})
+			return errs
+		}
+
+		if _, ok := changeSet.Environment.Fields[domain.EnvironmentFieldEnvVarsMode]; ok {
+			mode := strings.TrimSpace(env.EnvVarsMode)
+			if mode == "" {
+				errs = append(errs, domain.ProjectValidationError{
+					Field:   domain.EnvironmentFieldEnvVarsMode,
+					Message: "env vars mode cannot be empty",
+				})
+			} else if mode != domain.EnvVarsModeMerge && mode != domain.EnvVarsModeReplace {
+				errs = append(errs, domain.ProjectValidationError{
+					Field:   domain.EnvironmentFieldEnvVarsMode,
+					Message: fmt.Sprintf("env vars mode must be %q or %q", domain.EnvVarsModeMerge, domain.EnvVarsModeReplace),
+				})
+			}
+		}
+
+		if _, ok := changeSet.Environment.Fields[domain.EnvironmentFieldEnvVarsFile]; ok {
+			trimmed := strings.TrimSpace(env.EnvVarsFile)
+			if trimmed == "" {
+				errs = append(errs, domain.ProjectValidationError{
+					Field:   domain.EnvironmentFieldEnvVarsFile,
+					Message: "env vars file cannot be empty",
+				})
+			} else if ok, _, err := pathWithinRoot(root, trimmed); err != nil {
+				errs = append(errs, domain.ProjectValidationError{
+					Field:   domain.EnvironmentFieldEnvVarsFile,
+					Message: fmt.Sprintf("validate env vars file: %v", err),
+				})
+			} else if !ok {
+				errs = append(errs, domain.ProjectValidationError{
+					Field:   domain.EnvironmentFieldEnvVarsFile,
+					Message: fmt.Sprintf("env vars file must be within project root (%s)", root),
+				})
+			}
+		}
+	}
+
+	return errs
+}
+
+func pathWithinRoot(root, candidate string) (bool, string, error) {
+	root = strings.TrimSpace(root)
+	if root == "" {
+		return false, "", errors.New("project root is empty")
+	}
+
+	resolvedRoot := root
+	if !filepath.IsAbs(resolvedRoot) {
+		abs, err := filepath.Abs(resolvedRoot)
+		if err != nil {
+			return false, "", err
+		}
+		resolvedRoot = abs
+	}
+	resolvedRoot = filepath.Clean(resolvedRoot)
+
+	candidate = strings.TrimSpace(candidate)
+	if candidate == "" {
+		return false, "", nil
+	}
+
+	resolved := candidate
+	if !filepath.IsAbs(resolved) {
+		resolved = filepath.Join(resolvedRoot, resolved)
+	}
+	resolved = filepath.Clean(resolved)
+
+	rel, err := filepath.Rel(resolvedRoot, resolved)
+	if err != nil {
+		return false, resolved, err
+	}
+
+	if rel == "." {
+		return true, resolved, nil
+	}
+
+	if strings.HasPrefix(rel, ".."+string(filepath.Separator)) || rel == ".." {
+		return false, resolved, nil
+	}
+
+	return true, resolved, nil
+}
+
+func (p *ProjectRepository) performRename(op renameOperation) error {
+	if op.from == "" || op.to == "" || op.from == op.to {
+		return nil
+	}
+
+	if _, err := os.Stat(op.from); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+
+		return err
+	}
+
+	if _, err := os.Stat(op.to); err == nil {
+		return fmt.Errorf("destination %s already exists", op.to)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+
+	return p.fs.Rename(op.from, op.to)
 }

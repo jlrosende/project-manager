@@ -21,7 +21,7 @@ func TestProjectService_Create_Basic(t *testing.T) {
 	projDir := filepath.Join(home, "proj-basic")
 	gitRepo, _ := repositories.NewGitRepository()
 	envRepo, _ := repositories.NewEnvVarsRepository()
-	projRepo, _ := repositories.NewProjectRepository()
+	projRepo, _ := repositories.NewProjectRepository(nil)
 	svc := services.NewProjectService(projRepo, envRepo, gitRepo, repositories.NewFilesystem(), nil)
 
 	gitCfg := domain.New(domain.WithName("User"), domain.WithEmail("u@e"))
