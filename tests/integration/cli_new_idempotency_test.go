@@ -11,24 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	cli "github.com/jlrosende/project-manager/internal/adapters/handlers/cli"
 	"github.com/jlrosende/project-manager/internal/bootstrap"
 )
-
-func runNewCommand(t *testing.T, args ...string) (stdout, stderr string, err error) {
-	t.Helper()
-
-	cmd := cli.Root()
-	out := &bytes.Buffer{}
-	errBuf := &bytes.Buffer{}
-	cmd.SetOut(out)
-	cmd.SetErr(errBuf)
-	cmd.SetArgs(args)
-
-	executeErr := cmd.Execute()
-
-	return out.String(), errBuf.String(), executeErr
-}
 
 func TestCLINew_IdempotentReRun(t *testing.T) {
 	home := t.TempDir()
@@ -36,9 +20,9 @@ func TestCLINew_IdempotentReRun(t *testing.T) {
 	t.Setenv("SHELL", "/bin/sh")
 
 	dir := t.TempDir()
-	args := []string{"new", "demo", dir}
+	creationArgs := []string{"new", "demo", dir}
 
-	stdout, stderr, err := runNewCommand(t, args...)
+	stdout, stderr, err := runNewCommand(t, creationArgs...)
 	if err != nil {
 		t.Fatalf("first run failed: %v; stderr=%s", err, stderr)
 	}
@@ -79,39 +63,38 @@ func TestCLINew_IdempotentReRun(t *testing.T) {
 		t.Fatalf("read .env after first run: %v", readErr)
 	}
 
-	stdout, stderr, err = runNewCommand(t, args...)
-	if err == nil {
-		t.Fatalf("expected rerun to fail due to existing project")
+	rerunArgs := []string{"new", "demo"}
+
+	stdout, stderr, err = runNewCommand(t, rerunArgs...)
+	if err != nil {
+		t.Fatalf("rerun should succeed as a no-op: %v", err)
 	}
 
-	if stdout != "" {
-		t.Fatalf("unexpected stdout on rerun: %q", stdout)
+	expectedMessage := "project demo already exists; nothing to do"
+	if !strings.Contains(stdout, expectedMessage) {
+		t.Fatalf("rerun stdout missing no-op message: %q", stdout)
 	}
 
-	if !strings.Contains(err.Error(), "NEW-CONFLICT-NAME") {
-		t.Fatalf("rerun error missing conflict code: %v", err)
-	}
-
-	if !strings.Contains(stderr, "NEW-CONFLICT-NAME") {
-		t.Fatalf("stderr missing conflict code: %s", stderr)
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("unexpected stderr on rerun: %q", stderr)
 	}
 
 	rerunHCL, readErr := os.ReadFile(hclPath)
 	if readErr != nil {
-		t.Fatalf("read .project.hcl after failed rerun: %v", readErr)
+		t.Fatalf("read .project.hcl after rerun: %v", readErr)
 	}
 
 	if !bytes.Equal(rerunHCL, initialHCL) {
-		t.Fatalf(".project.hcl changed after failed rerun")
+		t.Fatalf(".project.hcl changed after no-op rerun")
 	}
 
 	rerunEnv, readErr := os.ReadFile(envPath)
 	if readErr != nil {
-		t.Fatalf("read .env after failed rerun: %v", readErr)
+		t.Fatalf("read .env after rerun: %v", readErr)
 	}
 
 	if !bytes.Equal(rerunEnv, initialEnv) {
-		t.Fatalf(".env changed after failed rerun")
+		t.Fatalf(".env changed after no-op rerun")
 	}
 }
 

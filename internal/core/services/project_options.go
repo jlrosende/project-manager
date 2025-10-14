@@ -35,11 +35,30 @@ const (
 
 // ProjectConfigFlags captures CLI-provided overrides for project creation.
 type ProjectConfigFlags struct {
-	Name    string
-	Path    string
-	Here    bool
-	PathSet bool
-	HereSet bool
+	Name        string
+	Path        string
+	Here        bool
+	PathSet     bool
+	HereSet     bool
+	Environment EnvironmentConfigFlags
+}
+
+// EnvironmentConfigFlags captures CLI-provided overrides for environment creation.
+type EnvironmentConfigFlags struct {
+	Name        string
+	NameSet     bool
+	EnvVarsFile string
+	EnvFileSet  bool
+	EnvVarsMode string
+	ModeSet     bool
+	Color       string
+	ColorSet    bool
+	EnvVars     map[string]string
+}
+
+// HasInput reports whether any environment-related flag values were provided.
+func (f EnvironmentConfigFlags) HasInput() bool {
+	return f.NameSet || f.EnvFileSet || f.ModeSet || f.ColorSet || len(f.EnvVars) > 0
 }
 
 // MergeProjectInputs combines configuration file inputs with CLI arguments,
@@ -54,6 +73,7 @@ func MergeProjectInputs(
 		envVars = domain.EnvVars{}
 	)
 
+	var env *domain.EnvironmentInput
 	if cfg != nil {
 		if cfg.Name != nil {
 			def.Name = strings.TrimSpace(*cfg.Name)
@@ -68,14 +88,55 @@ func MergeProjectInputs(
 		}
 
 		if cfg.Environment != nil {
-			def.Environment = cloneEnvironmentInput(cfg.Environment)
-			if len(cfg.Environment.EnvVars) > 0 {
-				envVars = domain.EnvVars(copyStringMap(cfg.Environment.EnvVars))
-			}
+			env = cloneEnvironmentInput(cfg.Environment)
 		}
 
 		if len(cfg.Metadata) > 0 {
 			def.Metadata = copyStringMap(cfg.Metadata)
+		}
+	}
+
+	envFlags := flags.Environment
+	if envFlags.HasInput() {
+		if env == nil {
+			env = &domain.EnvironmentInput{}
+		}
+
+		if envFlags.NameSet {
+			env.Name = stringPtr(strings.TrimSpace(envFlags.Name))
+		}
+
+		if envFlags.EnvFileSet {
+			env.EnvVarsFile = stringPtr(strings.TrimSpace(envFlags.EnvVarsFile))
+		}
+
+		if envFlags.ModeSet {
+			env.EnvVarsMode = stringPtr(strings.TrimSpace(envFlags.EnvVarsMode))
+		}
+
+		if envFlags.ColorSet {
+			env.Color = stringPtr(strings.TrimSpace(envFlags.Color))
+		}
+
+		if len(envFlags.EnvVars) > 0 {
+			if env.EnvVars == nil {
+				env.EnvVars = make(map[string]string, len(envFlags.EnvVars))
+			}
+
+			for k, v := range envFlags.EnvVars {
+				trimmedKey := strings.TrimSpace(k)
+				if trimmedKey == "" {
+					continue
+				}
+				env.EnvVars[trimmedKey] = v
+			}
+		}
+	}
+
+	if env != nil {
+		def.Environment = env
+		if len(env.EnvVars) > 0 {
+			envVars = domain.EnvVars(copyStringMap(env.EnvVars))
 		}
 	}
 
@@ -355,6 +416,15 @@ func LoadProjectConfig(path string) (*domain.ConfigInput, error) {
 		return nil, fmt.Errorf("parse config file %s: %w", path, err)
 	}
 
+	legacyEnvironments := false
+	if raw != nil {
+		if _, ok := raw["environments"]; ok {
+			legacyEnvironments = true
+			delete(raw, "environments")
+		}
+	}
+
+	cfg.SetLegacyEnvironments(legacyEnvironments)
 	cfg.SetUnknownFields(filterProjectUnknown(raw))
 
 	return &cfg, nil
@@ -423,6 +493,11 @@ func copyStringMap(in map[string]string) map[string]string {
 	}
 
 	return out
+}
+
+func stringPtr(value string) *string {
+	v := value
+	return &v
 }
 
 func cloneEnvironmentInput(in *domain.EnvironmentInput) *domain.EnvironmentInput {

@@ -952,13 +952,16 @@ func validateProjectEdit(current, updated *domain.Project, mutations map[string]
 	}
 
 	if _, ok := mutations[domain.ProjectFieldEnvVarsFile]; ok {
-		if ok, _, err := ensurePathWithinProject(current.Path, updated.EnvVarsFile); err != nil {
-			return nil, fmt.Errorf("validate project env vars file: %w", err)
-		} else if !ok {
-			errs = append(errs, domain.ProjectValidationError{
-				Field:   domain.ProjectFieldEnvVarsFile,
-				Message: fmt.Sprintf("env vars file must be within project root (%s)", current.Path),
-			})
+		candidate := strings.TrimSpace(updated.EnvVarsFile)
+		if candidate != "" {
+			if ok, _, err := ensurePathWithinProject(current.Path, candidate); err != nil {
+				return nil, fmt.Errorf("validate project env vars file: %w", err)
+			} else if !ok {
+				errs = append(errs, domain.ProjectValidationError{
+					Field:   domain.ProjectFieldEnvVarsFile,
+					Message: fmt.Sprintf("env vars file must be within project root (%s)", current.Path),
+				})
+			}
 		}
 	}
 
@@ -1031,13 +1034,16 @@ func validateEnvironmentEdit(current, updated *domain.Project, envName string, m
 	}
 
 	if _, ok := mutations[domain.EnvironmentFieldEnvVarsFile]; ok {
-		if ok, _, err := ensurePathWithinProject(current.Path, env.EnvVarsFile); err != nil {
-			return nil, fmt.Errorf("validate environment env vars file: %w", err)
-		} else if !ok {
-			errs = append(errs, domain.ProjectValidationError{
-				Field:   domain.EnvironmentFieldEnvVarsFile,
-				Message: fmt.Sprintf("env vars file must be within project root (%s)", current.Path),
-			})
+		candidate := strings.TrimSpace(env.EnvVarsFile)
+		if candidate != "" {
+			if ok, _, err := ensurePathWithinProject(current.Path, candidate); err != nil {
+				return nil, fmt.Errorf("validate environment env vars file: %w", err)
+			} else if !ok {
+				errs = append(errs, domain.ProjectValidationError{
+					Field:   domain.EnvironmentFieldEnvVarsFile,
+					Message: fmt.Sprintf("env vars file must be within project root (%s)", current.Path),
+				})
+			}
 		}
 	}
 

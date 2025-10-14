@@ -23,12 +23,13 @@ func (p ProjectDefinition) DestinationProvided() bool {
 // ConfigInput models the optional configuration supplied via JSON or YAML files.
 // Pointer fields differentiate between omitted and zero-valued inputs for later merge logic.
 type ConfigInput struct {
-	Name        *string           `json:"name"        yaml:"name"`
-	Here        *bool             `json:"here"        yaml:"here"`
-	Path        *string           `json:"path"        yaml:"path"`
-	Environment *EnvironmentInput `json:"environment" yaml:"environment"`
-	Metadata    map[string]string `json:"metadata"    yaml:"metadata"`
-	unknown     map[string]any
+	Name               *string           `json:"name"        yaml:"name"`
+	Here               *bool             `json:"here"        yaml:"here"`
+	Path               *string           `json:"path"        yaml:"path"`
+	Environment        *EnvironmentInput `json:"environment" yaml:"environment"`
+	Metadata           map[string]string `json:"metadata"    yaml:"metadata"`
+	unknown            map[string]any
+	legacyEnvironments bool
 }
 
 // EnvironmentInput captures environment-specific configuration supplied either via
@@ -58,4 +59,15 @@ func (c *ConfigInput) SetUnknownFields(fields map[string]any) {
 	for k, v := range fields {
 		c.unknown[k] = v
 	}
+}
+
+// HasLegacyEnvironments reports whether the parsed config contained the deprecated
+// `environments` map.
+func (c ConfigInput) HasLegacyEnvironments() bool {
+	return c.legacyEnvironments
+}
+
+// SetLegacyEnvironments flags whether the deprecated `environments` map was observed during parsing.
+func (c *ConfigInput) SetLegacyEnvironments(flag bool) {
+	c.legacyEnvironments = flag
 }

@@ -26,6 +26,10 @@ const (
 	flagForce                = "force"
 	flagAllowUnknown         = "allow-unknown"
 	flagOutput               = "output"
+	flagEnvFile              = "env-file"
+	flagEnvMode              = "env-mode"
+	flagEnvColor             = "env-color"
+	flagEnvVar               = "env-var"
 )
 
 // Command constructs a fresh instance of the `pm new` Cobra command.
@@ -66,6 +70,10 @@ func Command() *cobra.Command {
 	cmd.Flags().Bool(flagForce, false, "Overwrite existing project files when rerun")
 	cmd.Flags().Bool(flagAllowUnknown, false, "Ignore unknown fields in config files")
 	cmd.Flags().String(flagOutput, "text", "Output format for dry runs (text or json)")
+	cmd.Flags().String(flagEnvFile, "", "Set environment vars file when adding environments")
+	cmd.Flags().String(flagEnvMode, "", "Set environment vars merge mode (merge or replace)")
+	cmd.Flags().String(flagEnvColor, "", "Set environment color metadata when adding environments")
+	cmd.Flags().StringArray(flagEnvVar, nil, "Environment variable in KEY=VALUE format (repeatable)")
 
 	return cmd
 }
@@ -129,11 +137,40 @@ func run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	envFileFlag, err := cmd.Flags().GetString(flagEnvFile)
+	if err != nil {
+		return err
+	}
+
+	envModeFlag, err := cmd.Flags().GetString(flagEnvMode)
+	if err != nil {
+		return err
+	}
+
+	envColorFlag, err := cmd.Flags().GetString(flagEnvColor)
+	if err != nil {
+		return err
+	}
+
+	envVarPairs, err := cmd.Flags().GetStringArray(flagEnvVar)
+	if err != nil {
+		return err
+	}
+
+	envVarMap, err := parseEnvVarFlags(envVarPairs)
+	if err != nil {
+		return err
+	}
+
 	var cfg *domain.ConfigInput
 	if strings.TrimSpace(cliInputPath) != "" {
 		cfg, err = services.LoadProjectConfig(cliInputPath)
 		if err != nil {
 			return err
+		}
+
+		if cfg.HasLegacyEnvironments() && !allowUnknown {
+			return fmt.Errorf("CLI input uses deprecated \"environments\" map; remove it or pass --allow-unknown to ignore legacy fields")
 		}
 
 		if unknown := cfg.UnknownFields(); len(unknown) > 0 && !allowUnknown {
@@ -148,7 +185,28 @@ func run(cmd *cobra.Command, args []string) error {
 				"CLI input contains unknown fields: %s (use --allow-unknown to ignore)",
 				strings.Join(keys, ", "),
 			)
+
 		}
+	}
+
+	envFlags := services.EnvironmentConfigFlags{}
+	if cmd.Flags().Changed(flagEnvFile) {
+		envFlags.EnvVarsFile = envFileFlag
+		envFlags.EnvFileSet = true
+	}
+
+	if cmd.Flags().Changed(flagEnvMode) {
+		envFlags.EnvVarsMode = envModeFlag
+		envFlags.ModeSet = true
+	}
+
+	if cmd.Flags().Changed(flagEnvColor) {
+		envFlags.Color = envColorFlag
+		envFlags.ColorSet = true
+	}
+
+	if len(envVarMap) > 0 {
+		envFlags.EnvVars = envVarMap
 	}
 
 	nameArg := strings.TrimSpace(args[0])
@@ -173,37 +231,52 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	if envName != "" {
+		envFlags.Name = envName
+		envFlags.NameSet = true
+	}
+
 	here, err := cmd.Flags().GetBool(flagHere)
 	if err != nil {
 		return err
 	}
 
-	if here && pathProvided {
-		return fmt.Errorf("--here cannot be used when a path argument is provided")
+	if here && (pathProvided || envName != "") {
+		return fmt.Errorf("--here cannot be used with additional positional arguments")
 	}
 
 	merged, envVars, err := services.MergeProjectInputs(cfg, services.ProjectConfigFlags{
-		Name:    nameArg,
-		Path:    pathArg,
-		Here:    here,
-		PathSet: pathProvided,
-		HereSet: cmd.Flags().Changed(flagHere),
+		Name:        nameArg,
+		Path:        pathArg,
+		Here:        here,
+		PathSet:     pathProvided,
+		HereSet:     cmd.Flags().Changed(flagHere),
+		Environment: envFlags,
 	})
 	if err != nil {
 		return err
 	}
 
-	if envName != "" {
-		nameCopy := envName
-		if merged.Environment == nil {
-			merged.Environment = &domain.EnvironmentInput{}
-		}
-		merged.Environment.Name = &nameCopy
-	}
-
 	if existingProject {
 		merged.Path = strings.TrimSpace(probe.ProjectPath)
 		merged.Here = false
+	}
+
+	envRequested := environmentProvided(merged.Environment)
+	if !existingProject && envRequested {
+		envLabel := "environment input"
+		if merged.Environment != nil && merged.Environment.Name != nil {
+			if trimmed := strings.TrimSpace(*merged.Environment.Name); trimmed != "" {
+				envLabel = fmt.Sprintf("environment %q", trimmed)
+			}
+		}
+
+		return fmt.Errorf("%s requires an existing project; create the project before adding environments", envLabel)
+	}
+
+	if existingProject && !envRequested {
+		fmt.Fprintf(cmd.OutOrStdout(), "project %s already exists; nothing to do\n", merged.Name)
+		return nil
 	}
 
 	if strings.TrimSpace(merged.Path) == "" && !merged.Here {
@@ -263,6 +336,19 @@ func run(cmd *cobra.Command, args []string) error {
 		return renderDryRun(cmd, merged, envVars, outputFormat)
 	}
 
+	if existingProject {
+		envService := services.NewEnvironmentService(container.ProjectService, container.EnvVarsRepo, container.Filesystem)
+		if merged.Environment == nil {
+			return errors.New("environment input is required when adding environments")
+		}
+
+		if err := envService.Apply(merged.Name, merged.Environment, services.EnvironmentApplyOptions{Force: force}); err != nil {
+			return err
+		}
+
+		return nil
+	}
+
 	creator := services.NewFileService(container.ProjectService, container.Filesystem)
 	if creator == nil {
 		return errors.New("project file service not available")
@@ -273,7 +359,70 @@ func run(cmd *cobra.Command, args []string) error {
 	return err
 }
 
+func parseEnvVarFlags(pairs []string) (map[string]string, error) {
+	if len(pairs) == 0 {
+		return nil, nil
+	}
+
+	vars := make(map[string]string, len(pairs))
+	for _, raw := range pairs {
+		trimmed := strings.TrimSpace(raw)
+		if trimmed == "" {
+			continue
+		}
+
+		idx := strings.Index(trimmed, "=")
+		if idx <= 0 {
+			return nil, fmt.Errorf("invalid --%s value %q; expected KEY=VALUE", flagEnvVar, raw)
+		}
+
+		key := strings.TrimSpace(trimmed[:idx])
+		value := trimmed[idx+1:]
+		if key == "" {
+			return nil, fmt.Errorf("--%s requires a non-empty key: %q", flagEnvVar, raw)
+		}
+
+		vars[key] = value
+	}
+
+	if len(vars) == 0 {
+		return nil, nil
+	}
+
+	return vars, nil
+}
+
+func environmentProvided(input *domain.EnvironmentInput) bool {
+	if input == nil {
+		return false
+	}
+
+	if input.Name != nil && strings.TrimSpace(*input.Name) != "" {
+		return true
+	}
+
+	if input.EnvVarsFile != nil && strings.TrimSpace(*input.EnvVarsFile) != "" {
+		return true
+	}
+
+	if input.EnvVarsMode != nil && strings.TrimSpace(*input.EnvVarsMode) != "" {
+		return true
+	}
+
+	if input.Color != nil && strings.TrimSpace(*input.Color) != "" {
+		return true
+	}
+
+	return len(input.EnvVars) > 0
+}
+
 func renderDryRun(cmd *cobra.Command, def domain.ProjectDefinition, envVars domain.EnvVars, format string) error {
+	envDetails := summarizeEnvironment(def.Environment, envVars)
+	projectEnvVars := envVars
+	if envDetails != nil {
+		projectEnvVars = nil
+	}
+
 	switch strings.ToLower(strings.TrimSpace(format)) {
 	case "json":
 		payload := map[string]any{
@@ -282,8 +431,13 @@ func renderDryRun(cmd *cobra.Command, def domain.ProjectDefinition, envVars doma
 			"here": def.Here,
 		}
 
-		if def.Environment != nil {
-			payload["environment"] = def.Environment
+		if len(projectEnvVars) > 0 {
+			payload["env_vars_count"] = len(projectEnvVars)
+			payload["env_vars"] = copyEnvVars(projectEnvVars)
+		}
+
+		if envDetails != nil {
+			payload["environment"] = envDetails.asMap()
 		}
 
 		data, err := json.MarshalIndent(payload, "", "  ")
@@ -295,12 +449,123 @@ func renderDryRun(cmd *cobra.Command, def domain.ProjectDefinition, envVars doma
 	default:
 		fmt.Fprintf(cmd.OutOrStdout(), "pm new (dry-run)\n  name: %s\n  path: %s\n", def.Name, def.Path)
 
-		if len(envVars) > 0 {
-			fmt.Fprintf(cmd.OutOrStdout(), "  env vars: %d entries\n", len(envVars))
+		if def.Here {
+			fmt.Fprintln(cmd.OutOrStdout(), "  here: true")
+		}
+
+		if len(projectEnvVars) > 0 {
+			fmt.Fprintf(cmd.OutOrStdout(), "  env vars: %d entries\n", len(projectEnvVars))
+		}
+
+		if envDetails != nil {
+			fmt.Fprintln(cmd.OutOrStdout(), "  environment:")
+			fmt.Fprintf(cmd.OutOrStdout(), "    name: %s\n", envDetails.Name)
+			fmt.Fprintf(cmd.OutOrStdout(), "    env vars file: %s\n", envDetails.EnvVarsFile)
+			fmt.Fprintf(cmd.OutOrStdout(), "    env vars mode: %s\n", envDetails.EnvVarsMode)
+
+			if envDetails.Color != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "    color: %s\n", envDetails.Color)
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "    env vars: %d entries\n", len(envDetails.EnvVars))
 		}
 	}
 
 	return nil
+}
+
+type environmentDryRunDetails struct {
+	Name        string
+	EnvVarsFile string
+	EnvVarsMode string
+	Color       string
+	EnvVars     map[string]string
+}
+
+func (d environmentDryRunDetails) asMap() map[string]any {
+	payload := map[string]any{
+		"name":           d.Name,
+		"env_vars_file":  d.EnvVarsFile,
+		"env_vars_mode":  d.EnvVarsMode,
+		"env_vars_count": len(d.EnvVars),
+	}
+
+	if d.Color != "" {
+		payload["color"] = d.Color
+	}
+
+	payload["env_vars"] = copyEnvVars(d.EnvVars)
+
+	return payload
+}
+
+func summarizeEnvironment(input *domain.EnvironmentInput, merged domain.EnvVars) *environmentDryRunDetails {
+	if input == nil {
+		return nil
+	}
+
+	summary := &environmentDryRunDetails{
+		Name: trimPtr(input.Name),
+	}
+
+	file := trimPtr(input.EnvVarsFile)
+	if file == "" && summary.Name != "" {
+		file = dryRunDefaultEnvironmentFile(summary.Name)
+	}
+	summary.EnvVarsFile = file
+
+	mode := strings.ToLower(trimPtr(input.EnvVarsMode))
+	if mode == "" {
+		mode = domain.EnvVarsModeMerge
+	}
+	summary.EnvVarsMode = mode
+	summary.Color = trimPtr(input.Color)
+
+	summary.EnvVars = resolveEnvVarsForDryRun(merged, input.EnvVars)
+
+	return summary
+}
+
+func copyEnvVars(vars map[string]string) map[string]string {
+	if len(vars) == 0 {
+		return map[string]string{}
+	}
+
+	out := make(map[string]string, len(vars))
+	for k, v := range vars {
+		out[k] = v
+	}
+
+	return out
+}
+
+func resolveEnvVarsForDryRun(primary map[string]string, fallback map[string]string) map[string]string {
+	if len(primary) > 0 {
+		return copyEnvVars(primary)
+	}
+
+	if len(fallback) > 0 {
+		return copyEnvVars(fallback)
+	}
+
+	return map[string]string{}
+}
+
+func trimPtr(value *string) string {
+	if value == nil {
+		return ""
+	}
+
+	return strings.TrimSpace(*value)
+}
+
+func dryRunDefaultEnvironmentFile(name string) string {
+	slug := strings.ToLower(strings.TrimSpace(strings.ReplaceAll(name, " ", "-")))
+	if slug == "" {
+		return ".env"
+	}
+
+	return "." + slug + ".env"
 }
 
 func outputSkeleton(cmd *cobra.Command, rawPath string, format services.SkeletonFormat) error {

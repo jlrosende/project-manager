@@ -44,10 +44,17 @@
    ```bash
    pm new demo-project staging --dry-run --output json
    ```
-   - Displays merged project + environment payload; no files are written.
+   - Text mode shows project name/path and an indented environment summary (file, mode, colour, env var count).
+   - JSON output includes an `environment` object containing `env_vars`, `env_vars_mode`, and `env_vars_count`, mirroring what will be written on a real run.
 
-6. **Handle stale registry entries**
+6. **Generate a config skeleton**
+   ```bash
+   pm new --generate-cli-skeleton-json project.json
+   ```
+   - Templates now include the `environment` object with sample `env_vars` entries and no legacy `environments` map.
+
+7. **Handle stale registry entries**
    - If `.project.hcl` was removed manually, rerunning `pm new demo-project` recreates the project. The CLI ignores stale registry entries that lack the project file and avoids writing duplicate include rules.
 
-7. **Legacy configs**
+8. **Legacy configs**
    - Config files using the old `environments` map fail fast unless `--allow-unknown` is set. When allowed, legacy data is ignored silently—update configs to the new `environment` object for full functionality.
