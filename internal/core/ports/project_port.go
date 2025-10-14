@@ -14,6 +14,7 @@ import (
 type ProjectService interface {
 	Load(name string) (*domain.Project, error)
 	List() ([]*domain.Project, error)
+	Probe(name string) (domain.ProjectExistence, error)
 	Create(
 		name, path, subproject, shell, envFile string,
 		envVars domain.EnvVars,

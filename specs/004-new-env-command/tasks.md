@@ -2,15 +2,15 @@
 
 ## Phase 1 – Setup
 
-- **T001** – Checkout branch `004-new-env-command` and ensure Go 1.25 toolchain & `make` targets are ready.  
+- [x] **T001** – Checkout branch `004-new-env-command` and ensure Go 1.25 toolchain & `make` targets are ready.  
   _Files_: git workspace, local toolchain  
   _Notes_: Required for all subsequent phases.
 
 ## Phase 2 – Foundational Tasks
 
-- **T002** – Update `internal/core/domain/project_definition.go` and related domain types to add `Environment *EnvironmentInput` pointer and define the new `EnvironmentInput` struct with validation tags.  
+- [x] **T002** – Update `internal/core/domain/project_definition.go` and related domain types to add `Environment *EnvironmentInput` pointer and define the new `EnvironmentInput` struct with validation tags.  
   _Notes_: Enables environment data flow for later stories.
-- **T003** – Extend `internal/core/domain/project_definition.go` and `internal/core/domain/project.go` to remove the legacy `Environments map[string]string` usage and wire the new environment pointer through domain constructors.  
+- [x] **T003** – Extend `internal/core/domain/project_definition.go` and `internal/core/domain/project.go` to remove the legacy `Environments map[string]string` usage and wire the new environment pointer through domain constructors.  
   _Notes_: Cleans legacy schema before story work begins.
 
 ## Phase 3 – User Story US1 (P1)
@@ -18,17 +18,17 @@
 
 **Independent Test Criteria**: Running `pm new demo` twice should report the second run as a no-op, while recreating after removing `.project.hcl` should succeed without duplicate include entries.
 
-- **T004 [Story US1]** – Implement a project existence probe in `internal/core/services/project_service.go` that verifies registry membership and `.project.hcl` presence.  
+- [x] **T004 [Story US1]** – Implement a project existence probe in `internal/core/services/project_service.go` that verifies registry membership and `.project.hcl` presence.  
   _Notes_: Provides shared detection logic.  
-- **T005 [Story US1]** – Refactor `internal/adapters/handlers/cli/new/new.go` to use the new existence probe, treating the second positional argument as path vs environment based on probe result and emitting the no-op message for repeat invocations.  
+- [x] **T005 [Story US1]** – Refactor `internal/adapters/handlers/cli/new/new.go` to use the new existence probe, treating the second positional argument as path vs environment based on probe result and emitting the no-op message for repeat invocations.  
   _Depends on_: T004.  
-- **T006 [Story US1]** – Update uniqueness helper logic in `internal/core/services/project_options.go` to ignore registry entries missing `.project.hcl` and return explicit error codes for real conflicts.  
+- [x] **T006 [Story US1]** – Update uniqueness helper logic in `internal/core/services/project_options.go` to ignore registry entries missing `.project.hcl` and return explicit error codes for real conflicts.  
   _Notes_: Must run before repository updates.  
-- **T007 [Story US1]** – Adjust `internal/adapters/repositories/project_repository.go` to skip writing duplicate includeIf entries when the same path is already registered and keep stale entries untouched.  
+- [x] **T007 [Story US1]** – Adjust `internal/adapters/repositories/project_repository.go` to skip writing duplicate includeIf entries when the same path is already registered and keep stale entries untouched.  
   _Depends on_: T006.  
-- **T008 [Story US1]** – Refresh integration tests in `tests/integration/cli_new_*.go` and unit coverage for project existence helpers to assert no-op messaging and stale-entry tolerance.  
+- [ ] **T008 [Story US1]** – Refresh integration tests in `tests/integration/cli_new_*.go` and unit coverage for project existence helpers to assert no-op messaging and stale-entry tolerance.  
   _Depends on_: T005, T007.  
-- **T009 [Story US1]** – Extend `tests/integration/cli_new_here_test.go` (and related suites) to confirm `pm new --here` still rejects additional positional arguments or environment names.  
+- [ ] **T009 [Story US1]** – Extend `tests/integration/cli_new_here_test.go` (and related suites) to confirm `pm new --here` still rejects additional positional arguments or environment names.  
   _Depends on_: T005.  
 
 _Checkpoint_: US1 completed when rerun behavior, stale registry handling, and `--here` guard verification are all in place.
@@ -38,17 +38,17 @@ _Checkpoint_: US1 completed when rerun behavior, stale registry handling, and `-
 
 **Independent Test Criteria**: Attempting to add an environment before project creation fails; adding with flags/config succeeds; `--force` overwrites env metadata/file; legacy maps ignored silently under `--allow-unknown`.
 
-- **T010 [Story US2]** – Introduce new flags (`--env-file`, `--env-mode`, `--env-color`, `--env-var`) in `internal/adapters/handlers/cli/new/new.go` and update flag help text.  
+- [ ] **T010 [Story US2]** – Introduce new flags (`--env-file`, `--env-mode`, `--env-color`, `--env-var`) in `internal/adapters/handlers/cli/new/new.go` and update flag help text.  
   _Depends on_: T005.  
-- **T011 [Story US2]** – Extend merge logic in `internal/core/services/project_options.go` to assemble an `EnvironmentInput` from config object and CLI flags, including precedence for `--env-var`.  
+- [ ] **T011 [Story US2]** – Extend merge logic in `internal/core/services/project_options.go` to assemble an `EnvironmentInput` from config object and CLI flags, including precedence for `--env-var`.  
   _Depends on_: T002, T003.  
-- **T012 [Story US2]** – Enforce project-first rule in `internal/adapters/handlers/cli/new/new.go`, returning a descriptive error when environment input is provided but the existence probe fails.  
+- [ ] **T012 [Story US2]** – Enforce project-first rule in `internal/adapters/handlers/cli/new/new.go`, returning a descriptive error when environment input is provided but the existence probe fails.  
   _Depends on_: T004, T010, T011.  
-- **T013 [Story US2]** – Update `internal/core/services/project_service.go` to consume `EnvironmentInput`, validate duplicates, and honor `--force` by rewriting metadata/env files.  
+- [ ] **T013 [Story US2]** – Update `internal/core/services/project_service.go` to consume `EnvironmentInput`, validate duplicates, and honor `--force` by rewriting metadata/env files.  
   _Depends on_: T011.  
-- **T014 [Story US2]** – Modify config loading in `internal/core/services/project_options.go` to drop legacy `environments` map, ignore it when `--allow-unknown` is set, and surface errors otherwise.  
+- [ ] **T014 [Story US2]** – Modify config loading in `internal/core/services/project_options.go` to drop legacy `environments` map, ignore it when `--allow-unknown` is set, and surface errors otherwise.  
   _Depends on_: T011.  
-- **T015 [Story US2]** – Update unit and integration tests covering environment creation (`tests/unit/project_service_*`, `tests/integration/cli_new_*`) to cover flag parsing, `--force`, legacy map handling, and config precedence.  
+- [ ] **T015 [Story US2]** – Update unit and integration tests covering environment creation (`tests/unit/project_service_*`, `tests/integration/cli_new_*`) to cover flag parsing, `--force`, legacy map handling, and config precedence.  
   _Depends on_: T010–T014.  
 
 _Checkpoint_: US2 completed when environment creation behaves as specified and tests pass.
@@ -58,22 +58,22 @@ _Checkpoint_: US2 completed when environment creation behaves as specified and t
 
 **Independent Test Criteria**: Dry-run output shows project + environment details in text/JSON; skeleton generators emit the new `environment` object; documentation reflects workflow.
 
-- **T016 [Story US3]** – Enhance dry-run rendering in `internal/adapters/handlers/cli/new/new.go` to output merged environment fields in both text and JSON modes.  
+- [ ] **T016 [Story US3]** – Enhance dry-run rendering in `internal/adapters/handlers/cli/new/new.go` to output merged environment fields in both text and JSON modes.  
   _Depends on_: T011, T013.  
-- **T017 [Story US3]** – Revise skeleton generation in `internal/core/services/project_options.go` to produce the new environment object and remove the legacy map.  
+- [ ] **T017 [Story US3]** – Revise skeleton generation in `internal/core/services/project_options.go` to produce the new environment object and remove the legacy map.  
   _Depends on_: T003, T011.  
-- **T018 [Story US3]** – Update CLI docs (`docs/cli/pm_new.md`) and quickstart examples (`specs/004-new-env-command/quickstart.md`) to describe dry-run output, new flags, and skeleton structure.  
+- [ ] **T018 [Story US3]** – Update CLI docs (`docs/cli/pm_new.md`) and quickstart examples (`specs/004-new-env-command/quickstart.md`) to describe dry-run output, new flags, and skeleton structure.  
   _Depends on_: T016, T017.  
-- **T019 [Story US3]** – Adjust skeleton and dry-run related tests (`tests/integration/cli_new_dry_run_test.go`, `tests/integration/cli_new_skeleton_test.go`) to validate the new outputs.  
+- [ ] **T019 [Story US3]** – Adjust skeleton and dry-run related tests (`tests/integration/cli_new_dry_run_test.go`, `tests/integration/cli_new_skeleton_test.go`) to validate the new outputs.  
   _Depends on_: T016, T017.  
 
 _Checkpoint_: US3 completed when previews, skeletons, and docs align with the new environment schema.
 
 ## Phase 6 – Polish & Cross-Cutting
 
-- **T020** – Run `go test ./...`, `make lint`, and apply gofmt/gofumpt across touched files; fix any issues surfaced by linters or tests.  
+- [ ] **T020** – Run `go test ./...`, `make lint`, and apply gofmt/gofumpt across touched files; fix any issues surfaced by linters or tests.  
   _Depends on_: T001–T019.  
-- **T021** – Perform final documentation audit (README.md, release notes if applicable) to ensure messaging matches new behavior before handoff.  
+- [ ] **T021** – Perform final documentation audit (README.md, release notes if applicable) to ensure messaging matches new behavior before handoff.  
   _Depends on_: T018.  
 
 ## Dependencies Overview

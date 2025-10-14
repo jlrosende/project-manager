@@ -4,11 +4,11 @@ import "strings"
 
 // ProjectDefinition captures the normalized inputs required to create a project.
 type ProjectDefinition struct {
-	Name         string
-	Here         bool
-	Path         string
-	Environments map[string]string
-	Metadata     map[string]string
+	Name        string
+	Here        bool
+	Path        string
+	Environment *EnvironmentInput
+	Metadata    map[string]string
 }
 
 // DestinationProvided reports whether either Here or Path has been specified.
@@ -23,12 +23,22 @@ func (p ProjectDefinition) DestinationProvided() bool {
 // ConfigInput models the optional configuration supplied via JSON or YAML files.
 // Pointer fields differentiate between omitted and zero-valued inputs for later merge logic.
 type ConfigInput struct {
-	Name         *string           `json:"name"         yaml:"name"`
-	Here         *bool             `json:"here"         yaml:"here"`
-	Path         *string           `json:"path"         yaml:"path"`
-	Environments map[string]string `json:"environments" yaml:"environments"`
-	Metadata     map[string]string `json:"metadata"     yaml:"metadata"`
-	unknown      map[string]any
+	Name        *string           `json:"name"        yaml:"name"`
+	Here        *bool             `json:"here"        yaml:"here"`
+	Path        *string           `json:"path"        yaml:"path"`
+	Environment *EnvironmentInput `json:"environment" yaml:"environment"`
+	Metadata    map[string]string `json:"metadata"    yaml:"metadata"`
+	unknown     map[string]any
+}
+
+// EnvironmentInput captures environment-specific configuration supplied either via
+// CLI input files or merged flag data.
+type EnvironmentInput struct {
+	Name        *string           `json:"name"          yaml:"name"`
+	EnvVarsFile *string           `json:"env_vars_file" yaml:"env_vars_file"`
+	EnvVarsMode *string           `json:"env_vars_mode" yaml:"env_vars_mode"`
+	Color       *string           `json:"color"         yaml:"color"`
+	EnvVars     map[string]string `json:"env_vars"      yaml:"env_vars"`
 }
 
 // UnknownFields returns any extra fields encountered during parsing.

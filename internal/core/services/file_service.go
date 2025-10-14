@@ -42,6 +42,15 @@ func (s *FileService) Create(
 		return nil, errors.New("filesystem is not configured")
 	}
 
+	existing, err := s.projects.List()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := EnsureProjectUniqueness(existing, def); err != nil {
+		return nil, err
+	}
+
 	if opts.Force {
 		if err := s.cleanupExisting(def); err != nil {
 			return nil, err

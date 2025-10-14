@@ -95,6 +95,37 @@ func (svc *ProjectService) List() ([]*domain.Project, error) {
 	return svc.project.List()
 }
 
+func (svc *ProjectService) Probe(name string) (domain.ProjectExistence, error) {
+	trimmed := strings.TrimSpace(name)
+	probe := domain.ProjectExistence{Name: trimmed}
+
+	if trimmed == "" {
+		return probe, fmt.Errorf("project name cannot be empty")
+	}
+
+	projects, err := svc.project.List()
+	if err != nil {
+		svc.logError("project list failed", field("err", err))
+		return probe, err
+	}
+
+	for _, project := range projects {
+		if project.Name != trimmed {
+			continue
+		}
+
+		probe.RegistryHit = true
+		probe.ProjectPath = project.Path
+		probe.ProjectFileExists = true
+
+		return probe, nil
+	}
+
+	svc.logDebug("project probe missed", field("name", trimmed))
+
+	return probe, nil
+}
+
 func (svc *ProjectService) Create(
 	name, path, subproject, shell, envFile string,
 	envVars domain.EnvVars,

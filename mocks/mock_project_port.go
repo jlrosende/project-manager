@@ -114,6 +114,21 @@ func (mr *MockProjectServiceMockRecorder) List() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockProjectService)(nil).List))
 }
 
+// Probe mocks base method.
+func (m *MockProjectService) Probe(name string) (domain.ProjectExistence, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Probe", name)
+	ret0, _ := ret[0].(domain.ProjectExistence)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Probe indicates an expected call of Probe.
+func (mr *MockProjectServiceMockRecorder) Probe(name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Probe", reflect.TypeOf((*MockProjectService)(nil).Probe), name)
+}
+
 // Load mocks base method.
 func (m *MockProjectService) Load(name string) (*domain.Project, error) {
 	m.ctrl.T.Helper()

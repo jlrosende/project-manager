@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 	"unicode"
@@ -17,11 +18,11 @@ import (
 )
 
 var allowedProjectConfigKeys = map[string]struct{}{
-	"name":         {},
-	"here":         {},
-	"path":         {},
-	"environments": {},
-	"metadata":     {},
+	"name":        {},
+	"here":        {},
+	"path":        {},
+	"environment": {},
+	"metadata":    {},
 }
 
 // SkeletonFormat represents the serialization format for generated CLI input files.
@@ -66,9 +67,11 @@ func MergeProjectInputs(
 			def.Path = strings.TrimSpace(*cfg.Path)
 		}
 
-		if len(cfg.Environments) > 0 {
-			def.Environments = copyStringMap(cfg.Environments)
-			envVars = domain.EnvVars(copyStringMap(cfg.Environments))
+		if cfg.Environment != nil {
+			def.Environment = cloneEnvironmentInput(cfg.Environment)
+			if len(cfg.Environment.EnvVars) > 0 {
+				envVars = domain.EnvVars(copyStringMap(cfg.Environment.EnvVars))
+			}
 		}
 
 		if len(cfg.Metadata) > 0 {
@@ -95,6 +98,223 @@ func MergeProjectInputs(
 	}
 
 	return def, envVars, nil
+}
+
+const (
+	projectConflictExitCode = 3
+	projectConflictCodeName = "NEW-CONFLICT-NAME"
+	projectConflictCodePath = "NEW-CONFLICT-PATH"
+)
+
+type projectConflictKind int
+
+const (
+	projectConflictKindName projectConflictKind = iota + 1
+	projectConflictKindPath
+)
+
+// ProjectConflictError describes a uniqueness violation during project creation.
+type ProjectConflictError struct {
+	kind          projectConflictKind
+	projectName   string
+	existingPath  string
+	candidatePath string
+}
+
+// Error implements the error interface.
+func (e *ProjectConflictError) Error() string {
+	if e == nil {
+		return ""
+	}
+
+	switch e.kind {
+	case projectConflictKindName:
+		path := strings.TrimSpace(e.existingPath)
+		if path == "" {
+			return fmt.Sprintf("[%s] project %q already exists", e.Code(), e.projectName)
+		}
+
+		return fmt.Sprintf(
+			"[%s] project %q already exists at %s; rerun without specifying a path to add environments or choose a different name.",
+			e.Code(),
+			e.projectName,
+			path,
+		)
+	case projectConflictKindPath:
+		name := strings.TrimSpace(e.projectName)
+		if name == "" {
+			return fmt.Sprintf(
+				"[%s] path %s is already registered to another project; choose a different destination.",
+				e.Code(),
+				e.candidatePath,
+			)
+		}
+
+		return fmt.Sprintf(
+			"[%s] path %s is already registered to project %q; choose a different destination.",
+			e.Code(),
+			e.candidatePath,
+			name,
+		)
+	default:
+		return "project conflict detected"
+	}
+}
+
+// ExitCode exposes the CLI exit code associated with the conflict.
+func (e *ProjectConflictError) ExitCode() int {
+	if e == nil {
+		return 0
+	}
+
+	return projectConflictExitCode
+}
+
+// Code returns the symbolic identifier for the conflict.
+func (e *ProjectConflictError) Code() string {
+	if e == nil {
+		return ""
+	}
+
+	switch e.kind {
+	case projectConflictKindName:
+		return projectConflictCodeName
+	case projectConflictKindPath:
+		return projectConflictCodePath
+	default:
+		return ""
+	}
+}
+
+// Field indicates which field triggered the conflict.
+func (e *ProjectConflictError) Field() string {
+	if e == nil {
+		return ""
+	}
+
+	switch e.kind {
+	case projectConflictKindName:
+		return "name"
+	case projectConflictKindPath:
+		return "path"
+	default:
+		return ""
+	}
+}
+
+// ProjectName returns the conflicting project name.
+func (e *ProjectConflictError) ProjectName() string {
+	if e == nil {
+		return ""
+	}
+
+	return e.projectName
+}
+
+// ExistingPath returns the path associated with the conflicting project.
+func (e *ProjectConflictError) ExistingPath() string {
+	if e == nil {
+		return ""
+	}
+
+	return e.existingPath
+}
+
+// CandidatePath returns the requested path that triggered the conflict.
+func (e *ProjectConflictError) CandidatePath() string {
+	if e == nil {
+		return ""
+	}
+
+	return e.candidatePath
+}
+
+func newProjectConflictError(kind projectConflictKind, name, existingPath, candidatePath string) *ProjectConflictError {
+	return &ProjectConflictError{
+		kind:          kind,
+		projectName:   strings.TrimSpace(name),
+		existingPath:  strings.TrimSpace(existingPath),
+		candidatePath: strings.TrimSpace(candidatePath),
+	}
+}
+
+// EnsureProjectUniqueness verifies that the candidate project definition does not
+// collide with existing registry entries. Entries lacking a .project.hcl file are
+// ignored to allow recreation after manual cleanup.
+func EnsureProjectUniqueness(projects []*domain.Project, candidate domain.ProjectDefinition) error {
+	trimmedName := strings.TrimSpace(candidate.Name)
+	trimmedPath := strings.TrimSpace(candidate.Path)
+
+	for _, existing := range projects {
+		if existing == nil {
+			continue
+		}
+
+		existingName := strings.TrimSpace(existing.Name)
+		existingPath := strings.TrimSpace(existing.Path)
+		if existingName == "" && existingPath == "" {
+			continue
+		}
+
+		hasMetadata, err := projectMetadataExists(existingPath)
+		if err != nil {
+			return fmt.Errorf("check project metadata for %s: %w", existingPath, err)
+		}
+
+		if !hasMetadata {
+			continue
+		}
+
+		if trimmedName != "" && existingName == trimmedName {
+			return newProjectConflictError(projectConflictKindName, existingName, existingPath, trimmedPath)
+		}
+
+		if trimmedPath != "" && pathsEqual(existingPath, trimmedPath) {
+			return newProjectConflictError(projectConflictKindPath, existingName, existingPath, trimmedPath)
+		}
+	}
+
+	return nil
+}
+
+func projectMetadataExists(root string) (bool, error) {
+	root = strings.TrimSpace(root)
+	if root == "" {
+		return false, nil
+	}
+
+	meta := filepath.Join(root, ".project.hcl")
+	info, err := os.Stat(meta)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+
+		return false, err
+	}
+
+	if info.IsDir() {
+		return false, nil
+	}
+
+	return true, nil
+}
+
+func pathsEqual(a, b string) bool {
+	a = strings.TrimSpace(a)
+	b = strings.TrimSpace(b)
+	if a == "" || b == "" {
+		return false
+	}
+
+	cleanA := filepath.Clean(a)
+	cleanB := filepath.Clean(b)
+
+	if runtime.GOOS == "windows" {
+		return strings.EqualFold(cleanA, cleanB)
+	}
+
+	return cleanA == cleanB
 }
 
 // LoadProjectConfig reads a JSON or YAML configuration file from disk.
@@ -205,7 +425,42 @@ func copyStringMap(in map[string]string) map[string]string {
 	return out
 }
 
+func cloneEnvironmentInput(in *domain.EnvironmentInput) *domain.EnvironmentInput {
+	if in == nil {
+		return nil
+	}
+
+	out := &domain.EnvironmentInput{}
+
+	if in.Name != nil {
+		name := *in.Name
+		out.Name = &name
+	}
+
+	if in.EnvVarsFile != nil {
+		file := *in.EnvVarsFile
+		out.EnvVarsFile = &file
+	}
+
+	if in.EnvVarsMode != nil {
+		mode := *in.EnvVarsMode
+		out.EnvVarsMode = &mode
+	}
+
+	if in.Color != nil {
+		color := *in.Color
+		out.Color = &color
+	}
+
+	if len(in.EnvVars) > 0 {
+		out.EnvVars = copyStringMap(in.EnvVars)
+	}
+
+	return out
+}
+
 // GenerateProjectSkeleton writes a CLI input skeleton in the requested format to the
+
 // provided path. The generated file can be edited and passed to --cli-input for
 // future project creation runs.
 func GenerateProjectSkeleton(path string, format SkeletonFormat) error {
@@ -273,13 +528,21 @@ func defaultProjectConfigSkeleton() domain.ConfigInput {
 	name := "your-project-name"
 	path := "/absolute/path/to/your-project"
 	here := false
+	envName := "example"
+	envFile := ".env.example"
+	envMode := domain.EnvVarsModeMerge
 
 	return domain.ConfigInput{
 		Name: &name,
 		Path: &path,
 		Here: &here,
-		Environments: map[string]string{
-			"EXAMPLE_ENV_VAR": "value",
+		Environment: &domain.EnvironmentInput{
+			Name:        &envName,
+			EnvVarsFile: &envFile,
+			EnvVarsMode: &envMode,
+			EnvVars: map[string]string{
+				"EXAMPLE_ENV_VAR": "value",
+			},
 		},
 		Metadata: map[string]string{
 			"description": "Describe your project",

@@ -5,11 +5,14 @@ package integration_test
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	cli "github.com/jlrosende/project-manager/internal/adapters/handlers/cli"
+	"github.com/jlrosende/project-manager/internal/bootstrap"
 )
 
 func runNewCommand(t *testing.T, args ...string) (stdout, stderr string, err error) {
@@ -28,12 +31,39 @@ func runNewCommand(t *testing.T, args ...string) (stdout, stderr string, err err
 }
 
 func TestCLINew_IdempotentReRun(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("SHELL", "/bin/sh")
+
 	dir := t.TempDir()
 	args := []string{"new", "demo", dir}
 
-	_, stderr, err := runNewCommand(t, args...)
+	stdout, stderr, err := runNewCommand(t, args...)
 	if err != nil {
 		t.Fatalf("first run failed: %v; stderr=%s", err, stderr)
+	}
+
+	container, err := bootstrap.New(bootstrap.Options{Logger: nil})
+	if err != nil {
+		t.Fatalf("bootstrap after first run: %v", err)
+	}
+
+	probe, err := container.ProjectService.Probe("demo")
+	if err != nil {
+		t.Fatalf("probe existing project: %v", err)
+	}
+
+	if !probe.RegistryHit || !probe.ProjectFileExists {
+		t.Fatalf("expected probe to report existing project; probe=%+v", probe)
+	}
+
+	projects, err := container.ProjectService.List()
+	if err != nil {
+		t.Fatalf("list projects: %v", err)
+	}
+
+	if len(projects) != 1 {
+		t.Fatalf("expected exactly one project after first run, got %d", len(projects))
 	}
 
 	hclPath := filepath.Join(dir, ".project.hcl")
@@ -49,9 +79,21 @@ func TestCLINew_IdempotentReRun(t *testing.T) {
 		t.Fatalf("read .env after first run: %v", readErr)
 	}
 
-	_, stderr, err = runNewCommand(t, args...)
+	stdout, stderr, err = runNewCommand(t, args...)
 	if err == nil {
-		t.Fatalf("expected failure on rerun without --force; stderr=%s", stderr)
+		t.Fatalf("expected rerun to fail due to existing project")
+	}
+
+	if stdout != "" {
+		t.Fatalf("unexpected stdout on rerun: %q", stdout)
+	}
+
+	if !strings.Contains(err.Error(), "NEW-CONFLICT-NAME") {
+		t.Fatalf("rerun error missing conflict code: %v", err)
+	}
+
+	if !strings.Contains(stderr, "NEW-CONFLICT-NAME") {
+		t.Fatalf("stderr missing conflict code: %s", stderr)
 	}
 
 	rerunHCL, readErr := os.ReadFile(hclPath)
@@ -71,36 +113,66 @@ func TestCLINew_IdempotentReRun(t *testing.T) {
 	if !bytes.Equal(rerunEnv, initialEnv) {
 		t.Fatalf(".env changed after failed rerun")
 	}
+}
 
-	if writeErr := os.WriteFile(hclPath, []byte("stale"), 0o600); writeErr != nil {
-		t.Fatalf("prepare stale .project.hcl: %v", writeErr)
+func TestCLINew_RecreateAfterStaleMetadata(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("SHELL", "/bin/sh")
+
+	dir := t.TempDir()
+	args := []string{"new", "demo", dir}
+
+	if _, stderr, err := runNewCommand(t, args...); err != nil {
+		t.Fatalf("initial run failed: %v; stderr=%s", err, stderr)
 	}
 
-	if writeErr := os.WriteFile(envPath, []byte("stale"), 0o600); writeErr != nil {
-		t.Fatalf("prepare stale .env: %v", writeErr)
-	}
-
-	forcedArgs := append(append([]string{}, args...), "--force")
-	_, stderr, err = runNewCommand(t, forcedArgs...)
+	gitconfigPath := filepath.Join(home, ".gitconfig")
+	initialConfig, err := os.ReadFile(gitconfigPath)
 	if err != nil {
-		t.Fatalf("force rerun failed: %v; stderr=%s", err, stderr)
+		t.Fatalf("read initial gitconfig: %v", err)
 	}
 
-	forcedHCL, readErr := os.ReadFile(hclPath)
+	hclPath := filepath.Join(dir, ".project.hcl")
+	envPath := filepath.Join(dir, ".env")
+
+	if removeErr := os.Remove(hclPath); removeErr != nil {
+		t.Fatalf("remove .project.hcl: %v", removeErr)
+	}
+
+	if removeErr := os.Remove(envPath); removeErr != nil {
+		t.Fatalf("remove .env: %v", removeErr)
+	}
+
+	stdout, stderr, err := runNewCommand(t, args...)
+	if err != nil {
+		t.Fatalf("recreation run failed: %v; stdout=%s stderr=%s", err, stdout, stderr)
+	}
+
+	newHCL, readErr := os.ReadFile(hclPath)
 	if readErr != nil {
-		t.Fatalf("read .project.hcl after force rerun: %v", readErr)
+		t.Fatalf("read recreated .project.hcl: %v", readErr)
 	}
 
-	if bytes.Equal(forcedHCL, []byte("stale")) {
-		t.Fatalf("force rerun did not rewrite .project.hcl")
+	if !strings.Contains(string(newHCL), "name = \"demo\"") {
+		t.Fatalf("recreated .project.hcl missing project name; contents=%s", string(newHCL))
 	}
 
-	forcedEnv, readErr := os.ReadFile(envPath)
+	if _, readErr := os.Stat(envPath); readErr != nil {
+		t.Fatalf("stat recreated .env: %v", readErr)
+	}
+
+	gitConfig, readErr := os.ReadFile(gitconfigPath)
 	if readErr != nil {
-		t.Fatalf("read .env after force rerun: %v", readErr)
+		t.Fatalf("read gitconfig after recreation: %v", readErr)
 	}
 
-	if bytes.Equal(forcedEnv, []byte("stale")) {
-		t.Fatalf("force rerun did not rewrite .env")
+	gitdirKey := fmt.Sprintf("gitdir/i:%s/", dir)
+	if strings.Count(string(gitConfig), gitdirKey) != 1 {
+		t.Fatalf("expected single includeIf entry for %s; gitconfig=%s", dir, string(gitConfig))
+	}
+
+	if !bytes.Equal(gitConfig, initialConfig) {
+		t.Fatalf("gitconfig changed unexpectedly during recreation\ninitial=%s\nupdated=%s", string(initialConfig), string(gitConfig))
 	}
 }

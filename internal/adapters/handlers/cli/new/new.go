@@ -152,12 +152,25 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 
 	nameArg := strings.TrimSpace(args[0])
+
+	probe, err := container.ProjectService.Probe(nameArg)
+	if err != nil {
+		return fmt.Errorf("probe project existence: %w", err)
+	}
+
+	existingProject := probe.RegistryHit && probe.ProjectFileExists
 	pathArg := ""
 	pathProvided := false
+	envName := ""
 
 	if len(args) > 1 {
-		pathArg = strings.TrimSpace(args[1])
-		pathProvided = true
+		second := strings.TrimSpace(args[1])
+		if existingProject {
+			envName = second
+		} else {
+			pathArg = second
+			pathProvided = true
+		}
 	}
 
 	here, err := cmd.Flags().GetBool(flagHere)
@@ -180,6 +193,19 @@ func run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if envName != "" {
+		nameCopy := envName
+		if merged.Environment == nil {
+			merged.Environment = &domain.EnvironmentInput{}
+		}
+		merged.Environment.Name = &nameCopy
+	}
+
+	if existingProject {
+		merged.Path = strings.TrimSpace(probe.ProjectPath)
+		merged.Here = false
+	}
+
 	if strings.TrimSpace(merged.Path) == "" && !merged.Here {
 		cwd, cwdErr := os.Getwd()
 		if cwdErr != nil {
@@ -200,6 +226,22 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 
 		merged.Path = cwd
+	}
+
+	if existingProject && (merged.Environment == nil || merged.Environment.Name == nil || strings.TrimSpace(*merged.Environment.Name) == "") {
+		fmt.Fprintf(cmd.OutOrStdout(), "project %s already exists; nothing to do\n", merged.Name)
+		return nil
+	}
+
+	if !existingProject {
+		existingProjects, listErr := container.ProjectService.List()
+		if listErr != nil {
+			return fmt.Errorf("list projects: %w", listErr)
+		}
+
+		if err := services.EnsureProjectUniqueness(existingProjects, merged); err != nil {
+			return err
+		}
 	}
 
 	force, err := cmd.Flags().GetBool(flagForce)
@@ -238,7 +280,10 @@ func renderDryRun(cmd *cobra.Command, def domain.ProjectDefinition, envVars doma
 			"name": def.Name,
 			"path": def.Path,
 			"here": def.Here,
-			"env":  def.Environments,
+		}
+
+		if def.Environment != nil {
+			payload["environment"] = def.Environment
 		}
 
 		data, err := json.MarshalIndent(payload, "", "  ")
