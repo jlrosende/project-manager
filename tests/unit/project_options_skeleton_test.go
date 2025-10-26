@@ -35,6 +35,29 @@ func TestGenerateProjectSkeletonJSON(t *testing.T) {
 	if payload["name"] == nil || payload["path"] == nil {
 		t.Fatalf("expected name and path fields, got %#v", payload)
 	}
+
+	if _, exists := payload["environment"]; exists {
+		t.Fatalf("environment key should not be present: %#v", payload)
+	}
+
+	if _, exists := payload["metadata"]; exists {
+		t.Fatalf("metadata key should not be present: %#v", payload)
+	}
+
+	description, ok := payload["description"].(string)
+	if !ok || description != "Describe your project" {
+		t.Fatalf("expected description placeholder, got %v", payload["description"])
+	}
+
+	shell, ok := payload["shell"].(string)
+	if !ok || shell == "" {
+		t.Fatalf("expected shell value, got %v", payload["shell"])
+	}
+
+	envFile, ok := payload["env-file"].(string)
+	if !ok || envFile != ".env" {
+		t.Fatalf("expected env-file placeholder .env, got %v", payload["env-file"])
+	}
 }
 
 func TestGenerateProjectSkeletonYAML(t *testing.T) {
@@ -57,6 +80,29 @@ func TestGenerateProjectSkeletonYAML(t *testing.T) {
 
 	if payload["name"] == nil || payload["path"] == nil {
 		t.Fatalf("expected name and path fields, got %#v", payload)
+	}
+
+	if _, exists := payload["environment"]; exists {
+		t.Fatalf("environment key should not be present: %#v", payload)
+	}
+
+	if _, exists := payload["metadata"]; exists {
+		t.Fatalf("metadata key should not be present: %#v", payload)
+	}
+
+	description, ok := payload["description"].(string)
+	if !ok || description != "Describe your project" {
+		t.Fatalf("expected description placeholder, got %v", payload["description"])
+	}
+
+	shell, ok := payload["shell"].(string)
+	if !ok || shell == "" {
+		t.Fatalf("expected shell value, got %v", payload["shell"])
+	}
+
+	envFile, ok := payload["env-file"].(string)
+	if !ok || envFile != ".env" {
+		t.Fatalf("expected env-file placeholder .env, got %v", payload["env-file"])
 	}
 }
 

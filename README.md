@@ -113,6 +113,16 @@ Project Manager follows a hexagonal architecture split across three primary laye
 
 Keeping these boundaries documented helps contributors plug new adapters (REST/gRPC, alternate logging) without bleeding infrastructure details into the core.
 
+### CLI Command Layout
+
+Each CLI subcommand lives in `internal/adapters/handlers/cli/<name>` and follows a shared layout:
+
+- `command.go` exports `Command() *cobra.Command`, declares flag constants in a single block, and wires `RunE` to a package-private `run` helper.
+- Additional files (`run.go`, `output.go`, etc.) contain private helpers that accept explicit dependencies instead of touching global state.
+- Shared utilities under `internal/adapters/handlers/cli/internal/` provide reusable flag validation and argument parsing helpers.
+
+This structure keeps `pm delete`, `pm edit`, `pm init`, `pm list`, and `pm new` consistent while making future commands easier to build and review.
+
 ## Troubleshooting
 
 -   If the TUI doesn’t render correctly after closing a form, ensure your terminal supports alternate screen and try a clean redraw.
@@ -153,7 +163,7 @@ Use `pm delete <target>` to clean up a project by registry name or filesystem pa
 -   `--only-env` to drop stored environment variables without touching registry data
 -   `--all` to remove workspace contents after confirmation
 -   `--dry-run` to preview the deletion plan without making changes
--   `--backup` with optional `--backup-destination` to archive the project before deletion; the destination defaults to the configured `backup_directory` or `~/.pm/backups`
+-   `--backup` with optional `--backup-destination` to archive the project before deletion; `--backup-destination` requires `--backup` and defaults to the configured `backup_directory` or `~/.pm/backups`
 
 Unless `--force` is provided, the CLI shows a themed confirmation modal that respects global configuration and `--theme` overrides before executing the deletion.
 

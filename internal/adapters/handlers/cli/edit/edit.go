@@ -10,25 +10,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jlrosende/project-manager/internal/adapters/handlers/cli/internal/commandutil"
 	"github.com/jlrosende/project-manager/internal/bootstrap"
 	"github.com/jlrosende/project-manager/internal/core/domain"
 	"github.com/jlrosende/project-manager/internal/core/services"
-)
-
-const (
-	flagCLIInput             = "cli-input"
-	flagGenerateSkeletonJSON = "generate-cli-skeleton-json"
-	flagGenerateSkeletonYAML = "generate-cli-skeleton-yaml"
-	flagAllowUnknown         = "allow-unknown"
-	flagDryRun               = "dry-run"
-	flagOutput               = "output"
-	flagProjectDescription   = "project-description"
-	flagProjectShell         = "project-shell"
-	flagProjectEnvVarsFile   = "project-env-vars-file"
-	flagProjectDefaultEnv    = "project-default-env"
-	flagEnvColor             = "env-color"
-	flagEnvEnvVarsMode       = "env-env-vars-mode"
-	flagEnvEnvVarsFile       = "env-env-vars-file"
 )
 
 type projectSkeletonService interface {
@@ -41,73 +26,19 @@ type projectEditService interface {
 	ProjectEdit(context.Context, services.ProjectEditOptions) (*services.ProjectEditResult, error)
 }
 
-// Command constructs a fresh instance of the `pm edit` Cobra command.
-func Command() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:           "edit <project> [env]",
-		Short:         "Edit project configuration",
-		SilenceUsage:  true,
-		SilenceErrors: false,
-		Args: func(cmd *cobra.Command, args []string) error {
-			skeletonJSON := cmd.Flags().Changed(flagGenerateSkeletonJSON)
-			skeletonYAML := cmd.Flags().Changed(flagGenerateSkeletonYAML)
-
-			if skeletonJSON && skeletonYAML {
-				return fmt.Errorf("cannot combine --%s with --%s", flagGenerateSkeletonJSON, flagGenerateSkeletonYAML)
-			}
-
-			if len(args) == 0 {
-				return fmt.Errorf("project name is required")
-			}
-
-			if strings.TrimSpace(args[0]) == "" {
-				return fmt.Errorf("project name must not be empty")
-			}
-
-			if len(args) > 2 {
-				return cobra.RangeArgs(1, 2)(cmd, args)
-			}
-
-			if len(args) == 2 && strings.TrimSpace(args[1]) == "" {
-				return fmt.Errorf("environment name must not be empty")
-			}
-
-			return nil
-		},
-		RunE: run,
-	}
-
-	cmd.Flags().String(flagCLIInput, "", "Path to JSON or YAML CLI input file")
-	cmd.Flags().String(flagGenerateSkeletonJSON, "", "Write JSON CLI input skeleton to path (stdout if omitted)")
-	cmd.Flags().String(flagGenerateSkeletonYAML, "", "Write YAML CLI input skeleton to path (stdout if omitted)")
-	cmd.Flags().Bool(flagAllowUnknown, false, "Ignore unknown fields in CLI input files")
-	cmd.Flags().Bool(flagDryRun, false, "Preview changes without persisting them")
-	cmd.Flags().String(flagOutput, "text", "Output format for results (text or json)")
-
-	cmd.Flags().Lookup(flagGenerateSkeletonJSON).NoOptDefVal = "-"
-	cmd.Flags().Lookup(flagGenerateSkeletonYAML).NoOptDefVal = "-"
-
-	cmd.Flags().String(flagProjectDescription, "", "Set the project description")
-	cmd.Flags().String(flagProjectShell, "", "Set the default project shell")
-	cmd.Flags().String(flagProjectEnvVarsFile, "", "Set the project-level env vars file path")
-	cmd.Flags().String(flagProjectDefaultEnv, "", "Set the default environment")
-
-	cmd.Flags().String(flagEnvColor, "", "Set the environment color (requires <env>)")
-	cmd.Flags().String(flagEnvEnvVarsMode, "", "Set the environment env vars mode (merge or replace, requires <env>)")
-	cmd.Flags().String(flagEnvEnvVarsFile, "", "Set the environment env vars file path (requires <env>)")
-
-	return cmd
-}
-
 func run(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
-	projectName := strings.TrimSpace(args[0])
+
+	projectName, err := commandutil.RequireNonEmptyArg(args[0], "project name")
+	if err != nil {
+		return err
+	}
 
 	environmentName := ""
 	if len(args) > 1 {
-		environmentName = strings.TrimSpace(args[1])
-		if environmentName == "" {
-			return fmt.Errorf("environment name must not be empty")
+		environmentName, err = commandutil.RequireNonEmptyArg(args[1], "environment name")
+		if err != nil {
+			return err
 		}
 	}
 
@@ -136,7 +67,15 @@ func run(cmd *cobra.Command, args []string) error {
 			return err
 		}
 
-		return outputProjectSkeleton(cmd, editSvc, ctx, projectName, environmentName, services.SkeletonFormatJSON, destination)
+		return outputProjectSkeleton(
+			ctx,
+			cmd,
+			editSvc,
+			projectName,
+			environmentName,
+			services.SkeletonFormatJSON,
+			destination,
+		)
 	}
 
 	if yamlSkeleton {
@@ -145,10 +84,19 @@ func run(cmd *cobra.Command, args []string) error {
 			return err
 		}
 
-		return outputProjectSkeleton(cmd, editSvc, ctx, projectName, environmentName, services.SkeletonFormatYAML, destination)
+		return outputProjectSkeleton(
+			ctx,
+			cmd,
+			editSvc,
+			projectName,
+			environmentName,
+			services.SkeletonFormatYAML,
+			destination,
+		)
 	}
 
-	envFlagUsed := cmd.Flags().Changed(flagEnvColor) || cmd.Flags().Changed(flagEnvEnvVarsMode) || cmd.Flags().Changed(flagEnvEnvVarsFile)
+	envFlagUsed := cmd.Flags().Changed(flagEnvColor) || cmd.Flags().Changed(flagEnvEnvVarsMode) ||
+		cmd.Flags().Changed(flagEnvEnvVarsFile)
 	if envFlagUsed && environmentName == "" {
 		return fmt.Errorf("environment flags require an environment argument")
 	}
@@ -270,9 +218,9 @@ func run(cmd *cobra.Command, args []string) error {
 }
 
 func outputProjectSkeleton(
+	ctx context.Context,
 	cmd *cobra.Command,
 	svc projectSkeletonService,
-	ctx context.Context,
 	project string,
 	environment string,
 	format services.SkeletonFormat,
@@ -297,6 +245,7 @@ func outputProjectSkeleton(
 	}
 
 	fmt.Fprintf(cmd.OutOrStdout(), "CLI input skeleton written to %s\n", destination)
+
 	return nil
 }
 
@@ -309,34 +258,57 @@ func renderProjectEditResult(cmd *cobra.Command, result *services.ProjectEditRes
 		}
 
 		fmt.Fprintln(cmd.OutOrStdout(), string(data))
+
 		return nil
 	default:
-		if result.DryRun {
-			if result.EnvironmentName != "" {
-				fmt.Fprintf(cmd.OutOrStdout(), "pm edit %s %s (dry-run)\n", result.ProjectName, result.EnvironmentName)
-			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "pm edit %s (dry-run)\n", result.ProjectName)
-			}
-		} else {
-			if result.EnvironmentName != "" {
-				fmt.Fprintf(cmd.OutOrStdout(), "Updated environment %q in project %q:\n", result.EnvironmentName, result.ProjectName)
-			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "Updated project %q:\n", result.ProjectName)
-			}
+		out := cmd.OutOrStdout()
+		changeCount := len(result.Changes)
+		changeWord := "change"
+		if changeCount != 1 {
+			changeWord = "changes"
 		}
 
-		if len(result.Changes) == 0 {
-			fmt.Fprintln(cmd.OutOrStdout(), "  No changes detected")
+		if result.DryRun {
 			if result.EnvironmentName != "" {
-				fmt.Fprintln(cmd.OutOrStdout(), "  Other environments unchanged; project metadata untouched.")
+				fmt.Fprintf(out, "Previewing environment edit for %q in project %q (dry-run)\n", result.EnvironmentName, result.ProjectName)
+			} else {
+				fmt.Fprintf(out, "Previewing project edit for %q (dry-run)\n", result.ProjectName)
 			}
 
-			return nil
+			fmt.Fprintln(out, "No changes have been written; showing preview only.")
+
+			if changeCount == 0 {
+				fmt.Fprintln(out, "  No changes detected; nothing would be modified.")
+
+				if result.EnvironmentName != "" {
+					fmt.Fprintln(out, "  Other environments unchanged; project metadata untouched.")
+				}
+
+				return nil
+			}
+
+			fmt.Fprintf(out, "Planned changes (%d %s):\n", changeCount, changeWord)
+		} else {
+			if result.EnvironmentName != "" {
+				fmt.Fprintf(out, "Updated environment %q in project %q (%d %s):\n", result.EnvironmentName, result.ProjectName, changeCount, changeWord)
+			} else {
+				fmt.Fprintf(out, "Updated project %q (%d %s):\n", result.ProjectName, changeCount, changeWord)
+			}
+
+			if changeCount == 0 {
+				fmt.Fprintln(out, "  No changes detected; nothing to update.")
+
+				if result.EnvironmentName != "" {
+					fmt.Fprintln(out, "  Other environments unchanged; project metadata untouched.")
+				}
+
+				return nil
+			}
 		}
 
 		for _, change := range result.Changes {
 			fmt.Fprintf(
-				cmd.OutOrStdout(),
+				out,
 				"  %s: %s -> %s\n",
 				change.Label,
 				quoteValue(change.Old),
@@ -345,7 +317,7 @@ func renderProjectEditResult(cmd *cobra.Command, result *services.ProjectEditRes
 		}
 
 		if result.EnvironmentName != "" {
-			fmt.Fprintln(cmd.OutOrStdout(), "  Other environments unchanged; project metadata untouched.")
+			fmt.Fprintln(out, "  Other environments unchanged; project metadata untouched.")
 		}
 
 		return nil
@@ -416,6 +388,7 @@ func formatValidationFailure(result *services.ProjectEditResult) string {
 	}
 
 	builder.WriteString("\n")
+
 	for _, item := range result.Errors {
 		label := strings.TrimSpace(item.Label)
 		if label == "" {
@@ -423,6 +396,7 @@ func formatValidationFailure(result *services.ProjectEditResult) string {
 		}
 
 		builder.WriteString("  - ")
+
 		if label != "" {
 			builder.WriteString(label)
 		} else {

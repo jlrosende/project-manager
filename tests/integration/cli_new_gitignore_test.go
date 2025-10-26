@@ -4,6 +4,7 @@
 package integration_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,23 +12,33 @@ import (
 )
 
 func TestCLINew_GitignoreNoSecrets(t *testing.T) {
-	temp := t.TempDir()
-	projectDir := filepath.Join(temp, "project")
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("SHELL", "/bin/sh")
 
-	configDir := filepath.Join(temp, "config")
-	if err := os.MkdirAll(configDir, 0o755); err != nil {
-		t.Fatalf("create config dir: %v", err)
+	projectDir := filepath.Join(home, "project")
+
+	if _, stderr, err := runNewCommand(t, "new", "secrets", projectDir); err != nil {
+		t.Fatalf("initial project creation failed: %v; stderr=%s", err, stderr)
 	}
 
-	cfg := filepath.Join(configDir, "project.yaml")
-	cfgContents := "name: secrets\npath: " + projectDir + "\nenvironments:\n  API_KEY: super-secret\n"
-	if err := os.WriteFile(cfg, []byte(cfgContents), 0o600); err != nil {
-		t.Fatalf("write config: %v", err)
+	cfgPath := filepath.Join(t.TempDir(), "env.yaml")
+	cfgContents := fmt.Sprintf(`name: secrets
+path: %q
+environment:
+  name: staging
+  env_vars_file: ".env.staging"
+  env_vars_mode: merge
+  env_vars:
+    API_KEY: super-secret
+`, projectDir)
+
+	if err := os.WriteFile(cfgPath, []byte(cfgContents), 0o600); err != nil {
+		t.Fatalf("write environment config: %v", err)
 	}
 
-	_, stderr, err := runNewCommand(t, "new", "secrets", "--cli-input", cfg)
-	if err != nil {
-		t.Fatalf("pm new failed: %v; stderr=%s", err, stderr)
+	if _, stderr, err := runNewCommand(t, "new", "secrets", "staging", "--cli-input", cfgPath); err != nil {
+		t.Fatalf("environment addition failed: %v; stderr=%s", err, stderr)
 	}
 
 	gitignore := filepath.Join(projectDir, ".gitignore")
@@ -40,13 +51,14 @@ func TestCLINew_GitignoreNoSecrets(t *testing.T) {
 		t.Fatalf(".gitignore missing .env entry: %s", string(data))
 	}
 
-	envData, readErr := os.ReadFile(filepath.Join(projectDir, ".env"))
+	envFile := filepath.Join(projectDir, ".env.staging")
+	envData, readErr := os.ReadFile(envFile)
 	if readErr != nil {
-		t.Fatalf("read .env: %v", readErr)
+		t.Fatalf("read .env.staging: %v", readErr)
 	}
 
 	if !strings.Contains(string(envData), "API_KEY=super-secret") {
-		t.Fatalf(".env missing expected variable: %s", string(envData))
+		t.Fatalf(".env.staging missing expected variable: %s", string(envData))
 	}
 
 	projectData, readErr := os.ReadFile(filepath.Join(projectDir, ".project.hcl"))

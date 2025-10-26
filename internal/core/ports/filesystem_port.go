@@ -16,6 +16,8 @@ type Filesystem interface {
 	IsDirEmpty(path string) (bool, error)
 	Rename(oldPath, newPath string) error
 	WriteFile(path string, data []byte, mode fs.FileMode) error
+	ReadFile(path string) ([]byte, error)
+	Stat(path string) (fs.FileInfo, error)
 	Join(elem ...string) string
 	IsAbs(path string) bool
 	Abs(path string) (string, error)

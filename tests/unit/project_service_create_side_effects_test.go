@@ -24,6 +24,8 @@ func (stubFilesystem) EnsureDir(string, fs.FileMode) error         { return nil 
 func (stubFilesystem) IsDirEmpty(string) (bool, error)             { return true, nil }
 func (stubFilesystem) Rename(string, string) error                 { return nil }
 func (stubFilesystem) WriteFile(string, []byte, fs.FileMode) error { return nil }
+func (stubFilesystem) ReadFile(string) ([]byte, error)             { return nil, fs.ErrNotExist }
+func (stubFilesystem) Stat(string) (fs.FileInfo, error)            { return nil, fs.ErrNotExist }
 
 func (stubFilesystem) Join(elem ...string) string      { return filepath.Join(elem...) }
 func (stubFilesystem) IsAbs(path string) bool          { return filepath.IsAbs(path) }

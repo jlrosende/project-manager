@@ -71,6 +71,10 @@ func (fsys Filesystem) WriteFile(path string, data []byte, mode fs.FileMode) err
 	return os.WriteFile(path, data, mode)
 }
 
+func (Filesystem) ReadFile(path string) ([]byte, error) { return os.ReadFile(path) }
+
+func (Filesystem) Stat(path string) (fs.FileInfo, error) { return os.Stat(path) }
+
 func (Filesystem) Join(elem ...string) string { return filepath.Join(elem...) }
 
 func (Filesystem) IsAbs(path string) bool { return filepath.IsAbs(path) }

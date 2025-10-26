@@ -9,29 +9,12 @@
   "mcp": {
     "github": {
       "enabled": true,
-      "type": "local",
-      "command": [
-        "docker",
-        "run",
-        "-i",
-        "--rm",
-        "-e",
-        "GITHUB_PERSONAL_ACCESS_TOKEN",
-        "ghcr.io/github/github-mcp-server"
-      ],
-      "environment": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "{env:GH_TOKEN}"
+      "type": "remote",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer {env:GH_TOKEN}"
       }
     },
-    "Context7": {
-      "enabled": true,
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "@upstash/context7-mcp@latest"
-      ]
-    }
   },
   "provider": {
     "azure": {

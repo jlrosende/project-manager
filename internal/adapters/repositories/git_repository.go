@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -121,7 +122,21 @@ func (g *GitRepository) UpdateIncludeIf(gitdir, perProjectPath, subproject strin
 		}
 	}
 
-	includeIf := g.global.Raw.Section("includeIf").Subsection(gitdir)
+	targetDir := normalizeGitdirPath(gitdir)
+	section := g.global.Raw.Section("includeIf")
+
+	for _, existing := range section.Subsections {
+		existingDir := normalizeGitdirPath(existing.Name)
+		if existingDir == "" {
+			continue
+		}
+
+		if includePathsEqual(existingDir, targetDir) {
+			return nil
+		}
+	}
+
+	includeIf := section.Subsection(gitdir)
 	includeIf.SetOption("path", perProjectPath)
 
 	if subproject != "" {
@@ -129,6 +144,44 @@ func (g *GitRepository) UpdateIncludeIf(gitdir, perProjectPath, subproject strin
 	}
 
 	return nil
+}
+
+func normalizeGitdirPath(name string) string {
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" {
+		return ""
+	}
+
+	trimmed = strings.TrimSuffix(trimmed, "/")
+	switch {
+	case strings.HasPrefix(trimmed, "gitdir/i:"):
+		trimmed = strings.TrimPrefix(trimmed, "gitdir/i:")
+	case strings.HasPrefix(trimmed, "gitdir:"):
+		trimmed = strings.TrimPrefix(trimmed, "gitdir:")
+	default:
+		return ""
+	}
+
+	if trimmed == "" {
+		return ""
+	}
+
+	return filepath.Clean(trimmed)
+}
+
+func includePathsEqual(a, b string) bool {
+	if a == "" || b == "" {
+		return false
+	}
+
+	cleanA := filepath.Clean(a)
+	cleanB := filepath.Clean(b)
+
+	if runtime.GOOS == "windows" {
+		return strings.EqualFold(cleanA, cleanB)
+	}
+
+	return cleanA == cleanB
 }
 
 func (g *GitRepository) SaveGlobal(home string) error {

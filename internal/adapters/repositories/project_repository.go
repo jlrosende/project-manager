@@ -654,7 +654,9 @@ func (p *ProjectRepository) AcquireEditLock(
 
 	if _, err := fp.WriteString(metadata); err != nil {
 		fp.Close()
+
 		_ = os.Remove(lockPath)
+
 		return nil, err
 	}
 
@@ -820,9 +822,11 @@ func (p *ProjectRepository) planEnvironmentMutations(
 
 			from := resolveEnvironmentPath(root, oldFile)
 			to := resolveEnvironmentPath(root, trimmed)
+
 			if from != "" && to != "" && from != to {
 				renames = append(renames, renameOperation{from: from, to: to})
 			}
+
 		default:
 			return nil, fmt.Errorf("unsupported environment field mutation %q", key)
 		}
@@ -884,7 +888,11 @@ func resolveEnvironmentPath(root, target string) string {
 	return filepath.Clean(filepath.Join(root, target))
 }
 
-func validateEditSnapshot(project *domain.Project, root string, changeSet *domain.EditChangeSet) domain.ProjectValidationErrors {
+func validateEditSnapshot(
+	project *domain.Project,
+	root string,
+	changeSet *domain.EditChangeSet,
+) domain.ProjectValidationErrors {
 	var errs domain.ProjectValidationErrors
 
 	if project == nil || changeSet == nil {
@@ -908,7 +916,7 @@ func validateEditSnapshot(project *domain.Project, root string, changeSet *domai
 					Field:   domain.ProjectFieldEnvVarsFile,
 					Message: "env vars file cannot be empty",
 				})
-			} else if ok, _, err := pathWithinRoot(root, trimmed); err != nil {
+			} else if ok, err := pathWithinRoot(root, trimmed); err != nil {
 				errs = append(errs, domain.ProjectValidationError{
 					Field:   domain.ProjectFieldEnvVarsFile,
 					Message: fmt.Sprintf("validate env vars file: %v", err),
@@ -939,6 +947,7 @@ func validateEditSnapshot(project *domain.Project, root string, changeSet *domai
 				Field:   domain.EnvironmentFieldEnvVarsFile,
 				Message: fmt.Sprintf("environment %q not found", changeSet.Environment.Name),
 			})
+
 			return errs
 		}
 
@@ -964,7 +973,7 @@ func validateEditSnapshot(project *domain.Project, root string, changeSet *domai
 					Field:   domain.EnvironmentFieldEnvVarsFile,
 					Message: "env vars file cannot be empty",
 				})
-			} else if ok, _, err := pathWithinRoot(root, trimmed); err != nil {
+			} else if ok, err := pathWithinRoot(root, trimmed); err != nil {
 				errs = append(errs, domain.ProjectValidationError{
 					Field:   domain.EnvironmentFieldEnvVarsFile,
 					Message: fmt.Sprintf("validate env vars file: %v", err),
@@ -981,47 +990,50 @@ func validateEditSnapshot(project *domain.Project, root string, changeSet *domai
 	return errs
 }
 
-func pathWithinRoot(root, candidate string) (bool, string, error) {
+func pathWithinRoot(root, candidate string) (bool, error) {
 	root = strings.TrimSpace(root)
 	if root == "" {
-		return false, "", errors.New("project root is empty")
+		return false, errors.New("project root is empty")
 	}
 
 	resolvedRoot := root
 	if !filepath.IsAbs(resolvedRoot) {
 		abs, err := filepath.Abs(resolvedRoot)
 		if err != nil {
-			return false, "", err
+			return false, err
 		}
+
 		resolvedRoot = abs
 	}
+
 	resolvedRoot = filepath.Clean(resolvedRoot)
 
 	candidate = strings.TrimSpace(candidate)
 	if candidate == "" {
-		return false, "", nil
+		return false, nil
 	}
 
 	resolved := candidate
 	if !filepath.IsAbs(resolved) {
 		resolved = filepath.Join(resolvedRoot, resolved)
 	}
+
 	resolved = filepath.Clean(resolved)
 
 	rel, err := filepath.Rel(resolvedRoot, resolved)
 	if err != nil {
-		return false, resolved, err
+		return false, err
 	}
 
 	if rel == "." {
-		return true, resolved, nil
+		return true, nil
 	}
 
 	if strings.HasPrefix(rel, ".."+string(filepath.Separator)) || rel == ".." {
-		return false, resolved, nil
+		return false, nil
 	}
 
-	return true, resolved, nil
+	return true, nil
 }
 
 func (p *ProjectRepository) performRename(op renameOperation) error {
