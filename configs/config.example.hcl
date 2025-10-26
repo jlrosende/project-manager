@@ -1,35 +1,22 @@
 
-theme = "default"
+theme = "mytheme"
+backup_directory = "~/.pm/backups"
 
-root_folder = "$HOME"
-
-project "example" {
-    theme = "default" # overwrite global
-    path = "./example"
-
-    env_vars = {
-        "FOO" = "BAR"
-    }
-
-    env_vars_file = ".env"
-
-    environment "dev" {
-        theme = "default" # overwrite default and project
-        
-        env_vars = {
-            "FOO" = "BAR_DEV"
-        }
-
-        env_vars_file = ".dev.env"
-    }
-
-    environment "pre" {
-        theme = "default" # overwrite default and project
-        
-        env_vars = {
-            "FOO" = "BAR_PRE"
-        }
-
-        env_vars_file = ".pre.env"
-    }
+custom_theme "mytheme" {
+  # Any of these are optional; missing values fall back to base theme (nord/catppuccin/dracula/ayu)
+  title       = "#89B4FA"
+  section     = "#B4BEFE"
+  subtext     = "#A6ADC8"
+  text        = "#CDD6F4"
+  placeholder = "#6C7086"
+  border      = "#585B70"
+  error       = "#F38BA8"
+  buttonDefFg = "#1E1E2E"
+  buttonDefBg = "#585B70"
+  buttonSelFg = "#1E1E2E"
+  buttonSelBg = "#A6E3A1"
+  selectedFg  = "#CDD6F4"
+  selectedBg  = "#89B4FA"
+  help        = "#A6ADC8"
 }
+

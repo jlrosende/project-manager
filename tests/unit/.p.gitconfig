@@ -1,0 +1,10 @@
+[user]
+	signingkey = 
+	name = U
+	email = u@e
+[tag]
+	gpgsign = true
+[commit]
+	gpgsign = true
+[core]
+	bare = false

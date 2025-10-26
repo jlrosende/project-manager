@@ -27,6 +27,7 @@ func New(options ...Option) *GitConfig {
 	for _, o := range options {
 		o(gitConfig)
 	}
+
 	return gitConfig
 }
 

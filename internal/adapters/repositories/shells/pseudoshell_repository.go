@@ -1,6 +1,7 @@
 package shells
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -26,16 +27,14 @@ type PseudoShellepository struct {
 
 var _ ports.ShellRepository = (*ShellRepository)(nil)
 
-func NewPseudoShellRepository(project *domain.Project, env string, path string) (*PseudoShellepository, error) {
-
+func NewPseudoShellRepository(project *domain.Project, env, path string) (*PseudoShellepository, error) {
 	shellPath, err := exec.LookPath(project.Shell)
-
 	if err != nil {
 		return nil, err
 	}
 
 	shell := &PseudoShellepository{
-		cmd: exec.Command(shellPath),
+		cmd: exec.CommandContext(context.Background(), shellPath),
 	}
 
 	// load env vars
@@ -43,6 +42,10 @@ func NewPseudoShellRepository(project *domain.Project, env string, path string) 
 		os.Environ(),
 		fmt.Sprintf("PM_ACTIVE_PROJECT=%s", project.Name),
 	)
+
+	if env != "" {
+		shell.cmd.Env = append(shell.cmd.Env, fmt.Sprintf("PM_ACTIVE_ENV=%s", env))
+	}
 
 	if env == "" {
 		shell.cmd.Env = append(
@@ -52,7 +55,7 @@ func NewPseudoShellRepository(project *domain.Project, env string, path string) 
 	} else {
 		for _, e := range project.Environments {
 			if e.Name == env {
-				if e.EnvVarsMode == domain.ENV_VARS_MODE_MERGE {
+				if e.EnvVarsMode == domain.EnvVarsModeMerge {
 					shell.cmd.Env = append(
 						shell.cmd.Env,
 						project.EnvVars.ToSlice()...,
@@ -67,6 +70,7 @@ func NewPseudoShellRepository(project *domain.Project, env string, path string) 
 						e.EnvVars.ToSlice()...,
 					)
 				}
+
 				break
 			}
 		}
@@ -76,6 +80,7 @@ func NewPseudoShellRepository(project *domain.Project, env string, path string) 
 	if err != nil {
 		return nil, err
 	}
+
 	if info, err := os.Stat(absPath); err != nil {
 		return nil, err
 	} else if !info.IsDir() {
@@ -105,10 +110,10 @@ func (s *PseudoShellepository) Start() (*os.Process, error) {
 }
 
 func (s *PseudoShellepository) Wait() (int, error) {
-
 	// Handle pty size.
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGWINCH)
+
 	go func() {
 		for range ch {
 			if err := pty.InheritSize(os.Stdin, s.ptmx); err != nil {
@@ -116,7 +121,9 @@ func (s *PseudoShellepository) Wait() (int, error) {
 			}
 		}
 	}()
-	ch <- syscall.SIGWINCH                        // Initial resize.
+
+	ch <- syscall.SIGWINCH // Initial resize.
+
 	defer func() { signal.Stop(ch); close(ch) }() // Cleanup signals when done.
 
 	// Set stdin in raw mode.
@@ -124,11 +131,13 @@ func (s *PseudoShellepository) Wait() (int, error) {
 	if err != nil {
 		panic(err)
 	}
+
 	defer func() { _ = term.Restore(int(os.Stdin.Fd()), oldState) }() // Best effort.
 
 	// Copy stdin to the pty and the pty to stdout.
 	// NOTE: The goroutine will keep reading until the next keystroke before returning.
 	go func() { _, _ = io.Copy(s.ptmx, os.Stdin) }()
+
 	_, _ = io.Copy(os.Stdout, s.ptmx)
 
 	// Test

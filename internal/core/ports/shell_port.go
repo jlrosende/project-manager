@@ -1,5 +1,7 @@
 package ports
 
+//go:generate go tool mockgen -source=shell_port.go -destination=../../../mocks/mock_shell_port.go -package=mocks
+
 import "os"
 
 type ShellService interface {

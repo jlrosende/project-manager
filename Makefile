@@ -1,4 +1,4 @@
-.PHONY: build run run-build lint docker-build
+.PHONY: build run run-build lint docker-build generate tools
 
 MAYOR ?= 0
 MINOR ?= 0
@@ -14,27 +14,27 @@ GOMODCACHE = $(shell go env GOMODCACHE)
 GOOS ?= $(shell go env GOOS)
 GOARCH = $(shell go env GOARCH)
 
+.PHONY: build
 build:
-	go build \
-		-v \
-		-ldflags "\
-			-X 'github.com/jlrosende/project-manager/internal.mayor=$(MAYOR)' \
-			-X 'github.com/jlrosende/project-manager/internal.minor=$(MINOR)' \
-			-X 'github.com/jlrosende/project-manager/internal.patch=$(PATCH)' \
-			-X 'github.com/jlrosende/project-manager/internal.build=$(BUILD)' \
-		" \
-		-o dist/pm \
-		./cmd/main.go
+	go tool goreleaser build --clean --snapshot
 
+.PHONY: run
 run:
 	go run cmd/main.go $(args)
 
+.PHONY: run-build
 run-build: build
 	./dist/pm $(args)
 
+.PHONY: lint
 lint:
-	go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${lint_v} run -v
+	go tool golangci-lint run -v
 
+.PHONY: lint-fix
+lint-fix:
+	go tool golangci-lint run -v --fix
+
+.PHONY: bdocker-build
 docker-build:
 	docker buildx build \
 			--progress=plain \
@@ -42,5 +42,38 @@ docker-build:
 			--build-arg GOCACHE=$(GOCACHE) \
 			--build-arg GOMODCACHE=$(GOMODCACHE) \
 			--output "type=docker" \
-			-t sisusfox:latest \
+			-t jlrosende/pm:latest \
+			-f build/docker/Dockerfile \
 			.
+
+.PHONY: gendocs
+gendocs: gendocs-md gendocs-man gendocs-rest
+
+gendocs-md:
+	go run ./internal/tools/docgen -out ./docs/cli -format markdown
+gendocs-man:
+	go run ./internal/tools/docgen -out ./man -format man
+gendocs-rest:
+	go run ./internal/tools/docgen -out ./docs/rest -format rest
+
+.PHONY: release
+release:
+	go tool run
+
+.PHONY: generate
+generate:
+	go generate ./...
+
+.PHONY: test
+test: unit integration
+
+.PHONY: unit
+unit:
+	go  test ./tests/... -v -tags unit
+
+.PHONY: integration
+integration:
+	go  test ./tests/... -v -tags integration
+
+.PHONY: ci 
+ci: lint test

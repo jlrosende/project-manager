@@ -15,7 +15,7 @@
 *.out
 
 # Dependency directories (remove the comment below to include it)
-# vendor/
+vendor/
 
 # Go workspace file
 go.work
@@ -27,5 +27,13 @@ go.work.sum
 dist
 temp
 .vscode
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+.idea/
 
-.aider*
+.serena
+
+# Added by goreleaser init:
+dist/

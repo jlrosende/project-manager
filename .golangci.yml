@@ -1,9 +1,24 @@
 version: "2"
 run:
   concurrency: 4
+  timeout: 5m
 linters:
   enable:
-    - wsl
+    - wsl_v5
+    - govet # reports suspicious constructs
+    - staticcheck # advanced static analysis
+    - ineffassign # detects unused assignments
+    - revive # replacement for golint, configurable
+    - errcheck # ensures errors are checked
+    - gosec # security checks
+    - dupl # finds duplicated code
+    - unparam # checks unused function parameters
+    # - gocyclo # checks for high cyclomatic complexity
+  settings:
+    wsl_v5:
+      allow-first-in-block: true
+      allow-whole-block: false
+      branch-max-lines: 2
   exclusions:
     generated: lax
     presets:
@@ -18,9 +33,32 @@ linters:
 severity:
   default: info
 formatters:
+  enable:
+    - gofumpt
+    - gofmt
+    - gci
+    - golines
+  settings:
+    gofmt:
+      simplify: true
+    gofumpt:
+      extra-rules: true
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/jlrosende/project-manager)
+      custom-order: true
+    golines:
+      max-len: 120
   exclusions:
     generated: lax
     paths:
       - third_party$
       - builtin$
       - examples$
+output:
+  formats:
+    text:
+      path: stderr
+      colors: true

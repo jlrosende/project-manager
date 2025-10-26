@@ -1,0 +1,5 @@
+name = "demo"
+description = ""
+shell = ""
+env_vars_file = ".env"
+default_env = ""

@@ -10,6 +10,7 @@ type Project struct {
 	EnvVarsFile  string         `hcl:"env_vars_file"`
 	Environments []*Environment `hcl:"environment,block"`
 	EnvVars      EnvVars
+	DefaultEnv   string `hcl:"default_env,optional"`
 }
 
 type Environment struct {

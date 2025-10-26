@@ -1,5 +1,3 @@
 
-theme = "default"
-
-root_folder = "$HOME"
-
+theme = "nord"
+backup_directory = "~/.pm/backups"

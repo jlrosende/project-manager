@@ -1,0 +1,90 @@
+version: 2
+
+project_name: pm
+dist: dist
+
+before:
+  hooks:
+    - go test ./...
+
+builds:
+  - id: pm
+    main: ./cmd/main.go
+    binary: pm
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    mod_timestamp: "{{ .CommitDate }}"
+    ldflags:
+      - -s -w
+      - -X github.com/jlrosende/project-manager/internal.version={{ .Version }}
+      - -X github.com/jlrosende/project-manager/internal.commit={{ .Commit }}
+      - -X github.com/jlrosende/project-manager/internal.date={{ .Date }}
+      - -X github.com/jlrosende/project-manager/internal.builtBy=goreleaser
+
+archives:
+  - id: pm-archive
+    ids:
+      - pm
+    formats:
+      - tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: "{{ .ProjectName }}_checksums.txt"
+
+snapshot:
+  version_template: "{{ .Tag }}-SNAPSHOT"
+
+dockers_v2:
+  - dockerfile: build/docker/Dockerfile
+    images:
+      - jlrosende/pm
+      - ghcr.io/jlrosende/pm
+    tags:
+      - v{{ .Version }}
+      - '{{ if .IsNightly }}nightly{{ end }}'
+      - '{{ if not .IsNightly }}latest{{ end }}'
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    build_args:
+      GO_VERSION: 1.25.1-alpine
+    labels:
+      org.opencontainers.image.description: project manager client, manage your project configurations
+      org.opencontainers.image.created: "{{ .Date }}"
+      org.opencontainers.image.name: "{{ .ProjectName }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.source: "{{ .GitURL }}"
+    annotations:
+      project: "{{ .ProjectName }}"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+release:
+  footer: |
+    ---
+
+    Released by [GoReleaser](https://github.com/goreleaser/goreleaser).
