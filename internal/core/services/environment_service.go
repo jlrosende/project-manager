@@ -63,6 +63,7 @@ func (s *EnvironmentService) Apply(
 	}
 
 	envName := ""
+
 	if input.Name != nil {
 		normalized, err := domain.NormalizeEnvironmentName(*input.Name)
 		if err != nil {
@@ -82,6 +83,7 @@ func (s *EnvironmentService) Apply(
 	}
 
 	envMode := domain.EnvVarsModeMerge
+
 	if input.EnvVarsMode != nil && strings.TrimSpace(*input.EnvVarsMode) != "" {
 		mode := strings.ToLower(strings.TrimSpace(*input.EnvVarsMode))
 		if mode != domain.EnvVarsModeMerge && mode != domain.EnvVarsModeReplace {
@@ -97,6 +99,7 @@ func (s *EnvironmentService) Apply(
 	}
 
 	color := ""
+
 	if input.Color != nil {
 		color = strings.TrimSpace(*input.Color)
 	}
@@ -105,6 +108,7 @@ func (s *EnvironmentService) Apply(
 
 	existing := findEnvironment(project.Environments, envName)
 	oldEnvPath := ""
+
 	if existing != nil {
 		oldEnvPath = s.resolveExistingEnvFile(project.Path, root, existing.EnvVarsFile)
 	}
@@ -134,7 +138,8 @@ func (s *EnvironmentService) Apply(
 		}
 
 		if oldEnvPath != "" && !samePath(oldEnvPath, absFile) {
-			if err := s.fs.Remove(oldEnvPath); err != nil && !errors.Is(err, fs.ErrNotExist) && !errors.Is(err, os.ErrNotExist) {
+			if err := s.fs.Remove(oldEnvPath); err != nil && !errors.Is(err, fs.ErrNotExist) &&
+				!errors.Is(err, os.ErrNotExist) {
 				return fmt.Errorf("remove previous env vars file: %w", err)
 			}
 		}
@@ -160,6 +165,7 @@ func (s *EnvironmentService) projectRoot(path string) (string, error) {
 	}
 
 	expanded := s.fs.ExpandHome(trimmed)
+
 	var abs string
 	if s.fs.IsAbs(expanded) {
 		abs = expanded
@@ -179,7 +185,7 @@ func (s *EnvironmentService) resolveEnvFile(
 	projectRoot string,
 	envName string,
 	filePtr *string,
-) (relative string, absolute string, err error) {
+) (relative, absolute string, err error) {
 	candidate := ""
 	if filePtr != nil {
 		candidate = strings.TrimSpace(*filePtr)
@@ -190,6 +196,7 @@ func (s *EnvironmentService) resolveEnvFile(
 	}
 
 	expanded := s.fs.ExpandHome(candidate)
+
 	var absPath string
 	if s.fs.IsAbs(expanded) {
 		absPath = expanded

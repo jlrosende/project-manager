@@ -14,6 +14,8 @@ import (
 	"github.com/jlrosende/project-manager/internal"
 	cmdDelete "github.com/jlrosende/project-manager/internal/adapters/handlers/cli/delete"
 	cmdEdit "github.com/jlrosende/project-manager/internal/adapters/handlers/cli/edit"
+	cmdExport "github.com/jlrosende/project-manager/internal/adapters/handlers/cli/export"
+	cmdImport "github.com/jlrosende/project-manager/internal/adapters/handlers/cli/import"
 	cmdInit "github.com/jlrosende/project-manager/internal/adapters/handlers/cli/init"
 	cmdList "github.com/jlrosende/project-manager/internal/adapters/handlers/cli/list"
 	cmdNew "github.com/jlrosende/project-manager/internal/adapters/handlers/cli/new"
@@ -70,9 +72,11 @@ func newRootCommand() *cobra.Command {
 	cmd.PersistentFlags().String("theme", "", "Theme for this run (nord, catppuccin, dracula, ayu)")
 	cmd.PersistentFlags().String("config", "", "Path to pm config file")
 
-	cmd.AddCommand(cmdInit.InitCmd)
+	cmd.AddCommand(cmdInit.Command())
 	cmd.AddCommand(cmdNew.Command())
-	cmd.AddCommand(cmdList.ListCmd)
+	cmd.AddCommand(cmdList.Command())
+	cmd.AddCommand(cmdImport.Command())
+	cmd.AddCommand(cmdExport.Command())
 	cmd.AddCommand(cmdEdit.Command())
 	cmd.AddCommand(cmdDelete.Command())
 

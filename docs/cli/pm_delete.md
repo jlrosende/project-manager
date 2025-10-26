@@ -11,7 +11,7 @@ pm delete <target> [flags]
 ```
       --all                         Remove project metadata, env vars, and workspace files
       --backup                      Create a backup archive before deleting
-      --backup-destination string   Custom destination for the backup archive
+      --backup-destination string   Custom destination for the backup archive (requires --backup)
       --dry-run                     Preview deletion steps without making changes
       --force                       Skip confirmation prompt
   -h, --help                        help for delete

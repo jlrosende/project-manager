@@ -20,7 +20,7 @@ No changes were applied.
 ```
 
 ### Dry-run with a backup destination
-**Context:** Use the same project but plan a deletion that archives the workspace to `./backups/demo-service.tgz`.
+**Context:** Use the same project but plan a deletion that archives the workspace to `./backups/demo-service.tgz`. Remember that `--backup-destination` always requires `--backup`; the CLI will exit with an error if the destination is provided on its own.
 
 **Command:**
 ```bash

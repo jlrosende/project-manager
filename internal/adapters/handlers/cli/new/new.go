@@ -19,32 +19,6 @@ import (
 	"github.com/jlrosende/project-manager/internal/core/services"
 )
 
-const (
-	flagHere                 = "here"
-	flagCliInput             = "cli-input"
-	flagGenerateSkeletonJSON = "generate-cli-skeleton-json"
-	flagGenerateSkeletonYAML = "generate-cli-skeleton-yaml"
-	flagDryRun               = "dry-run"
-	flagForce                = "force"
-	flagAllowUnknown         = "allow-unknown"
-	flagOutput               = "output"
-	flagYes                  = "yes"
-
-	flagProjectDescription = "project-description"
-	flagProjectShell       = "project-shell"
-	flagProjectEnvFile     = "project-env-file"
-
-	flagEnvironmentEnvFile = "environment-env-file"
-	flagEnvironmentMode    = "environment-mode"
-	flagEnvironmentColor   = "environment-color"
-	flagEnvironmentEnvVar  = "environment-env-var"
-
-	flagEnvFileLegacy  = "env-file"
-	flagEnvModeLegacy  = "env-mode"
-	flagEnvColorLegacy = "env-color"
-	flagEnvVarLegacy   = "env-var"
-)
-
 func getStringFlag(cmd *cobra.Command, name string) (string, bool, error) {
 	value, err := cmd.Flags().GetString(name)
 	if err != nil {
@@ -92,6 +66,7 @@ func getStringArrayFlagWithLegacy(cmd *cobra.Command, primary, legacy, message s
 	}
 
 	changed := cmd.Flags().Changed(primary)
+
 	result := make([]string, 0, len(values))
 	if changed {
 		result = append(result, values...)
@@ -105,6 +80,7 @@ func getStringArrayFlagWithLegacy(cmd *cobra.Command, primary, legacy, message s
 
 		if cmd.Flags().Changed(legacy) {
 			emitDeprecatedWarning(cmd, message)
+
 			result = append(result, legacyValues...)
 			changed = true
 		}
@@ -118,67 +94,6 @@ func emitDeprecatedWarning(cmd *cobra.Command, message string) {
 }
 
 // Command constructs a fresh instance of the `pm new` Cobra command.
-func Command() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "new <name> [path]",
-		Short: "Create a new project from arguments or configuration",
-		Long:  "Create or initialize a project directory, validating inputs from positional arguments, flags, and optional CLI input files.",
-		Args: func(cmd *cobra.Command, args []string) error {
-			skeletonJSON := cmd.Flags().Changed(flagGenerateSkeletonJSON)
-			skeletonYAML := cmd.Flags().Changed(flagGenerateSkeletonYAML)
-
-			if skeletonJSON || skeletonYAML {
-				if len(args) > 1 {
-					return fmt.Errorf("only one skeleton output path may be provided")
-				}
-
-				return nil
-			}
-
-			return cobra.RangeArgs(1, 2)(cmd, args)
-		},
-
-		SilenceUsage: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return run(cmd, args)
-		},
-	}
-
-	cmd.Flags().Bool(flagHere, false, "Initialize the current directory instead of creating a new one")
-	cmd.Flags().String(flagCliInput, "", "Path to JSON or YAML CLI input file")
-	cmd.Flags().String(flagGenerateSkeletonJSON, "", "Write JSON CLI input skeleton to path (stdout if omitted)")
-	cmd.Flags().String(flagGenerateSkeletonYAML, "", "Write YAML CLI input skeleton to path (stdout if omitted)")
-	cmd.Flags().Bool(flagDryRun, false, "Preview actions without writing files")
-
-	cmd.Flags().Lookup(flagGenerateSkeletonJSON).NoOptDefVal = "-"
-	cmd.Flags().Lookup(flagGenerateSkeletonYAML).NoOptDefVal = "-"
-	cmd.Flags().Bool(flagForce, false, "Overwrite existing project files when rerun")
-	cmd.Flags().Bool(flagAllowUnknown, false, "Ignore unknown fields in config files")
-	cmd.Flags().String(flagOutput, "text", "Output format for dry runs (text or json)")
-
-	cmd.Flags().String(flagProjectDescription, "", "Set project description metadata")
-	cmd.Flags().String(flagProjectShell, "", "Set default shell for the project")
-	cmd.Flags().String(flagProjectEnvFile, "", "Set default project-level environment vars file")
-
-	cmd.Flags().String(flagEnvironmentEnvFile, "", "Set environment vars file when adding environments")
-	cmd.Flags().String(flagEnvironmentMode, "", "Set environment vars merge mode (merge or replace)")
-	cmd.Flags().String(flagEnvironmentColor, "", "Set environment color metadata when adding environments")
-	cmd.Flags().StringArray(flagEnvironmentEnvVar, nil, "Environment variable in KEY=VALUE format (repeatable)")
-
-	cmd.Flags().String(flagEnvFileLegacy, "", "[deprecated] Use --environment-env-file instead")
-	cmd.Flags().String(flagEnvModeLegacy, "", "[deprecated] Use --environment-mode instead")
-	cmd.Flags().String(flagEnvColorLegacy, "", "[deprecated] Use --environment-color instead")
-	cmd.Flags().StringArray(flagEnvVarLegacy, nil, "[deprecated] Use --environment-env-var instead")
-
-	_ = cmd.Flags().MarkDeprecated(flagEnvFileLegacy, "use --environment-env-file instead")
-	_ = cmd.Flags().MarkDeprecated(flagEnvModeLegacy, "use --environment-mode instead")
-	_ = cmd.Flags().MarkDeprecated(flagEnvColorLegacy, "use --environment-color instead")
-	_ = cmd.Flags().MarkDeprecated(flagEnvVarLegacy, "use --environment-env-var instead")
-
-	cmd.Flags().Bool(flagYes, false, "Automatically confirm project and environment creation prompts")
-
-	return cmd
-}
 
 func run(cmd *cobra.Command, args []string) error {
 	container, err := bootstrap.New(bootstrap.Options{Logger: bootstrap.WrapSlog(slog.Default())})
@@ -270,7 +185,7 @@ func run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	envVarPairs, _, err := getStringArrayFlagWithLegacy(
+	envVarPairs, envVarFlagsSet, err := getStringArrayFlagWithLegacy(
 		cmd,
 		flagEnvironmentEnvVar,
 		flagEnvVarLegacy,
@@ -281,8 +196,11 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 
 	var envVarMap map[string]string
-	if len(envVarPairs) > 0 {
-		envVarMap, err = container.ProjectInput.ParseEnvVarFlags(envVarPairs, fmt.Sprintf("--%s", flagEnvironmentEnvVar))
+	if envVarFlagsSet && len(envVarPairs) > 0 {
+		envVarMap, err = container.ProjectInput.ParseEnvVarFlags(
+			envVarPairs,
+			fmt.Sprintf("--%s", flagEnvironmentEnvVar),
+		)
 		if err != nil {
 			return err
 		}
@@ -296,7 +214,9 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 
 		if cfg.HasLegacyEnvironments() && !allowUnknown {
-			return fmt.Errorf("CLI input uses deprecated \"environments\" map; remove it or pass --allow-unknown to ignore legacy fields")
+			return fmt.Errorf(
+				"CLI input uses deprecated \"environments\" map; remove it or pass --allow-unknown to ignore legacy fields",
+			)
 		}
 
 		if unknown := cfg.UnknownFields(); len(unknown) > 0 && !allowUnknown {
@@ -311,7 +231,6 @@ func run(cmd *cobra.Command, args []string) error {
 				"CLI input contains unknown fields: %s (use --allow-unknown to ignore)",
 				strings.Join(keys, ", "),
 			)
-
 		}
 	}
 
@@ -415,6 +334,7 @@ func run(cmd *cobra.Command, args []string) error {
 	envRequested := container.ProjectInput.EnvironmentProvided(merged.Environment)
 	if !existingProject && envRequested {
 		envLabel := "environment input"
+
 		if merged.Environment != nil && merged.Environment.Name != nil {
 			if trimmed := strings.TrimSpace(*merged.Environment.Name); trimmed != "" {
 				envLabel = fmt.Sprintf("environment %q", trimmed)
@@ -451,7 +371,8 @@ func run(cmd *cobra.Command, args []string) error {
 		merged.Path = cwd
 	}
 
-	if existingProject && (merged.Environment == nil || merged.Environment.Name == nil || strings.TrimSpace(*merged.Environment.Name) == "") {
+	if existingProject &&
+		(merged.Environment == nil || merged.Environment.Name == nil || strings.TrimSpace(*merged.Environment.Name) == "") {
 		fmt.Fprintf(cmd.OutOrStdout(), "project %s already exists; nothing to do\n", merged.Name)
 		return nil
 	}
@@ -506,6 +427,7 @@ func run(cmd *cobra.Command, args []string) error {
 
 		if !yesFlag {
 			envName := "environment"
+
 			if merged.Environment.Name != nil {
 				trimmed := strings.TrimSpace(*merged.Environment.Name)
 				if trimmed != "" {
@@ -537,6 +459,7 @@ func run(cmd *cobra.Command, args []string) error {
 
 	if !yesFlag {
 		message := fmt.Sprintf("Create project %q at %s?", merged.Name, merged.Path)
+
 		confirmed, err := promptYesNo(cmd, message)
 		if err != nil {
 			return err
@@ -555,6 +478,7 @@ func run(cmd *cobra.Command, args []string) error {
 
 func renderDryRun(cmd *cobra.Command, def domain.ProjectDefinition, envVars domain.EnvVars, format string) error {
 	envDetails := summarizeEnvironment(def.Environment, envVars)
+
 	projectEnvVars := envVars
 	if envDetails != nil {
 		projectEnvVars = nil
@@ -607,7 +531,6 @@ func renderDryRun(cmd *cobra.Command, def domain.ProjectDefinition, envVars doma
 			if len(envDetails.EnvVars) > 0 {
 				fmt.Fprintf(cmd.OutOrStdout(), "    env vars: %d entries\n", len(envDetails.EnvVars))
 			}
-
 		}
 	}
 
@@ -623,6 +546,7 @@ func promptYesNo(cmd *cobra.Command, prompt string) (bool, error) {
 	}
 
 	reader := bufio.NewReader(in)
+
 	response, err := reader.ReadString('\n')
 	if err != nil {
 		if errors.Is(err, io.EOF) {
@@ -633,6 +557,7 @@ func promptYesNo(cmd *cobra.Command, prompt string) (bool, error) {
 	}
 
 	answer := strings.TrimSpace(strings.ToLower(response))
+
 	return answer == "y" || answer == "yes", nil
 }
 
@@ -674,12 +599,14 @@ func summarizeEnvironment(input *domain.EnvironmentInput, merged domain.EnvVars)
 	if file == "" && summary.Name != "" {
 		file = dryRunDefaultEnvironmentFile(summary.Name)
 	}
+
 	summary.EnvVarsFile = file
 
 	mode := strings.ToLower(trimPtr(input.EnvVarsMode))
 	if mode == "" {
 		mode = domain.EnvVarsModeMerge
 	}
+
 	summary.EnvVarsMode = mode
 	summary.Color = trimPtr(input.Color)
 
@@ -701,7 +628,7 @@ func copyEnvVars(vars map[string]string) map[string]string {
 	return out
 }
 
-func resolveEnvVarsForDryRun(primary map[string]string, fallback map[string]string) map[string]string {
+func resolveEnvVarsForDryRun(primary, fallback map[string]string) map[string]string {
 	if len(primary) > 0 {
 		return copyEnvVars(primary)
 	}
@@ -849,7 +776,7 @@ func outputSkeleton(
 		opts.EnvFile = strings.TrimSpace(projectEnvFile)
 	}
 
-	envVarPairs, _, err := getStringArrayFlagWithLegacy(
+	envVarPairs, envVarsFlagSet, err := getStringArrayFlagWithLegacy(
 		cmd,
 		flagEnvironmentEnvVar,
 		flagEnvVarLegacy,
@@ -859,8 +786,22 @@ func outputSkeleton(
 		return err
 	}
 
+	if envVarsFlagSet && len(envVarPairs) > 0 {
+		envVars, err := container.ProjectInput.ParseEnvVarFlags(envVarPairs, fmt.Sprintf("--%s", flagEnvironmentEnvVar))
+		if err != nil {
+			return err
+		}
+
+		if len(envVars) > 0 {
+			opts.EnvVars = envVars
+		}
+	}
+
 	if len(envVarPairs) > 0 {
-		envVarMap, parseErr := container.ProjectInput.ParseEnvVarFlags(envVarPairs, fmt.Sprintf("--%s", flagEnvironmentEnvVar))
+		envVarMap, parseErr := container.ProjectInput.ParseEnvVarFlags(
+			envVarPairs,
+			fmt.Sprintf("--%s", flagEnvironmentEnvVar),
+		)
 		if parseErr != nil {
 			return parseErr
 		}

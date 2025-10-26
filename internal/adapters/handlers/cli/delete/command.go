@@ -38,20 +38,20 @@ type Options struct {
 	Config  *configs.Config
 }
 
-// Command returns the cobra command that wires the delete workflow into the CLI.
+// Command constructs the `pm delete` Cobra command using the shared CLI layout.
 func Command() *cobra.Command {
-	return newCommand(Options{})
+	cmd := newBaseCommand()
+	cmd.RunE = run
+
+	return cmd
 }
 
-func newCommand(opts Options) *cobra.Command {
+func newBaseCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          "delete <target>",
 		Short:        "Delete a registered project and its artifacts",
 		Args:         cobra.ExactArgs(1),
 		SilenceUsage: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return run(cmd, args, opts)
-		},
 	}
 
 	cmd.Flags().Bool(flagAll, false, "Remove project metadata, env vars, and workspace files")
@@ -60,7 +60,7 @@ func newCommand(opts Options) *cobra.Command {
 	cmd.Flags().Bool(flagDryRun, false, "Preview deletion steps without making changes")
 	cmd.Flags().Bool(flagForce, false, "Skip confirmation prompt")
 	cmd.Flags().Bool(flagBackup, false, "Create a backup archive before deleting")
-	cmd.Flags().String(flagBackupDestination, "", "Custom destination for the backup archive")
+	cmd.Flags().String(flagBackupDestination, "", "Custom destination for the backup archive (requires --backup)")
 
 	return cmd
 }
@@ -77,7 +77,11 @@ func ExecuteForTesting(opts Options, args []string) (int, string, string, error)
 		opts.In = bytes.NewBuffer(nil)
 	}
 
-	cmd := newCommand(opts)
+	cmd := newBaseCommand()
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return runWithOptions(cmd, args, opts)
+	}
+
 	cmd.SetOut(&stdoutBuf)
 	cmd.SetErr(&stderrBuf)
 	cmd.SetIn(opts.In)

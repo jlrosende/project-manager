@@ -145,7 +145,7 @@ func TestCLIEditProject_FlagsApply(t *testing.T) {
 	}
 
 	stdout := out.String()
-	if !strings.Contains(stdout, "Updated project \"demo\":") {
+	if !strings.Contains(stdout, "Updated project \"demo\" (2 changes):") {
 		t.Fatalf("stdout missing header: %s", stdout)
 	}
 
@@ -220,6 +220,54 @@ func TestCLIEditProject_CliInputDryRun(t *testing.T) {
 	changes, ok := data["changes"].([]any)
 	if !ok || len(changes) == 0 {
 		t.Fatalf("expected at least one change in output: %s", trimmed)
+	}
+}
+
+func TestCLIEditProject_DryRunTextOutput(t *testing.T) {
+	fx := newEditProjectFixture(t, "sample-text")
+
+	cmd := cli.Root()
+	out := &bytes.Buffer{}
+	errBuf := &bytes.Buffer{}
+	cmd.SetOut(out)
+	cmd.SetErr(errBuf)
+	cmd.SetArgs([]string{
+		"edit",
+		fx.name,
+		"--project-description", "Preview description",
+		"--dry-run",
+		"--output", "text",
+	})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("execute edit dry-run text: %v (stderr=%s)", err, errBuf.String())
+	}
+
+	if errBuf.Len() != 0 {
+		t.Fatalf("unexpected stderr output: %s", errBuf.String())
+	}
+
+	hcl := readFile(t, filepath.Join(fx.projectDir, ".project.hcl"))
+	if strings.Contains(hcl, "Preview description") {
+		t.Fatalf("dry-run should not persist changes: %s", hcl)
+	}
+
+	stdout := out.String()
+	header := "Previewing project edit for \"" + fx.name + "\" (dry-run)"
+	if !strings.Contains(stdout, header) {
+		t.Fatalf("stdout missing dry-run header: %s", stdout)
+	}
+
+	if !strings.Contains(stdout, "No changes have been written; showing preview only.") {
+		t.Fatalf("stdout missing dry-run disclaimer: %s", stdout)
+	}
+
+	if !strings.Contains(stdout, "Planned changes (1 change):") {
+		t.Fatalf("stdout missing change summary: %s", stdout)
+	}
+
+	if !strings.Contains(stdout, "Description: \"Initial project description\" -> \"Preview description\"") {
+		t.Fatalf("stdout missing description change: %s", stdout)
 	}
 }
 
@@ -307,7 +355,7 @@ func TestCLIEditEnvironment_FlagsApply(t *testing.T) {
 	}
 
 	stdout := out.String()
-	if !strings.Contains(stdout, "Updated environment \"staging\" in project \"envflags\":") {
+	if !strings.Contains(stdout, "Updated environment \"staging\" in project \"envflags\" (3 changes):") {
 		t.Fatalf("stdout missing environment header: %s", stdout)
 	}
 
@@ -396,5 +444,58 @@ func TestCLIEditEnvironment_CliInputDryRun(t *testing.T) {
 	changes, ok := data["changes"].([]any)
 	if !ok || len(changes) == 0 {
 		t.Fatalf("expected at least one change in output: %s", trimmed)
+	}
+}
+
+func TestCLIEditEnvironment_DryRunTextOutput(t *testing.T) {
+	fx := newEditProjectFixture(t, "envdryruntext")
+
+	cmd := cli.Root()
+	out := &bytes.Buffer{}
+	errBuf := &bytes.Buffer{}
+	cmd.SetOut(out)
+	cmd.SetErr(errBuf)
+	cmd.SetArgs([]string{
+		"edit",
+		fx.name,
+		"staging",
+		"--env-color", "241",
+		"--dry-run",
+		"--output", "text",
+	})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("execute env dry-run text: %v (stderr=%s)", err, errBuf.String())
+	}
+
+	if errBuf.Len() != 0 {
+		t.Fatalf("unexpected stderr output: %s", errBuf.String())
+	}
+
+	hcl := readFile(t, filepath.Join(fx.projectDir, ".project.hcl"))
+	if strings.Contains(hcl, "color = \"241\"") {
+		t.Fatalf("dry-run should not persist environment changes: %s", hcl)
+	}
+
+	stdout := out.String()
+	header := "Previewing environment edit for \"staging\" in project \"" + fx.name + "\" (dry-run)"
+	if !strings.Contains(stdout, header) {
+		t.Fatalf("stdout missing dry-run header: %s", stdout)
+	}
+
+	if !strings.Contains(stdout, "No changes have been written; showing preview only.") {
+		t.Fatalf("stdout missing dry-run disclaimer: %s", stdout)
+	}
+
+	if !strings.Contains(stdout, "Planned changes (1 change):") {
+		t.Fatalf("stdout missing change summary: %s", stdout)
+	}
+
+	if !strings.Contains(stdout, "Color: \"240\" -> \"241\"") {
+		t.Fatalf("stdout missing color change: %s", stdout)
+	}
+
+	if !strings.Contains(stdout, "Other environments unchanged; project metadata untouched.") {
+		t.Fatalf("stdout missing unchanged scope message: %s", stdout)
 	}
 }

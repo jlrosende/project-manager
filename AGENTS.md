@@ -44,4 +44,4 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 - Favor small, focused packages; add new ports before introducing new adapters.
 
 ## Misc
-- Docs via `make gendocs`; no Cursor/Copilot rules, follow this guide.
+- Docs via `make gendocs` (update CLI docs and man pages using this command only); no Cursor/Copilot rules, follow this guide.

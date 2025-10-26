@@ -17,7 +17,11 @@ import (
 	"github.com/jlrosende/project-manager/internal/core/services"
 )
 
-func run(cmd *cobra.Command, args []string, opts Options) error {
+func run(cmd *cobra.Command, args []string) error {
+	return runWithOptions(cmd, args, Options{})
+}
+
+func runWithOptions(cmd *cobra.Command, args []string, opts Options) error {
 	ctx := cmd.Context()
 	if ctx == nil {
 		ctx = context.Background()

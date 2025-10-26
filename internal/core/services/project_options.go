@@ -81,6 +81,7 @@ func MergeProjectInputs(
 	)
 
 	var env *domain.EnvironmentInput
+
 	if cfg != nil {
 		if cfg.Name != nil {
 			def.Name = strings.TrimSpace(*cfg.Name)
@@ -175,6 +176,7 @@ func MergeProjectInputs(
 				if trimmedKey == "" {
 					continue
 				}
+
 				env.EnvVars[trimmedKey] = v
 			}
 		}
@@ -372,6 +374,7 @@ func EnsureProjectUniqueness(projects []*domain.Project, candidate domain.Projec
 
 		existingName := strings.TrimSpace(existing.Name)
 		existingPath := strings.TrimSpace(existing.Path)
+
 		if existingName == "" && existingPath == "" {
 			continue
 		}
@@ -404,6 +407,7 @@ func projectMetadataExists(root string) (bool, error) {
 	}
 
 	meta := filepath.Join(root, ".project.hcl")
+
 	info, err := os.Stat(meta)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -423,6 +427,7 @@ func projectMetadataExists(root string) (bool, error) {
 func pathsEqual(a, b string) bool {
 	a = strings.TrimSpace(a)
 	b = strings.TrimSpace(b)
+
 	if a == "" || b == "" {
 		return false
 	}
@@ -480,9 +485,11 @@ func loadProjectConfig(fsys ports.Filesystem, path string) (*domain.ConfigInput,
 	}
 
 	legacyEnvironments := false
+
 	if raw != nil {
 		if _, ok := raw["environments"]; ok {
 			legacyEnvironments = true
+
 			delete(raw, "environments")
 		}
 	}
@@ -624,6 +631,7 @@ func parseEnvVarFlags(pairs []string, flagLabel string) (map[string]string, erro
 
 		key := strings.TrimSpace(trimmed[:idx])
 		value := trimmed[idx+1:]
+
 		if key == "" {
 			return nil, fmt.Errorf("%s requires a non-empty key: %q", labelForError(flagLabel), raw)
 		}

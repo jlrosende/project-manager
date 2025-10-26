@@ -181,13 +181,18 @@ func (e *ProjectEditValidationError) ValidationErrors() domain.ProjectValidation
 }
 
 // RenderProjectEditSkeleton serializes the editable fields for the requested scope in the given format.
-func (svc *ProjectService) RenderProjectEditSkeleton(ctx context.Context, projectName, environmentName string, format SkeletonFormat) ([]byte, error) {
+func (svc *ProjectService) RenderProjectEditSkeleton(
+	ctx context.Context,
+	projectName, environmentName string,
+	format SkeletonFormat,
+) ([]byte, error) {
 	_, project, err := svc.loadProjectForEdit(ctx, projectName)
 	if err != nil {
 		return nil, err
 	}
 
 	envName := strings.TrimSpace(environmentName)
+
 	var payload map[string]any
 
 	if envName == "" {
@@ -243,7 +248,11 @@ func (svc *ProjectService) RenderProjectEditSkeleton(ctx context.Context, projec
 }
 
 // GenerateProjectEditSkeleton writes an edit skeleton to the provided destination path.
-func (svc *ProjectService) GenerateProjectEditSkeleton(ctx context.Context, projectName, environmentName, path string, format SkeletonFormat) error {
+func (svc *ProjectService) GenerateProjectEditSkeleton(
+	ctx context.Context,
+	projectName, environmentName, path string,
+	format SkeletonFormat,
+) error {
 	path = strings.TrimSpace(path)
 	if path == "" {
 		return errors.New("skeleton output path is empty")
@@ -306,6 +315,7 @@ func (svc *ProjectService) projectScopeEdit(
 	}
 
 	mutations := map[string]*domain.FieldMutation{}
+
 	var validationErrors domain.ProjectValidationErrors
 
 	if path := strings.TrimSpace(opts.CLIInputPath); path != "" {
@@ -316,6 +326,7 @@ func (svc *ProjectService) projectScopeEdit(
 
 		if len(unknown) > 0 && !opts.AllowUnknown {
 			sort.Strings(unknown)
+
 			return nil, fmt.Errorf(
 				"unknown project fields: %s (use --allow-unknown to ignore)",
 				strings.Join(unknown, ", "),
@@ -327,7 +338,7 @@ func (svc *ProjectService) projectScopeEdit(
 		}
 	}
 
-	applyFlag := func(set bool, value string, field string) {
+	applyFlag := func(set bool, value, field string) {
 		if !set {
 			return
 		}
@@ -406,6 +417,7 @@ func (svc *ProjectService) projectScopeEdit(
 
 		result.DryRun = true
 		result.Changes = summary
+
 		return result, nil
 	}
 
@@ -421,6 +433,7 @@ func (svc *ProjectService) projectScopeEdit(
 
 	result.DryRun = false
 	result.Changes = summary
+
 	return result, nil
 }
 
@@ -441,6 +454,7 @@ func (svc *ProjectService) environmentScopeEdit(
 	}
 
 	mutations := map[string]*domain.FieldMutation{}
+
 	var validationErrors domain.ProjectValidationErrors
 
 	if path := strings.TrimSpace(opts.CLIInputPath); path != "" {
@@ -451,6 +465,7 @@ func (svc *ProjectService) environmentScopeEdit(
 
 		if len(unknown) > 0 && !opts.AllowUnknownEnv {
 			sort.Strings(unknown)
+
 			return nil, fmt.Errorf(
 				"unknown environment fields: %s (use --allow-unknown to ignore)",
 				strings.Join(unknown, ", "),
@@ -462,7 +477,7 @@ func (svc *ProjectService) environmentScopeEdit(
 		}
 	}
 
-	applyEnvFlag := func(set bool, value string, field string) {
+	applyEnvFlag := func(set bool, value, field string) {
 		if !set {
 			return
 		}
@@ -542,6 +557,7 @@ func (svc *ProjectService) environmentScopeEdit(
 
 		envResult.DryRun = true
 		envResult.Changes = summary
+
 		return envResult, nil
 	}
 
@@ -558,6 +574,7 @@ func (svc *ProjectService) environmentScopeEdit(
 
 	envResult.DryRun = false
 	envResult.Changes = summary
+
 	return envResult, nil
 }
 
@@ -594,42 +611,22 @@ func (svc *ProjectService) loadProjectForEdit(
 	return identifier, project, nil
 }
 
+type editFieldExtractor func(map[string]any) (map[string]any, []string)
+
 func loadProjectEditFile(path string) (map[string]*domain.FieldMutation, []string, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, nil, fmt.Errorf("read CLI input: %w", err)
-	}
-
-	if len(data) == 0 {
-		return nil, nil, fmt.Errorf("cli input %s is empty", path)
-	}
-
-	var raw map[string]any
-	if err := yaml.Unmarshal(data, &raw); err != nil {
-		return nil, nil, fmt.Errorf("parse CLI input %s: %w", path, err)
-	}
-
-	fields, unknown := extractProjectEditFields(raw)
-	mutations := make(map[string]*domain.FieldMutation, len(fields))
-
-	for key, value := range fields {
-		fieldName, ok := projectEditFieldMap[key]
-		if !ok {
-			continue
-		}
-
-		mutation, err := mutationFromInterface(value, domain.ChangeSourceInput)
-		if err != nil {
-			return nil, nil, fmt.Errorf("project.%s: %w", key, err)
-		}
-
-		mutations[fieldName] = mutation
-	}
-
-	return mutations, unknown, nil
+	return loadEditFile(path, extractProjectEditFields, projectEditFieldMap, "project")
 }
 
 func loadEnvironmentEditFile(path string) (map[string]*domain.FieldMutation, []string, error) {
+	return loadEditFile(path, extractEnvironmentEditFields, environmentEditFieldMap, "environment")
+}
+
+func loadEditFile(
+	path string,
+	extractor editFieldExtractor,
+	fieldMap map[string]string,
+	scope string,
+) (map[string]*domain.FieldMutation, []string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, nil, fmt.Errorf("read CLI input: %w", err)
@@ -644,18 +641,18 @@ func loadEnvironmentEditFile(path string) (map[string]*domain.FieldMutation, []s
 		return nil, nil, fmt.Errorf("parse CLI input %s: %w", path, err)
 	}
 
-	fields, unknown := extractEnvironmentEditFields(raw)
+	fields, unknown := extractor(raw)
 	mutations := make(map[string]*domain.FieldMutation, len(fields))
 
 	for key, value := range fields {
-		fieldName, ok := environmentEditFieldMap[key]
+		fieldName, ok := fieldMap[key]
 		if !ok {
 			continue
 		}
 
 		mutation, err := mutationFromInterface(value, domain.ChangeSourceInput)
 		if err != nil {
-			return nil, nil, fmt.Errorf("environment.%s: %w", key, err)
+			return nil, nil, fmt.Errorf("%s.%s: %w", scope, key, err)
 		}
 
 		mutations[fieldName] = mutation
@@ -811,7 +808,11 @@ func applyProjectMutationsInMemory(project *domain.Project, fields map[string]*d
 	return nil
 }
 
-func applyEnvironmentMutationsInMemory(project *domain.Project, envName string, fields map[string]*domain.FieldMutation) error {
+func applyEnvironmentMutationsInMemory(
+	project *domain.Project,
+	envName string,
+	fields map[string]*domain.FieldMutation,
+) error {
 	if project == nil {
 		return errors.New("project is nil")
 	}
@@ -888,7 +889,10 @@ func environmentFieldValue(env *domain.Environment, field string) string {
 	}
 }
 
-func summarizeProjectChanges(before, after *domain.Project, fields map[string]*domain.FieldMutation) []ProjectEditChange {
+func summarizeProjectChanges(
+	before, after *domain.Project,
+	fields map[string]*domain.FieldMutation,
+) []ProjectEditChange {
 	if before == nil || after == nil || len(fields) == 0 {
 		return nil
 	}
@@ -901,6 +905,7 @@ func summarizeProjectChanges(before, after *domain.Project, fields map[string]*d
 
 		oldVal := projectFieldValue(before, field)
 		newVal := projectFieldValue(after, field)
+
 		if oldVal == newVal {
 			continue
 		}
@@ -916,7 +921,10 @@ func summarizeProjectChanges(before, after *domain.Project, fields map[string]*d
 	return changes
 }
 
-func summarizeEnvironmentChanges(before *domain.Environment, after *domain.Environment, fields map[string]*domain.FieldMutation) []ProjectEditChange {
+func summarizeEnvironmentChanges(
+	before, after *domain.Environment,
+	fields map[string]*domain.FieldMutation,
+) []ProjectEditChange {
 	if before == nil || after == nil || len(fields) == 0 {
 		return nil
 	}
@@ -929,6 +937,7 @@ func summarizeEnvironmentChanges(before *domain.Environment, after *domain.Envir
 
 		oldVal := environmentFieldValue(before, field)
 		newVal := environmentFieldValue(after, field)
+
 		if oldVal == newVal {
 			continue
 		}
@@ -944,7 +953,10 @@ func summarizeEnvironmentChanges(before *domain.Environment, after *domain.Envir
 	return changes
 }
 
-func validateProjectEdit(current, updated *domain.Project, mutations map[string]*domain.FieldMutation) (domain.ProjectValidationErrors, error) {
+func validateProjectEdit(
+	current, updated *domain.Project,
+	mutations map[string]*domain.FieldMutation,
+) (domain.ProjectValidationErrors, error) {
 	var errs domain.ProjectValidationErrors
 
 	if current == nil || updated == nil {
@@ -954,7 +966,7 @@ func validateProjectEdit(current, updated *domain.Project, mutations map[string]
 	if _, ok := mutations[domain.ProjectFieldEnvVarsFile]; ok {
 		candidate := strings.TrimSpace(updated.EnvVarsFile)
 		if candidate != "" {
-			if ok, _, err := ensurePathWithinProject(current.Path, candidate); err != nil {
+			if ok, err := ensurePathWithinProject(current.Path, candidate); err != nil {
 				return nil, fmt.Errorf("validate project env vars file: %w", err)
 			} else if !ok {
 				errs = append(errs, domain.ProjectValidationError{
@@ -978,7 +990,10 @@ func validateProjectEdit(current, updated *domain.Project, mutations map[string]
 	return errs, nil
 }
 
-func validateProjectClearances(_ *domain.Project, updated *domain.Project, mutations map[string]*domain.FieldMutation) domain.ProjectValidationErrors {
+func validateProjectClearances(
+	_, updated *domain.Project,
+	mutations map[string]*domain.FieldMutation,
+) domain.ProjectValidationErrors {
 	var errs domain.ProjectValidationErrors
 
 	if updated == nil {
@@ -1006,7 +1021,11 @@ func validateProjectClearances(_ *domain.Project, updated *domain.Project, mutat
 	return errs
 }
 
-func validateEnvironmentEdit(current, updated *domain.Project, envName string, mutations map[string]*domain.FieldMutation) (domain.ProjectValidationErrors, error) {
+func validateEnvironmentEdit(
+	current, updated *domain.Project,
+	envName string,
+	mutations map[string]*domain.FieldMutation,
+) (domain.ProjectValidationErrors, error) {
 	var errs domain.ProjectValidationErrors
 
 	if current == nil || updated == nil {
@@ -1036,7 +1055,7 @@ func validateEnvironmentEdit(current, updated *domain.Project, envName string, m
 	if _, ok := mutations[domain.EnvironmentFieldEnvVarsFile]; ok {
 		candidate := strings.TrimSpace(env.EnvVarsFile)
 		if candidate != "" {
-			if ok, _, err := ensurePathWithinProject(current.Path, candidate); err != nil {
+			if ok, err := ensurePathWithinProject(current.Path, candidate); err != nil {
 				return nil, fmt.Errorf("validate environment env vars file: %w", err)
 			} else if !ok {
 				errs = append(errs, domain.ProjectValidationError{
@@ -1050,7 +1069,10 @@ func validateEnvironmentEdit(current, updated *domain.Project, envName string, m
 	return errs, nil
 }
 
-func validateEnvironmentClearances(_ *domain.Environment, updated *domain.Environment, mutations map[string]*domain.FieldMutation) domain.ProjectValidationErrors {
+func validateEnvironmentClearances(
+	_, updated *domain.Environment,
+	mutations map[string]*domain.FieldMutation,
+) domain.ProjectValidationErrors {
 	var errs domain.ProjectValidationErrors
 
 	if updated == nil {
@@ -1214,45 +1236,48 @@ func mutationFromInterface(value any, source domain.ChangeSource) (*domain.Field
 	}
 }
 
-func ensurePathWithinProject(root, candidate string) (bool, string, error) {
+func ensurePathWithinProject(root, candidate string) (bool, error) {
 	root = strings.TrimSpace(root)
 	if root == "" {
-		return false, "", errors.New("project root is empty")
+		return false, errors.New("project root is empty")
 	}
 
 	resolvedRoot := root
 	if !filepath.IsAbs(resolvedRoot) {
 		abs, err := filepath.Abs(resolvedRoot)
 		if err != nil {
-			return false, "", err
+			return false, err
 		}
+
 		resolvedRoot = abs
 	}
+
 	resolvedRoot = filepath.Clean(resolvedRoot)
 
 	candidate = strings.TrimSpace(candidate)
 	if candidate == "" {
-		return false, "", nil
+		return false, nil
 	}
 
 	resolvedCandidate := candidate
 	if !filepath.IsAbs(resolvedCandidate) {
 		resolvedCandidate = filepath.Join(resolvedRoot, resolvedCandidate)
 	}
+
 	resolvedCandidate = filepath.Clean(resolvedCandidate)
 
 	rel, err := filepath.Rel(resolvedRoot, resolvedCandidate)
 	if err != nil {
-		return false, resolvedCandidate, err
+		return false, err
 	}
 
 	if rel == "." {
-		return true, resolvedCandidate, nil
+		return true, nil
 	}
 
 	if strings.HasPrefix(rel, ".."+string(filepath.Separator)) || rel == ".." {
-		return false, resolvedCandidate, nil
+		return false, nil
 	}
 
-	return true, resolvedCandidate, nil
+	return true, nil
 }
