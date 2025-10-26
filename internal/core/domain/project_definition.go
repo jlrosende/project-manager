@@ -7,6 +7,9 @@ type ProjectDefinition struct {
 	Name        string
 	Here        bool
 	Path        string
+	Description string
+	Shell       string
+	EnvVarsFile string
 	Environment *EnvironmentInput
 	Metadata    map[string]string
 }
@@ -23,11 +26,15 @@ func (p ProjectDefinition) DestinationProvided() bool {
 // ConfigInput models the optional configuration supplied via JSON or YAML files.
 // Pointer fields differentiate between omitted and zero-valued inputs for later merge logic.
 type ConfigInput struct {
-	Name               *string           `json:"name"        yaml:"name"`
-	Here               *bool             `json:"here"        yaml:"here"`
-	Path               *string           `json:"path"        yaml:"path"`
-	Environment        *EnvironmentInput `json:"environment" yaml:"environment"`
-	Metadata           map[string]string `json:"metadata"    yaml:"metadata"`
+	Name               *string           `json:"name"         yaml:"name"`
+	Here               *bool             `json:"here"         yaml:"here"`
+	Path               *string           `json:"path"         yaml:"path"`
+	EnvVars            map[string]string `json:"env_vars,omitempty"    yaml:"env_vars,omitempty"`
+	Description        *string           `json:"description"  yaml:"description"`
+	Shell              *string           `json:"shell"        yaml:"shell"`
+	EnvFile            *string           `json:"env-file"     yaml:"env-file"`
+	Environment        *EnvironmentInput `json:"environment,omitempty" yaml:"environment,omitempty"`
+	Metadata           map[string]string `json:"metadata,omitempty"    yaml:"metadata,omitempty"`
 	unknown            map[string]any
 	legacyEnvironments bool
 }

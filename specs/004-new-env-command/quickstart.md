@@ -15,11 +15,11 @@
 3. **Customize environment via flags**
    ```bash
    pm new demo-project production \
-     --env-file .env.production \
-     --env-mode replace \
-     --env-color 160 \
-     --env-var API_URL=https://api.example.com \
-     --env-var FEATURE_X=true
+     --environment-env-file .env.production \
+     --environment-mode replace \
+     --environment-color 160 \
+     --environment-env-var API_URL=https://api.example.com \
+     --environment-env-var FEATURE_X=true
    ```
    - Overrides file/mode/color, merges env vars with command-line precedence.
 
@@ -36,7 +36,7 @@
        API_URL: https://staging.example.com
    ```
    ```bash
-   pm new demo-project staging --cli-input env-config.yaml --env-var FEATURE_X=true
+   pm new demo-project staging --cli-input env-config.yaml --environment-env-var FEATURE_X=true
    ```
    - Config supplies base values; CLI flags win on conflicts (`FEATURE_X` added via CLI).
 

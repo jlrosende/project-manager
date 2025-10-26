@@ -18,10 +18,10 @@
 ### EnvironmentInput (new)
 - **Fields**:
   - `Name` (string) – required environment identifier (from positional argument or config).
-  - `Color` (string, optional) – CLI `--env-color` or config `environment.color`.
+  - `Color` (string, optional) – CLI `--environment-color` or config `environment.color`.
   - `EnvVarsMode` (string) – required; accepts `merge` (default) or `replace`.
   - `EnvVarsFile` (string) – required path relative to project root (default `.<slug>.env`).
-  - `EnvVars` (map[string]string) – environment key/value pairs combined from config + CLI `--env-var` flags.
+  - `EnvVars` (map[string]string) – environment key/value pairs combined from config + CLI `--environment-env-var` flags.
 - **Validation Rules**:
   - `Name` must be unique within project and match allowed slug pattern.
   - `EnvVarsMode` must be one of `merge` or `replace`.

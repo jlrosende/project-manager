@@ -7,10 +7,10 @@
    - Treated as environment name when the project exists and `.project.hcl` is present.
 
 ## Flags (additions)
-- `--env-file <path>`: Overrides environment vars file name (defaults to `.<slug>.env`).
-- `--env-mode <merge|replace>`: Sets env vars merge strategy (default `merge`).
-- `--env-color <value>`: Optional color metadata for downstream tooling.
-- `--env-var KEY=VALUE`: Repeatable flag appending/overriding environment variables.
+- `--environment-env-file <path>`: Overrides environment vars file name (defaults to `.<slug>.env`).
+- `--environment-mode <merge|replace>`: Sets env vars merge strategy (default `merge`).
+- `--environment-color <value>`: Optional color metadata for downstream tooling.
+- `--environment-env-var KEY=VALUE`: Repeatable flag appending/overriding environment variables.
 
 ## Behavior Matrix
 

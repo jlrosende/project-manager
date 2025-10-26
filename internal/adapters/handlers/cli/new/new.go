@@ -1,9 +1,11 @@
 package newcmd
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -26,11 +28,94 @@ const (
 	flagForce                = "force"
 	flagAllowUnknown         = "allow-unknown"
 	flagOutput               = "output"
-	flagEnvFile              = "env-file"
-	flagEnvMode              = "env-mode"
-	flagEnvColor             = "env-color"
-	flagEnvVar               = "env-var"
+	flagYes                  = "yes"
+
+	flagProjectDescription = "project-description"
+	flagProjectShell       = "project-shell"
+	flagProjectEnvFile     = "project-env-file"
+
+	flagEnvironmentEnvFile = "environment-env-file"
+	flagEnvironmentMode    = "environment-mode"
+	flagEnvironmentColor   = "environment-color"
+	flagEnvironmentEnvVar  = "environment-env-var"
+
+	flagEnvFileLegacy  = "env-file"
+	flagEnvModeLegacy  = "env-mode"
+	flagEnvColorLegacy = "env-color"
+	flagEnvVarLegacy   = "env-var"
 )
+
+func getStringFlag(cmd *cobra.Command, name string) (string, bool, error) {
+	value, err := cmd.Flags().GetString(name)
+	if err != nil {
+		return "", false, err
+	}
+
+	if cmd.Flags().Changed(name) {
+		return value, true, nil
+	}
+
+	return "", false, nil
+}
+
+func getStringFlagWithLegacy(cmd *cobra.Command, primary, legacy, message string) (string, bool, error) {
+	value, changed, err := getStringFlag(cmd, primary)
+	if err != nil {
+		return "", false, err
+	}
+
+	if changed {
+		return value, true, nil
+	}
+
+	if legacy == "" {
+		return "", false, nil
+	}
+
+	legacyValue, legacyChanged, err := getStringFlag(cmd, legacy)
+	if err != nil {
+		return "", false, err
+	}
+
+	if legacyChanged {
+		emitDeprecatedWarning(cmd, message)
+		return legacyValue, true, nil
+	}
+
+	return "", false, nil
+}
+
+func getStringArrayFlagWithLegacy(cmd *cobra.Command, primary, legacy, message string) ([]string, bool, error) {
+	values, err := cmd.Flags().GetStringArray(primary)
+	if err != nil {
+		return nil, false, err
+	}
+
+	changed := cmd.Flags().Changed(primary)
+	result := make([]string, 0, len(values))
+	if changed {
+		result = append(result, values...)
+	}
+
+	if legacy != "" {
+		legacyValues, err := cmd.Flags().GetStringArray(legacy)
+		if err != nil {
+			return nil, false, err
+		}
+
+		if cmd.Flags().Changed(legacy) {
+			emitDeprecatedWarning(cmd, message)
+			result = append(result, legacyValues...)
+			changed = true
+		}
+	}
+
+	return result, changed, nil
+}
+
+func emitDeprecatedWarning(cmd *cobra.Command, message string) {
+	fmt.Fprintf(cmd.ErrOrStderr(), "Warning: %s\n", message)
+}
 
 // Command constructs a fresh instance of the `pm new` Cobra command.
 func Command() *cobra.Command {
@@ -70,10 +155,27 @@ func Command() *cobra.Command {
 	cmd.Flags().Bool(flagForce, false, "Overwrite existing project files when rerun")
 	cmd.Flags().Bool(flagAllowUnknown, false, "Ignore unknown fields in config files")
 	cmd.Flags().String(flagOutput, "text", "Output format for dry runs (text or json)")
-	cmd.Flags().String(flagEnvFile, "", "Set environment vars file when adding environments")
-	cmd.Flags().String(flagEnvMode, "", "Set environment vars merge mode (merge or replace)")
-	cmd.Flags().String(flagEnvColor, "", "Set environment color metadata when adding environments")
-	cmd.Flags().StringArray(flagEnvVar, nil, "Environment variable in KEY=VALUE format (repeatable)")
+
+	cmd.Flags().String(flagProjectDescription, "", "Set project description metadata")
+	cmd.Flags().String(flagProjectShell, "", "Set default shell for the project")
+	cmd.Flags().String(flagProjectEnvFile, "", "Set default project-level environment vars file")
+
+	cmd.Flags().String(flagEnvironmentEnvFile, "", "Set environment vars file when adding environments")
+	cmd.Flags().String(flagEnvironmentMode, "", "Set environment vars merge mode (merge or replace)")
+	cmd.Flags().String(flagEnvironmentColor, "", "Set environment color metadata when adding environments")
+	cmd.Flags().StringArray(flagEnvironmentEnvVar, nil, "Environment variable in KEY=VALUE format (repeatable)")
+
+	cmd.Flags().String(flagEnvFileLegacy, "", "[deprecated] Use --environment-env-file instead")
+	cmd.Flags().String(flagEnvModeLegacy, "", "[deprecated] Use --environment-mode instead")
+	cmd.Flags().String(flagEnvColorLegacy, "", "[deprecated] Use --environment-color instead")
+	cmd.Flags().StringArray(flagEnvVarLegacy, nil, "[deprecated] Use --environment-env-var instead")
+
+	_ = cmd.Flags().MarkDeprecated(flagEnvFileLegacy, "use --environment-env-file instead")
+	_ = cmd.Flags().MarkDeprecated(flagEnvModeLegacy, "use --environment-mode instead")
+	_ = cmd.Flags().MarkDeprecated(flagEnvColorLegacy, "use --environment-color instead")
+	_ = cmd.Flags().MarkDeprecated(flagEnvVarLegacy, "use --environment-env-var instead")
+
+	cmd.Flags().Bool(flagYes, false, "Automatically confirm project and environment creation prompts")
 
 	return cmd
 }
@@ -82,6 +184,10 @@ func run(cmd *cobra.Command, args []string) error {
 	container, err := bootstrap.New(bootstrap.Options{Logger: bootstrap.WrapSlog(slog.Default())})
 	if err != nil {
 		return fmt.Errorf("bootstrap services: %w", err)
+	}
+
+	if container.ProjectInput == nil {
+		return errors.New("project input service not available")
 	}
 
 	allowUnknown, err := cmd.Flags().GetBool(flagAllowUnknown)
@@ -107,29 +213,11 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 
 	if jsonSkeletonSet {
-		path := jsonSkeletonPath
-		if len(args) > 0 {
-			path = args[0]
-
-			if len(args) > 1 {
-				return fmt.Errorf("positional arguments are not allowed when generating CLI input skeletons")
-			}
-		}
-
-		return outputSkeleton(cmd, path, services.SkeletonFormatJSON)
+		return outputSkeleton(cmd, container, args, jsonSkeletonPath, services.SkeletonFormatJSON)
 	}
 
 	if yamlSkeletonSet {
-		path := yamlSkeletonPath
-		if len(args) > 0 {
-			path = args[0]
-
-			if len(args) > 1 {
-				return fmt.Errorf("positional arguments are not allowed when generating CLI input skeletons")
-			}
-		}
-
-		return outputSkeleton(cmd, path, services.SkeletonFormatYAML)
+		return outputSkeleton(cmd, container, args, yamlSkeletonPath, services.SkeletonFormatYAML)
 	}
 
 	cliInputPath, err := cmd.Flags().GetString(flagCliInput)
@@ -137,34 +225,72 @@ func run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	envFileFlag, err := cmd.Flags().GetString(flagEnvFile)
+	projectDescription, projectDescriptionSet, err := getStringFlag(cmd, flagProjectDescription)
 	if err != nil {
 		return err
 	}
 
-	envModeFlag, err := cmd.Flags().GetString(flagEnvMode)
+	projectShell, projectShellSet, err := getStringFlag(cmd, flagProjectShell)
 	if err != nil {
 		return err
 	}
 
-	envColorFlag, err := cmd.Flags().GetString(flagEnvColor)
+	projectEnvFile, projectEnvFileSet, err := getStringFlag(cmd, flagProjectEnvFile)
 	if err != nil {
 		return err
 	}
 
-	envVarPairs, err := cmd.Flags().GetStringArray(flagEnvVar)
+	envFileValue, envFileSet, err := getStringFlagWithLegacy(
+		cmd,
+		flagEnvironmentEnvFile,
+		flagEnvFileLegacy,
+		"--env-file is deprecated; use --environment-env-file instead",
+	)
 	if err != nil {
 		return err
 	}
 
-	envVarMap, err := parseEnvVarFlags(envVarPairs)
+	envModeValue, envModeSet, err := getStringFlagWithLegacy(
+		cmd,
+		flagEnvironmentMode,
+		flagEnvModeLegacy,
+		"--env-mode is deprecated; use --environment-mode instead",
+	)
 	if err != nil {
 		return err
+	}
+
+	envColorValue, envColorSet, err := getStringFlagWithLegacy(
+		cmd,
+		flagEnvironmentColor,
+		flagEnvColorLegacy,
+		"--env-color is deprecated; use --environment-color instead",
+	)
+	if err != nil {
+		return err
+	}
+
+	envVarPairs, _, err := getStringArrayFlagWithLegacy(
+		cmd,
+		flagEnvironmentEnvVar,
+		flagEnvVarLegacy,
+		"--env-var is deprecated; use --environment-env-var instead",
+	)
+	if err != nil {
+		return err
+	}
+
+	var envVarMap map[string]string
+	if len(envVarPairs) > 0 {
+		envVarMap, err = container.ProjectInput.ParseEnvVarFlags(envVarPairs, fmt.Sprintf("--%s", flagEnvironmentEnvVar))
+		if err != nil {
+			return err
+		}
 	}
 
 	var cfg *domain.ConfigInput
 	if strings.TrimSpace(cliInputPath) != "" {
-		cfg, err = services.LoadProjectConfig(cliInputPath)
+		cfg, err = container.ProjectInput.LoadConfig(cliInputPath)
 		if err != nil {
 			return err
 		}
@@ -189,19 +315,19 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	envFlags := services.EnvironmentConfigFlags{}
-	if cmd.Flags().Changed(flagEnvFile) {
-		envFlags.EnvVarsFile = envFileFlag
+	envFlags := domain.EnvironmentConfigFlags{}
+	if envFileSet {
+		envFlags.EnvVarsFile = strings.TrimSpace(envFileValue)
 		envFlags.EnvFileSet = true
 	}
 
-	if cmd.Flags().Changed(flagEnvMode) {
-		envFlags.EnvVarsMode = envModeFlag
+	if envModeSet {
+		envFlags.EnvVarsMode = strings.TrimSpace(envModeValue)
 		envFlags.ModeSet = true
 	}
 
-	if cmd.Flags().Changed(flagEnvColor) {
-		envFlags.Color = envColorFlag
+	if envColorSet {
+		envFlags.Color = strings.TrimSpace(envColorValue)
 		envFlags.ColorSet = true
 	}
 
@@ -232,7 +358,12 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 
 	if envName != "" {
-		envFlags.Name = envName
+		normalizedEnvName, normErr := domain.NormalizeEnvironmentName(envName)
+		if normErr != nil {
+			return normErr
+		}
+
+		envFlags.Name = normalizedEnvName
 		envFlags.NameSet = true
 	}
 
@@ -245,14 +376,33 @@ func run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("--here cannot be used with additional positional arguments")
 	}
 
-	merged, envVars, err := services.MergeProjectInputs(cfg, services.ProjectConfigFlags{
+	hereSet := cmd.Flags().Changed(flagHere)
+
+	projectFlags := domain.ProjectConfigFlags{
 		Name:        nameArg,
 		Path:        pathArg,
 		Here:        here,
 		PathSet:     pathProvided,
-		HereSet:     cmd.Flags().Changed(flagHere),
+		HereSet:     hereSet,
 		Environment: envFlags,
-	})
+	}
+
+	if projectDescriptionSet {
+		projectFlags.Description = strings.TrimSpace(projectDescription)
+		projectFlags.DescriptionSet = true
+	}
+
+	if projectShellSet {
+		projectFlags.Shell = strings.TrimSpace(projectShell)
+		projectFlags.ShellSet = true
+	}
+
+	if projectEnvFileSet {
+		projectFlags.EnvFile = strings.TrimSpace(projectEnvFile)
+		projectFlags.EnvFileSet = true
+	}
+
+	merged, envVars, err := container.ProjectInput.MergeInputs(cfg, projectFlags)
 	if err != nil {
 		return err
 	}
@@ -262,7 +412,7 @@ func run(cmd *cobra.Command, args []string) error {
 		merged.Here = false
 	}
 
-	envRequested := environmentProvided(merged.Environment)
+	envRequested := container.ProjectInput.EnvironmentProvided(merged.Environment)
 	if !existingProject && envRequested {
 		envLabel := "environment input"
 		if merged.Environment != nil && merged.Environment.Name != nil {
@@ -317,6 +467,11 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	yesFlag, err := cmd.Flags().GetBool(flagYes)
+	if err != nil {
+		return err
+	}
+
 	force, err := cmd.Flags().GetBool(flagForce)
 	if err != nil {
 		return err
@@ -325,6 +480,10 @@ func run(cmd *cobra.Command, args []string) error {
 	dryRun, err := cmd.Flags().GetBool(flagDryRun)
 	if err != nil {
 		return err
+	}
+
+	if dryRun && force {
+		force = false
 	}
 
 	outputFormat, err := cmd.Flags().GetString(flagOutput)
@@ -337,83 +496,61 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 
 	if existingProject {
-		envService := services.NewEnvironmentService(container.ProjectService, container.EnvVarsRepo, container.Filesystem)
+		if container.EnvironmentManager == nil {
+			return errors.New("environment manager not available")
+		}
+
 		if merged.Environment == nil {
 			return errors.New("environment input is required when adding environments")
 		}
 
-		if err := envService.Apply(merged.Name, merged.Environment, services.EnvironmentApplyOptions{Force: force}); err != nil {
+		if !yesFlag {
+			envName := "environment"
+			if merged.Environment.Name != nil {
+				trimmed := strings.TrimSpace(*merged.Environment.Name)
+				if trimmed != "" {
+					envName = trimmed
+				}
+			}
+
+			confirmed, err := promptYesNo(cmd, fmt.Sprintf("Add environment %q to project %q?", envName, merged.Name))
+			if err != nil {
+				return err
+			}
+
+			if !confirmed {
+				fmt.Fprintln(cmd.OutOrStdout(), "Operation cancelled.")
+				return nil
+			}
+		}
+
+		if err := container.EnvironmentManager.Apply(merged.Name, merged.Environment, domain.EnvironmentApplyOptions{Force: force}); err != nil {
 			return err
 		}
 
 		return nil
 	}
 
-	creator := services.NewFileService(container.ProjectService, container.Filesystem)
-	if creator == nil {
-		return errors.New("project file service not available")
+	if container.ProjectCreator == nil {
+		return errors.New("project creator not available")
 	}
 
-	_, err = creator.Create(merged, envVars, services.CreateOptions{Force: force})
+	if !yesFlag {
+		message := fmt.Sprintf("Create project %q at %s?", merged.Name, merged.Path)
+		confirmed, err := promptYesNo(cmd, message)
+		if err != nil {
+			return err
+		}
+
+		if !confirmed {
+			fmt.Fprintln(cmd.OutOrStdout(), "Operation cancelled.")
+			return nil
+		}
+	}
+
+	_, err = container.ProjectCreator.Create(merged, envVars, domain.ProjectCreateOptions{Force: force})
 
 	return err
-}
-
-func parseEnvVarFlags(pairs []string) (map[string]string, error) {
-	if len(pairs) == 0 {
-		return nil, nil
-	}
-
-	vars := make(map[string]string, len(pairs))
-	for _, raw := range pairs {
-		trimmed := strings.TrimSpace(raw)
-		if trimmed == "" {
-			continue
-		}
-
-		idx := strings.Index(trimmed, "=")
-		if idx <= 0 {
-			return nil, fmt.Errorf("invalid --%s value %q; expected KEY=VALUE", flagEnvVar, raw)
-		}
-
-		key := strings.TrimSpace(trimmed[:idx])
-		value := trimmed[idx+1:]
-		if key == "" {
-			return nil, fmt.Errorf("--%s requires a non-empty key: %q", flagEnvVar, raw)
-		}
-
-		vars[key] = value
-	}
-
-	if len(vars) == 0 {
-		return nil, nil
-	}
-
-	return vars, nil
-}
-
-func environmentProvided(input *domain.EnvironmentInput) bool {
-	if input == nil {
-		return false
-	}
-
-	if input.Name != nil && strings.TrimSpace(*input.Name) != "" {
-		return true
-	}
-
-	if input.EnvVarsFile != nil && strings.TrimSpace(*input.EnvVarsFile) != "" {
-		return true
-	}
-
-	if input.EnvVarsMode != nil && strings.TrimSpace(*input.EnvVarsMode) != "" {
-		return true
-	}
-
-	if input.Color != nil && strings.TrimSpace(*input.Color) != "" {
-		return true
-	}
-
-	return len(input.EnvVars) > 0
 }
 
 func renderDryRun(cmd *cobra.Command, def domain.ProjectDefinition, envVars domain.EnvVars, format string) error {
@@ -467,11 +604,36 @@ func renderDryRun(cmd *cobra.Command, def domain.ProjectDefinition, envVars doma
 				fmt.Fprintf(cmd.OutOrStdout(), "    color: %s\n", envDetails.Color)
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "    env vars: %d entries\n", len(envDetails.EnvVars))
+			if len(envDetails.EnvVars) > 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "    env vars: %d entries\n", len(envDetails.EnvVars))
+			}
+
 		}
 	}
 
 	return nil
+}
+
+func promptYesNo(cmd *cobra.Command, prompt string) (bool, error) {
+	out := cmd.OutOrStdout()
+	in := cmd.InOrStdin()
+
+	if _, err := fmt.Fprintf(out, "%s (y/N): ", prompt); err != nil {
+		return false, err
+	}
+
+	reader := bufio.NewReader(in)
+	response, err := reader.ReadString('\n')
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return false, nil
+		}
+
+		return false, err
+	}
+
+	answer := strings.TrimSpace(strings.ToLower(response))
+	return answer == "y" || answer == "yes", nil
 }
 
 type environmentDryRunDetails struct {
@@ -568,15 +730,157 @@ func dryRunDefaultEnvironmentFile(name string) string {
 	return "." + slug + ".env"
 }
 
-func outputSkeleton(cmd *cobra.Command, rawPath string, format services.SkeletonFormat) error {
-	path := strings.TrimSpace(rawPath)
+type skeletonContext struct {
+	ProjectName string
+	ProjectPath string
+}
 
-	data, err := services.RenderProjectSkeleton(format)
+func resolveSkeletonContext(container *bootstrap.Container, args []string) (skeletonContext, error) {
+	ctx := skeletonContext{}
+
+	if len(args) == 0 {
+		return ctx, nil
+	}
+
+	name, err := normalizeSkeletonProjectName(args[0])
+	if err != nil {
+		return ctx, err
+	}
+
+	ctx.ProjectName = name
+
+	existingProject := false
+	projectPath := ""
+
+	if name != "" && container != nil && container.ProjectService != nil {
+		probe, probeErr := container.ProjectService.Probe(name)
+		if probeErr != nil {
+			return ctx, fmt.Errorf("probe project %q: %w", name, probeErr)
+		}
+
+		if probe.RegistryHit && probe.ProjectFileExists {
+			existingProject = true
+			projectPath = strings.TrimSpace(probe.ProjectPath)
+		}
+	}
+
+	if existingProject {
+		ctx.ProjectPath = projectPath
+	}
+
+	if len(args) > 1 {
+		second := strings.TrimSpace(args[1])
+		if existingProject {
+			if _, envErr := normalizeSkeletonEnvironmentName(second); envErr != nil {
+				return ctx, envErr
+			}
+		} else {
+			ctx.ProjectPath = second
+		}
+	}
+
+	return ctx, nil
+}
+
+func normalizeSkeletonProjectName(raw string) (string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", nil
+	}
+
+	def := &domain.ProjectDefinition{Name: trimmed, Here: true}
+	if err := domain.ValidateProjectDefinition(def); err != nil {
+		return "", fmt.Errorf("invalid project name %q: %s", raw, err)
+	}
+
+	return def.Name, nil
+}
+
+func normalizeSkeletonEnvironmentName(raw string) (string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", nil
+	}
+
+	normalized, err := domain.NormalizeEnvironmentName(trimmed)
+	if err != nil {
+		return "", err
+	}
+
+	return normalized, nil
+}
+
+func outputSkeleton(
+	cmd *cobra.Command,
+	container *bootstrap.Container,
+	args []string,
+	rawPath string,
+	format services.SkeletonFormat,
+) error {
+	if len(args) > 2 {
+		return fmt.Errorf("at most two positional arguments are allowed when generating CLI input skeletons")
+	}
+
+	ctx, err := resolveSkeletonContext(container, args)
 	if err != nil {
 		return err
 	}
 
-	if path == "" || path == "-" {
+	opts := services.SkeletonOptions{
+		ProjectName: ctx.ProjectName,
+		ProjectPath: ctx.ProjectPath,
+	}
+
+	if projectDescription, changed, err := getStringFlag(cmd, flagProjectDescription); err != nil {
+		return err
+	} else if changed {
+		opts.Description = strings.TrimSpace(projectDescription)
+	}
+
+	if projectShell, changed, err := getStringFlag(cmd, flagProjectShell); err != nil {
+		return err
+	} else if changed {
+		opts.Shell = strings.TrimSpace(projectShell)
+	}
+
+	if projectEnvFile, changed, err := getStringFlag(cmd, flagProjectEnvFile); err != nil {
+		return err
+	} else if changed {
+		opts.EnvFile = strings.TrimSpace(projectEnvFile)
+	}
+
+	envVarPairs, _, err := getStringArrayFlagWithLegacy(
+		cmd,
+		flagEnvironmentEnvVar,
+		flagEnvVarLegacy,
+		"--env-var is deprecated; use --environment-env-var instead",
+	)
+	if err != nil {
+		return err
+	}
+
+	if len(envVarPairs) > 0 {
+		envVarMap, parseErr := container.ProjectInput.ParseEnvVarFlags(envVarPairs, fmt.Sprintf("--%s", flagEnvironmentEnvVar))
+		if parseErr != nil {
+			return parseErr
+		}
+
+		if len(envVarMap) > 0 {
+			opts.EnvVars = envVarMap
+		}
+	}
+
+	path := strings.TrimSpace(rawPath)
+	if path == "" {
+		path = "-"
+	}
+
+	if path == "-" {
+		data, err := services.RenderProjectSkeletonWithOptions(format, opts)
+		if err != nil {
+			return err
+		}
+
 		if _, err := cmd.OutOrStdout().Write(data); err != nil {
 			return fmt.Errorf("write skeleton to stdout: %w", err)
 		}
@@ -584,7 +888,7 @@ func outputSkeleton(cmd *cobra.Command, rawPath string, format services.Skeleton
 		return nil
 	}
 
-	if err := services.GenerateProjectSkeleton(path, format); err != nil {
+	if err := services.GenerateProjectSkeletonWithOptions(path, format, opts); err != nil {
 		return err
 	}
 

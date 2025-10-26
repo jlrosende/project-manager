@@ -14,14 +14,14 @@ type Options struct {
 }
 
 type Container struct {
-	Filesystem     ports.Filesystem
-	Logger         ports.Logger
-	ProjectService ports.ProjectService
-	EnvVarsService ports.EnvVarsService
-	GitService     ports.GitService
-	ProjectRepo    ports.ProjectRepository
-	EnvVarsRepo    ports.EnvVarsRepository
-	GitRepo        ports.GitRepository
+	Filesystem         ports.Filesystem
+	Logger             ports.Logger
+	ProjectService     ports.ProjectService
+	EnvVarsService     ports.EnvVarsService
+	GitService         ports.GitService
+	ProjectCreator     ports.ProjectCreator
+	EnvironmentManager ports.EnvironmentManager
+	ProjectInput       ports.ProjectInputService
 }
 
 func New(opts Options) (*Container, error) {
@@ -50,16 +50,19 @@ func New(opts Options) (*Container, error) {
 	projSvc := services.NewProjectService(repoProject, repoEnv, repoGit, fsys, logger)
 	envSvc := services.NewEnvVarsServiceService(repoEnv)
 	gitSvc := services.NewGitService(repoGit)
+	envManager := services.NewEnvironmentService(projSvc, repoEnv, fsys)
+	projectCreator := services.NewFileService(projSvc, fsys)
+	inputSvc := services.NewProjectInputService(fsys)
 
 	return &Container{
-		Filesystem:     fsys,
-		Logger:         logger,
-		ProjectService: projSvc,
-		EnvVarsService: envSvc,
-		GitService:     gitSvc,
-		ProjectRepo:    repoProject,
-		EnvVarsRepo:    repoEnv,
-		GitRepo:        repoGit,
+		Filesystem:         fsys,
+		Logger:             logger,
+		ProjectService:     projSvc,
+		EnvVarsService:     envSvc,
+		GitService:         gitSvc,
+		ProjectCreator:     projectCreator,
+		EnvironmentManager: envManager,
+		ProjectInput:       inputSvc,
 	}, nil
 }
 

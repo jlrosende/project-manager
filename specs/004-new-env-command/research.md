@@ -9,7 +9,7 @@
 - **Alternatives considered**: Reuse existing maps in `ProjectDefinition`; rejected due to poor clarity, lack of field-level precedence control, and difficulty exposing structured skeletons.
 
 ## Decision: Add environment customization flags and merge precedence rules
-- **Rationale**: Flags (`--env-file`, `--env-mode`, `--env-color`, `--env-var`) let users override config entries explicitly while keeping CLI defaults; precedence ensures deterministic results.
+- **Rationale**: Flags (`--environment-env-file`, `--environment-mode`, `--environment-color`, `--environment-env-var`) let users override config entries explicitly while keeping CLI defaults; precedence ensures deterministic results.
 - **Alternatives considered**: Require users to edit config files for environment tweaks; rejected for poor ergonomics and failure to meet spec.
 
 ## Decision: Silent handling of legacy `environments` maps when `--allow-unknown`

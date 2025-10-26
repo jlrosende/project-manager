@@ -31,7 +31,7 @@ func TestEnvironmentService_ApplyAddsNewEnvironment(t *testing.T) {
 		},
 	}
 
-	if err := svc.Apply("demo", input, services.EnvironmentApplyOptions{}); err != nil {
+	if err := svc.Apply("demo", input, domain.EnvironmentApplyOptions{}); err != nil {
 		t.Fatalf("apply environment: %v", err)
 	}
 
@@ -92,7 +92,7 @@ func TestEnvironmentService_ApplyForceUpdatesEnvironment(t *testing.T) {
 		},
 	}
 
-	if err := svc.Apply("demo", input, services.EnvironmentApplyOptions{Force: true}); err != nil {
+	if err := svc.Apply("demo", input, domain.EnvironmentApplyOptions{Force: true}); err != nil {
 		t.Fatalf("force apply environment: %v", err)
 	}
 
@@ -154,7 +154,7 @@ func TestEnvironmentService_ApplyExistingWithoutForceFails(t *testing.T) {
 		Name: ptrString("staging"),
 	}
 
-	err := svc.Apply("demo", input, services.EnvironmentApplyOptions{})
+	err := svc.Apply("demo", input, domain.EnvironmentApplyOptions{})
 	if err == nil {
 		t.Fatalf("expected error when environment exists without force")
 	}
@@ -182,8 +182,63 @@ func TestEnvironmentService_InvalidModeFails(t *testing.T) {
 		EnvVarsMode: ptrString("invalid"),
 	}
 
-	if err := svc.Apply("demo", input, services.EnvironmentApplyOptions{}); err == nil {
+	if err := svc.Apply("demo", input, domain.EnvironmentApplyOptions{}); err == nil {
 		t.Fatalf("expected validation error for invalid env vars mode")
+	}
+}
+
+func TestEnvironmentService_AllowsUnicodeAndWhitespaceNames(t *testing.T) {
+	t.Helper()
+
+	projectRoot := filepath.Join(t.TempDir(), "demo-project")
+	proj := &domain.Project{Name: "demo", Path: projectRoot}
+	projectSvc := &fakeProjectService{project: proj}
+	envRepo := &fakeEnvVarsRepository{}
+	fs := repositories.NewFilesystem()
+
+	svc := services.NewEnvironmentService(projectSvc, envRepo, fs)
+	name := "QA Régión 环境"
+	input := &domain.EnvironmentInput{
+		Name: ptrString("  " + name + "  "),
+	}
+
+	if err := svc.Apply("demo", input, domain.EnvironmentApplyOptions{}); err != nil {
+		t.Fatalf("apply environment with unicode name: %v", err)
+	}
+
+	if len(projectSvc.addCalls) != 1 {
+		t.Fatalf("expected one AddEnvironment call, got %d", len(projectSvc.addCalls))
+	}
+
+	call := projectSvc.addCalls[0]
+	if call.env.Name != name {
+		t.Fatalf("expected normalized name %q, got %q", name, call.env.Name)
+	}
+
+	expectedFile := ".qa-régión-环境.env"
+	if call.env.EnvVarsFile != expectedFile {
+		t.Fatalf("expected env vars file %s, got %s", expectedFile, call.env.EnvVarsFile)
+	}
+}
+
+func TestEnvironmentService_InvalidEnvironmentNameFails(t *testing.T) {
+	t.Helper()
+
+	projectRoot := filepath.Join(t.TempDir(), "demo-project")
+	proj := &domain.Project{Name: "demo", Path: projectRoot}
+	projectSvc := &fakeProjectService{project: proj}
+	envRepo := &fakeEnvVarsRepository{}
+	fs := repositories.NewFilesystem()
+
+	svc := services.NewEnvironmentService(projectSvc, envRepo, fs)
+
+	badNames := []string{"staging/blue", "..\\prod", "prod@2024"}
+
+	for _, candidate := range badNames {
+		input := &domain.EnvironmentInput{Name: ptrString(candidate)}
+		if err := svc.Apply("demo", input, domain.EnvironmentApplyOptions{}); err == nil {
+			t.Fatalf("expected error for invalid environment name %q", candidate)
+		}
 	}
 }
 

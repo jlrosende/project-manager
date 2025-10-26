@@ -62,10 +62,10 @@ func TestCLINew_DryRunEnvironmentJSON(t *testing.T) {
 	stdout, stderr, err := runNewCommand(
 		t,
 		"new", "demo", "staging",
-		"--env-file", ".env.staging",
-		"--env-mode", "replace",
-		"--env-color", "160",
-		"--env-var", "API_URL=https://api.example.com",
+		"--environment-env-file", ".env.staging",
+		"--environment-mode", "replace",
+		"--environment-color", "160",
+		"--environment-env-var", "API_URL=https://api.example.com",
 		"--dry-run",
 		"--output", "json",
 	)

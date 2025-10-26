@@ -15,15 +15,50 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/jlrosende/project-manager/internal/core/domain"
+	"github.com/jlrosende/project-manager/internal/core/ports"
 )
 
 var allowedProjectConfigKeys = map[string]struct{}{
 	"name":        {},
 	"here":        {},
 	"path":        {},
+	"description": {},
+	"shell":       {},
+	"env-file":    {},
 	"environment": {},
+	"env_vars":    {},
 	"metadata":    {},
 }
+
+type ProjectInputService struct {
+	fs ports.Filesystem
+}
+
+// NewProjectInputService constructs a ProjectInputService instance.
+func NewProjectInputService(fs ports.Filesystem) *ProjectInputService {
+	return &ProjectInputService{fs: fs}
+}
+
+func (s *ProjectInputService) LoadConfig(path string) (*domain.ConfigInput, error) {
+	return loadProjectConfig(s.fs, path)
+}
+
+func (s *ProjectInputService) MergeInputs(
+	cfg *domain.ConfigInput,
+	flags domain.ProjectConfigFlags,
+) (domain.ProjectDefinition, domain.EnvVars, error) {
+	return MergeProjectInputs(cfg, flags)
+}
+
+func (s *ProjectInputService) ParseEnvVarFlags(pairs []string, flagLabel string) (map[string]string, error) {
+	return parseEnvVarFlags(pairs, flagLabel)
+}
+
+func (s *ProjectInputService) EnvironmentProvided(input *domain.EnvironmentInput) bool {
+	return environmentProvided(input)
+}
+
+var _ ports.ProjectInputService = (*ProjectInputService)(nil)
 
 // SkeletonFormat represents the serialization format for generated CLI input files.
 type SkeletonFormat string
@@ -33,40 +68,12 @@ const (
 	SkeletonFormatYAML SkeletonFormat = "yaml"
 )
 
-// ProjectConfigFlags captures CLI-provided overrides for project creation.
-type ProjectConfigFlags struct {
-	Name        string
-	Path        string
-	Here        bool
-	PathSet     bool
-	HereSet     bool
-	Environment EnvironmentConfigFlags
-}
-
-// EnvironmentConfigFlags captures CLI-provided overrides for environment creation.
-type EnvironmentConfigFlags struct {
-	Name        string
-	NameSet     bool
-	EnvVarsFile string
-	EnvFileSet  bool
-	EnvVarsMode string
-	ModeSet     bool
-	Color       string
-	ColorSet    bool
-	EnvVars     map[string]string
-}
-
-// HasInput reports whether any environment-related flag values were provided.
-func (f EnvironmentConfigFlags) HasInput() bool {
-	return f.NameSet || f.EnvFileSet || f.ModeSet || f.ColorSet || len(f.EnvVars) > 0
-}
-
 // MergeProjectInputs combines configuration file inputs with CLI arguments,
 // preferring explicit flag values. It returns the merged project definition and
 // the environment variables destined for the .env file.
 func MergeProjectInputs(
 	cfg *domain.ConfigInput,
-	flags ProjectConfigFlags,
+	flags domain.ProjectConfigFlags,
 ) (domain.ProjectDefinition, domain.EnvVars, error) {
 	var (
 		def     domain.ProjectDefinition
@@ -87,8 +94,38 @@ func MergeProjectInputs(
 			def.Path = strings.TrimSpace(*cfg.Path)
 		}
 
+		if cfg.Description != nil {
+			def.Description = strings.TrimSpace(*cfg.Description)
+		}
+
+		if cfg.Shell != nil {
+			def.Shell = strings.TrimSpace(*cfg.Shell)
+		}
+
+		if cfg.EnvFile != nil {
+			def.EnvVarsFile = strings.TrimSpace(*cfg.EnvFile)
+		}
+
+		if len(cfg.EnvVars) > 0 {
+			envVars = domain.EnvVars(copyStringMap(cfg.EnvVars))
+		}
+
 		if cfg.Environment != nil {
 			env = cloneEnvironmentInput(cfg.Environment)
+
+			if env != nil && env.Name != nil {
+				name := strings.TrimSpace(*env.Name)
+				if name != "" {
+					normalized, normErr := domain.NormalizeEnvironmentName(name)
+					if normErr != nil {
+						return domain.ProjectDefinition{}, nil, normErr
+					}
+
+					env.Name = stringPtr(normalized)
+				} else {
+					env.Name = nil
+				}
+			}
 		}
 
 		if len(cfg.Metadata) > 0 {
@@ -103,7 +140,17 @@ func MergeProjectInputs(
 		}
 
 		if envFlags.NameSet {
-			env.Name = stringPtr(strings.TrimSpace(envFlags.Name))
+			name := strings.TrimSpace(envFlags.Name)
+			if name != "" {
+				normalized, normErr := domain.NormalizeEnvironmentName(name)
+				if normErr != nil {
+					return domain.ProjectDefinition{}, nil, normErr
+				}
+
+				env.Name = stringPtr(normalized)
+			} else {
+				env.Name = nil
+			}
 		}
 
 		if envFlags.EnvFileSet {
@@ -156,6 +203,18 @@ func MergeProjectInputs(
 
 	if strings.TrimSpace(flags.Name) != "" {
 		def.Name = strings.TrimSpace(flags.Name)
+	}
+
+	if flags.DescriptionSet {
+		def.Description = strings.TrimSpace(flags.Description)
+	}
+
+	if flags.ShellSet {
+		def.Shell = strings.TrimSpace(flags.Shell)
+	}
+
+	if flags.EnvFileSet {
+		def.EnvVarsFile = strings.TrimSpace(flags.EnvFile)
 	}
 
 	return def, envVars, nil
@@ -380,11 +439,15 @@ func pathsEqual(a, b string) bool {
 
 // LoadProjectConfig reads a JSON or YAML configuration file from disk.
 func LoadProjectConfig(path string) (*domain.ConfigInput, error) {
+	return loadProjectConfig(nil, path)
+}
+
+func loadProjectConfig(fsys ports.Filesystem, path string) (*domain.ConfigInput, error) {
 	if strings.TrimSpace(path) == "" {
 		return nil, errors.New("config path is empty")
 	}
 
-	data, err := os.ReadFile(path)
+	data, err := readConfigFile(fsys, path)
 	if err != nil {
 		return nil, fmt.Errorf("read config file: %w", err)
 	}
@@ -428,6 +491,14 @@ func LoadProjectConfig(path string) (*domain.ConfigInput, error) {
 	cfg.SetUnknownFields(filterProjectUnknown(raw))
 
 	return &cfg, nil
+}
+
+func readConfigFile(fsys ports.Filesystem, path string) ([]byte, error) {
+	if fsys != nil {
+		return fsys.ReadFile(path)
+	}
+
+	return os.ReadFile(path)
 }
 
 func decodeProjectJSON(data []byte, cfg *domain.ConfigInput) (map[string]any, error) {
@@ -534,11 +605,95 @@ func cloneEnvironmentInput(in *domain.EnvironmentInput) *domain.EnvironmentInput
 	return out
 }
 
+func parseEnvVarFlags(pairs []string, flagLabel string) (map[string]string, error) {
+	if len(pairs) == 0 {
+		return nil, nil
+	}
+
+	vars := make(map[string]string, len(pairs))
+	for _, raw := range pairs {
+		trimmed := strings.TrimSpace(raw)
+		if trimmed == "" {
+			continue
+		}
+
+		idx := strings.Index(trimmed, "=")
+		if idx <= 0 {
+			return nil, fmt.Errorf("invalid %s value %q; expected KEY=VALUE", labelForError(flagLabel), raw)
+		}
+
+		key := strings.TrimSpace(trimmed[:idx])
+		value := trimmed[idx+1:]
+		if key == "" {
+			return nil, fmt.Errorf("%s requires a non-empty key: %q", labelForError(flagLabel), raw)
+		}
+
+		vars[key] = value
+	}
+
+	if len(vars) == 0 {
+		return nil, nil
+	}
+
+	return vars, nil
+}
+
+func labelForError(flagLabel string) string {
+	trimmed := strings.TrimSpace(flagLabel)
+	if trimmed == "" {
+		return "environment variable"
+	}
+
+	return trimmed
+}
+
+func environmentProvided(input *domain.EnvironmentInput) bool {
+	if input == nil {
+		return false
+	}
+
+	if input.Name != nil && strings.TrimSpace(*input.Name) != "" {
+		return true
+	}
+
+	if input.EnvVarsFile != nil && strings.TrimSpace(*input.EnvVarsFile) != "" {
+		return true
+	}
+
+	if input.EnvVarsMode != nil && strings.TrimSpace(*input.EnvVarsMode) != "" {
+		return true
+	}
+
+	if input.Color != nil && strings.TrimSpace(*input.Color) != "" {
+		return true
+	}
+
+	return len(input.EnvVars) > 0
+}
+
 // GenerateProjectSkeleton writes a CLI input skeleton in the requested format to the
 
 // provided path. The generated file can be edited and passed to --cli-input for
-// future project creation runs.
+// SkeletonOptions controls how CLI skeletons should be rendered when users
+// request JSON or YAML templates.
+type SkeletonOptions struct {
+	ProjectName string
+	ProjectPath string
+	Description string
+	Shell       string
+	EnvFile     string
+	EnvVars     map[string]string
+}
+
+// GenerateProjectSkeleton writes a CLI input skeleton in the requested format to the
+// provided path using default placeholders.
 func GenerateProjectSkeleton(path string, format SkeletonFormat) error {
+	return GenerateProjectSkeletonWithOptions(path, format, SkeletonOptions{})
+}
+
+// GenerateProjectSkeletonWithOptions writes a CLI input skeleton using the
+// provided placeholder options.
+func GenerateProjectSkeletonWithOptions(path string, format SkeletonFormat, opts SkeletonOptions) error {
 	path = strings.TrimSpace(path)
 	if path == "" {
 		return errors.New("skeleton output path is empty")
@@ -558,7 +713,7 @@ func GenerateProjectSkeleton(path string, format SkeletonFormat) error {
 		return fmt.Errorf("prepare skeleton destination: %w", err)
 	}
 
-	data, err := RenderProjectSkeleton(format)
+	data, err := RenderProjectSkeletonWithOptions(format, opts)
 	if err != nil {
 		return err
 	}
@@ -572,7 +727,13 @@ func GenerateProjectSkeleton(path string, format SkeletonFormat) error {
 
 // RenderProjectSkeleton returns the serialized CLI input skeleton for the requested format.
 func RenderProjectSkeleton(format SkeletonFormat) ([]byte, error) {
-	template := defaultProjectConfigSkeleton()
+	return RenderProjectSkeletonWithOptions(format, SkeletonOptions{})
+}
+
+// RenderProjectSkeletonWithOptions renders the CLI skeleton using the supplied
+// placeholder options.
+func RenderProjectSkeletonWithOptions(format SkeletonFormat, opts SkeletonOptions) ([]byte, error) {
+	template := buildProjectSkeletonConfig(opts)
 
 	var (
 		data []byte
@@ -599,30 +760,82 @@ func RenderProjectSkeleton(format SkeletonFormat) ([]byte, error) {
 	return data, nil
 }
 
-func defaultProjectConfigSkeleton() domain.ConfigInput {
-	name := "your-project-name"
-	path := "/absolute/path/to/your-project"
+func buildProjectSkeletonConfig(opts SkeletonOptions) domain.ConfigInput {
+	name, path, description, shell, envFile := buildSkeletonProjectSection(opts)
+	envVars := buildSkeletonEnvVars(opts)
 	here := false
-	envName := "example"
-	envFile := ".env.example"
-	envMode := domain.EnvVarsModeMerge
 
-	return domain.ConfigInput{
-		Name: &name,
-		Path: &path,
-		Here: &here,
-		Environment: &domain.EnvironmentInput{
-			Name:        &envName,
-			EnvVarsFile: &envFile,
-			EnvVarsMode: &envMode,
-			EnvVars: map[string]string{
-				"EXAMPLE_ENV_VAR": "value",
-			},
-		},
-		Metadata: map[string]string{
-			"description": "Describe your project",
-		},
+	cfg := domain.ConfigInput{
+		Name:        skeletonString(name),
+		Path:        skeletonString(path),
+		Here:        &here,
+		Description: skeletonString(description),
+		Shell:       skeletonString(shell),
+		EnvFile:     skeletonString(envFile),
 	}
+
+	if len(envVars) > 0 {
+		cfg.EnvVars = envVars
+	}
+
+	return cfg
+}
+
+func buildSkeletonProjectSection(opts SkeletonOptions) (string, string, string, string, string) {
+	name := strings.TrimSpace(opts.ProjectName)
+	if name == "" {
+		name = "your-project-name"
+	}
+
+	path := strings.TrimSpace(opts.ProjectPath)
+	if path == "" {
+		path = "/absolute/path/to/your-project"
+	}
+
+	description := strings.TrimSpace(opts.Description)
+	if description == "" {
+		description = "Describe your project"
+	}
+
+	shell := strings.TrimSpace(opts.Shell)
+	if shell == "" {
+		shell = "bash"
+	}
+
+	envFile := strings.TrimSpace(opts.EnvFile)
+	if envFile == "" {
+		envFile = ".env"
+	}
+
+	return name, path, description, shell, envFile
+}
+
+func buildSkeletonEnvVars(opts SkeletonOptions) map[string]string {
+	if len(opts.EnvVars) == 0 {
+		return map[string]string{
+			"EXAMPLE_KEY": "VALUE",
+		}
+	}
+
+	return skeletonCloneMap(opts.EnvVars)
+}
+
+func skeletonString(value string) *string {
+	v := value
+	return &v
+}
+
+func skeletonCloneMap(in map[string]string) map[string]string {
+	if len(in) == 0 {
+		return map[string]string{}
+	}
+
+	out := make(map[string]string, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+
+	return out
 }
 
 // DeleteCLIFlags captures the parsed CLI flags for project deletion.

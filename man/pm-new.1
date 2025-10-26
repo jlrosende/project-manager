@@ -6,7 +6,7 @@ pm-new - Create a new project from arguments or configuration
 
 
 .SH SYNOPSIS
-\fBpm new  [path] [flags]\fP
+\fBpm new <name> [path] [flags]\fP
 
 
 .SH DESCRIPTION
@@ -23,11 +23,27 @@ Create or initialize a project directory, validating inputs from positional argu
 
 .PP
 \fB--dry-run\fP[=false]
-	Preview actions without writing files
+\tPreview actions without writing files
+
+.PP
+\fB--environment-color\fP=""
+\tSet environment color metadata when adding environments
+
+.PP
+\fB--environment-env-file\fP=""
+\tSet environment vars file when adding environments
+
+.PP
+\fB--environment-env-var\fP=[]
+\tEnvironment variable in KEY=VALUE format (repeatable)
+
+.PP
+\fB--environment-mode\fP=""
+\tSet environment vars merge mode (merge or replace)
 
 .PP
 \fB--force\fP[=false]
-	Overwrite existing project files when rerun
+\tOverwrite existing project files when rerun
 
 .PP
 \fB--generate-cli-skeleton-json\fP[=""]
@@ -47,10 +63,30 @@ Create or initialize a project directory, validating inputs from positional argu
 
 .PP
 \fB--output\fP="text"
-	Output format for dry runs (text or json)
+\tOutput format for dry runs (text or json)
+
+.PP
+\fB--project-description\fP=""
+\tSet project description metadata
+
+.PP
+\fB--project-env-file\fP=""
+\tSet default project-level environment vars file
+
+.PP
+\fB--project-shell\fP=""
+\tSet default shell for the project
+
+.PP
+\fB--yes\fP[=false]
+\tAutomatically confirm project and environment creation prompts
+
+.PP
+Legacy --env-* flags remain available for compatibility but emit deprecation warnings.
 
 
 .SH OPTIONS INHERITED FROM PARENT COMMANDS
+
 \fB--config\fP=""
 	Path to pm config file
 

@@ -16,7 +16,7 @@ func TestCLINew_AddEnvironmentRequiresExistingProject(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("SHELL", "/bin/sh")
 
-	stdout, stderr, err := runNewCommand(t, "new", "demo", "staging", "--env-var", "API_URL=https://api.example.com")
+	stdout, stderr, err := runNewCommand(t, "new", "demo", "staging", "--environment-env-var", "API_URL=https://api.example.com")
 	if err == nil {
 		t.Fatalf("expected failure when adding environment without project; stdout=%s stderr=%s", stdout, stderr)
 	}
@@ -39,11 +39,11 @@ func TestCLINew_AddEnvironmentWithFlags(t *testing.T) {
 
 	envArgs := []string{
 		"new", "demo", "staging",
-		"--env-file", ".env.staging",
-		"--env-mode", "replace",
-		"--env-color", "160",
-		"--env-var", "API_URL=https://api.example.com",
-		"--env-var", "FEATURE_X=true",
+		"--environment-env-file", ".env.staging",
+		"--environment-mode", "replace",
+		"--environment-color", "160",
+		"--environment-env-var", "API_URL=https://api.example.com",
+		"--environment-env-var", "FEATURE_X=true",
 	}
 
 	if stdout, stderr, err := runNewCommand(t, envArgs...); err != nil {
@@ -107,16 +107,16 @@ func TestCLINew_AddEnvironmentForceReplaces(t *testing.T) {
 		t.Fatalf("create project: %v; stderr=%s", err, stderr)
 	}
 
-	if _, stderr, err := runNewCommand(t, "new", "demo", "staging", "--env-var", "OLD=1"); err != nil {
+	if _, stderr, err := runNewCommand(t, "new", "demo", "staging", "--environment-env-var", "OLD=1"); err != nil {
 		t.Fatalf("initial environment add failed: %v; stderr=%s", err, stderr)
 	}
 
 	forceArgs := []string{
 		"new", "demo", "staging",
-		"--env-file", ".env.force",
-		"--env-mode", "replace",
-		"--env-color", "200",
-		"--env-var", "NEW=1",
+		"--environment-env-file", ".env.force",
+		"--environment-mode", "replace",
+		"--environment-color", "200",
+		"--environment-env-var", "NEW=1",
 		"--force",
 	}
 
@@ -194,11 +194,11 @@ func TestCLINew_AddEnvironment_ConfigAndFlagsMerge(t *testing.T) {
 	envArgs := []string{
 		"new", "demo", "staging",
 		"--cli-input", cfgPath,
-		"--env-file", ".env.cli",
-		"--env-mode", "replace",
-		"--env-color", "160",
-		"--env-var", "FOO=from-cli",
-		"--env-var", "CLI_ONLY=1",
+		"--environment-env-file", ".env.cli",
+		"--environment-mode", "replace",
+		"--environment-color", "160",
+		"--environment-env-var", "FOO=from-cli",
+		"--environment-env-var", "CLI_ONLY=1",
 	}
 
 	if stdout, stderr, err := runNewCommand(t, envArgs...); err != nil {

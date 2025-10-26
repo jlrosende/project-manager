@@ -5,6 +5,7 @@ package integration_test
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 
 	cli "github.com/jlrosende/project-manager/internal/adapters/handlers/cli"
@@ -18,6 +19,7 @@ func runNewCommand(t *testing.T, args ...string) (stdout, stderr string, err err
 	errBuf := &bytes.Buffer{}
 	cmd.SetOut(out)
 	cmd.SetErr(errBuf)
+	cmd.SetIn(strings.NewReader("y\n"))
 	cmd.SetArgs(args)
 
 	executeErr := cmd.Execute()

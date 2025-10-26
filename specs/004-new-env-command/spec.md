@@ -14,7 +14,7 @@
 ## Environment Shortcut Semantics
 - Environment creation is blocked during the same run as project creation. If environment flags or config data are supplied while the project is missing, the command fails with guidance to create the project first (Q13=B, Q18=A, Q28=A).
 - Calling `pm new <project> <env>` on an existing project invokes `ProjectService.AddEnvironment`. Duplicate environment names produce a clear error; `--force` overwrites metadata and rewrites the env file without backups (Q6=A, Q20=A, Q25=A).
-- `--env-color`, `--env-file`, `--env-mode`, and `--env-var KEY=VALUE` form the new CLI flag surface for environment customization; the positional argument remains the sole way to set the environment name (Q2, Q16).
+- `--environment-color`, `--environment-env-file`, `--environment-mode`, and `--environment-env-var KEY=VALUE` form the new CLI flag surface for environment customization; the positional argument remains the sole way to set the environment name (Q2, Q16).
 - For ambiguity, the CLI always prefers environment mode once the project is known; users must use explicit flags for paths if they intend to re-target creation (Q10=A).
 
 ## Configuration & Skeletons
@@ -23,11 +23,11 @@
 - Legacy top-level `environments` maps are rejected unless the user passes `--allow-unknown`, in which case they are silently ignored and treated as unknown keys (Q17=B, Q34=D, Q36). No warning or logging is emitted when ignored (Q36 answer + Q37=A).
 
 ## Environment Data Merging
-- Environment values can come from three sources: positional name, CLI flags (`--env-file`, `--env-mode`, `--env-color`, `--env-var KEY=VALUE`), and the config `environment` object.
+- Environment values can come from three sources: positional name, CLI flags (`--environment-env-file`, `--environment-mode`, `--environment-color`, `--environment-env-var KEY=VALUE`), and the config `environment` object.
 - Precedence rules:
   - Positional argument sets the environment name. If omitted and config supplies a name, the config name is used (Q12=A).
   - CLI flags override matching fields in the config object (Q24=A).
-  - CLI `--env-var` entries override individual keys from the config `env_vars` map; collisions favour the flag-supplied value (Q30=B, Q32=A).
+  - CLI `--environment-env-var` entries override individual keys from the config `env_vars` map; collisions favour the flag-supplied value (Q30=B, Q32=A).
 - Dry-run and execution consume the merged environment definition; no attempt is made to stage environment creation for later runs.
 
 ## Dry-Run Behaviour

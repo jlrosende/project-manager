@@ -16,11 +16,6 @@ import (
 // ErrEnvironmentExists indicates the requested environment already exists and cannot be recreated without force.
 var ErrEnvironmentExists = errors.New("environment already exists")
 
-// EnvironmentApplyOptions configures behaviour when applying environment inputs.
-type EnvironmentApplyOptions struct {
-	Force bool
-}
-
 // EnvironmentService orchestrates environment creation and updates for existing projects.
 type EnvironmentService struct {
 	projects ports.ProjectService
@@ -41,11 +36,13 @@ func NewEnvironmentService(
 	return &EnvironmentService{projects: projects, envVars: envVars, fs: fs}
 }
 
+var _ ports.EnvironmentManager = (*EnvironmentService)(nil)
+
 // Apply adds or updates an environment for the specified project based on the provided input.
 func (s *EnvironmentService) Apply(
 	projectName string,
 	input *domain.EnvironmentInput,
-	opts EnvironmentApplyOptions,
+	opts domain.EnvironmentApplyOptions,
 ) error {
 	if input == nil {
 		return errors.New("environment input is nil")
@@ -67,7 +64,12 @@ func (s *EnvironmentService) Apply(
 
 	envName := ""
 	if input.Name != nil {
-		envName = strings.TrimSpace(*input.Name)
+		normalized, err := domain.NormalizeEnvironmentName(*input.Name)
+		if err != nil {
+			return err
+		}
+
+		envName = normalized
 	}
 
 	if envName == "" {

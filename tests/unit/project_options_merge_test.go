@@ -38,10 +38,10 @@ func TestMergeProjectInputs_EnvironmentFlagsOverrideConfig(t *testing.T) {
 		"CLI_ONLY": "1",
 	}
 
-	flags := services.ProjectConfigFlags{
+	flags := domain.ProjectConfigFlags{
 		Name: name,
 		Path: path,
-		Environment: services.EnvironmentConfigFlags{
+		Environment: domain.EnvironmentConfigFlags{
 			Name:        "staging",
 			NameSet:     true,
 			EnvVarsFile: ".env.cli",
@@ -97,5 +97,41 @@ func TestMergeProjectInputs_EnvironmentFlagsOverrideConfig(t *testing.T) {
 
 	if len(merged.Environment.EnvVars) != len(expectedVars) {
 		t.Fatalf("unexpected merged env vars length, got %v", merged.Environment.EnvVars)
+	}
+}
+
+func TestMergeProjectInputs_ProjectFlagsOverrideConfig(t *testing.T) {
+	t.Helper()
+
+	cfg := &domain.ConfigInput{
+		Description: ptrString("Config description"),
+		Shell:       ptrString("/bin/zsh"),
+		EnvFile:     ptrString(".env.config"),
+	}
+
+	flags := domain.ProjectConfigFlags{
+		Description:    "CLI description",
+		DescriptionSet: true,
+		Shell:          "fish",
+		ShellSet:       true,
+		EnvFile:        ".env.cli",
+		EnvFileSet:     true,
+	}
+
+	merged, _, err := services.MergeProjectInputs(cfg, flags)
+	if err != nil {
+		t.Fatalf("merge project inputs: %v", err)
+	}
+
+	if merged.Description != "CLI description" {
+		t.Fatalf("expected description override, got %q", merged.Description)
+	}
+
+	if merged.Shell != "fish" {
+		t.Fatalf("expected shell override, got %q", merged.Shell)
+	}
+
+	if merged.EnvVarsFile != ".env.cli" {
+		t.Fatalf("expected env vars file override, got %q", merged.EnvVarsFile)
 	}
 }

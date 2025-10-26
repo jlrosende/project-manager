@@ -12,11 +12,6 @@ import (
 
 const defaultEnvFile = ".env"
 
-// CreateOptions configures filesystem creation behaviour.
-type CreateOptions struct {
-	Force bool
-}
-
 // FileService coordinates filesystem updates required for project creation.
 type FileService struct {
 	projects ports.ProjectService
@@ -28,11 +23,13 @@ func NewFileService(projects ports.ProjectService, fs ports.Filesystem) *FileSer
 	return &FileService{projects: projects, fs: fs}
 }
 
+var _ ports.ProjectCreator = (*FileService)(nil)
+
 // Create writes project artifacts (.project.hcl, .env) using the provided definition and environment variables.
 func (s *FileService) Create(
 	def domain.ProjectDefinition,
 	envVars domain.EnvVars,
-	opts CreateOptions,
+	opts domain.ProjectCreateOptions,
 ) (*domain.Project, error) {
 	if s.projects == nil {
 		return nil, errors.New("project service is not configured")
@@ -51,28 +48,48 @@ func (s *FileService) Create(
 		return nil, err
 	}
 
+	envFile := strings.TrimSpace(def.EnvVarsFile)
+	if envFile == "" {
+		envFile = defaultEnvFile
+	}
+
+	shell := strings.TrimSpace(def.Shell)
+
 	if opts.Force {
-		if err := s.cleanupExisting(def); err != nil {
+		if err := s.cleanupExisting(def, envFile); err != nil {
 			return nil, err
 		}
 	}
 
-	project, err := s.projects.Create(def.Name, def.Path, "", "", defaultEnvFile, envVars, nil)
+	project, err := s.projects.Create(def.Name, def.Path, "", shell, envFile, envVars, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := s.ensureGitignore(def.Path); err != nil {
+	description := strings.TrimSpace(def.Description)
+	if description != "" {
+		project.Description = description
+		if err := s.projects.UpdateProject(project); err != nil {
+			return project, err
+		}
+	}
+
+	if err := s.ensureGitignore(def.Path, envFile); err != nil {
 		return project, err
 	}
 
 	return project, nil
 }
 
-func (s *FileService) cleanupExisting(def domain.ProjectDefinition) error {
+func (s *FileService) cleanupExisting(def domain.ProjectDefinition, envFile string) error {
+	trimmed := strings.TrimSpace(envFile)
+	if trimmed == "" {
+		trimmed = defaultEnvFile
+	}
+
 	paths := []string{
 		s.fs.Join(def.Path, ".project.hcl"),
-		s.fs.Join(def.Path, defaultEnvFile),
+		s.fs.Join(def.Path, trimmed),
 		s.fs.Join(def.Path, fmt.Sprintf(".%s.gitconfig", def.Name)),
 	}
 
@@ -86,20 +103,25 @@ func (s *FileService) cleanupExisting(def domain.ProjectDefinition) error {
 	return nil
 }
 
-func (s *FileService) ensureGitignore(dir string) error {
+func (s *FileService) ensureGitignore(dir, envFile string) error {
+	trimmed := strings.TrimSpace(envFile)
+	if trimmed == "" {
+		trimmed = defaultEnvFile
+	}
+
 	path := s.fs.Join(dir, ".gitignore")
 
-	data, err := os.ReadFile(path)
+	data, err := s.fs.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return s.fs.WriteFile(path, []byte(defaultEnvFile+"\n"), 0o644)
+			return s.fs.WriteFile(path, []byte(trimmed+"\n"), 0o644)
 		}
 
 		return fmt.Errorf("read .gitignore: %w", err)
 	}
 
 	contents := string(data)
-	if strings.Contains(contents, defaultEnvFile) {
+	if strings.Contains(contents, trimmed) {
 		return nil
 	}
 
@@ -107,7 +129,7 @@ func (s *FileService) ensureGitignore(dir string) error {
 		contents += "\n"
 	}
 
-	contents += defaultEnvFile + "\n"
+	contents += trimmed + "\n"
 
 	return s.fs.WriteFile(path, []byte(contents), 0o644)
 }

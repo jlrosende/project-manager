@@ -38,8 +38,8 @@ _Checkpoint_: US1 completed when rerun behavior, stale registry handling, and `-
 
 **Independent Test Criteria**: Attempting to add an environment before project creation fails; adding with flags/config succeeds; `--force` overwrites env metadata/file; legacy maps ignored silently under `--allow-unknown`.
 
-- [x] **T010 [Story US2]** – Introduce new flags (`--env-file`, `--env-mode`, `--env-color`, `--env-var`) in `internal/adapters/handlers/cli/new/new.go` and update flag help text.  
-- [x] **T011 [Story US2]** – Extend merge logic in `internal/core/services/project_options.go` to assemble an `EnvironmentInput` from config object and CLI flags, including precedence for `--env-var`.  
+- [x] **T010 [Story US2]** – Introduce new flags (`--environment-env-file`, `--environment-mode`, `--environment-color`, `--environment-env-var`) in `internal/adapters/handlers/cli/new/new.go` and update flag help text.  
+- [x] **T011 [Story US2]** – Extend merge logic in `internal/core/services/project_options.go` to assemble an `EnvironmentInput` from config object and CLI flags, including precedence for `--environment-env-var`.  
 - [x] **T012 [Story US2]** – Enforce project-first rule in `internal/adapters/handlers/cli/new/new.go`, returning a descriptive error when environment input is provided but the existence probe fails.  
 - [x] **T013 [Story US2]** – Update `internal/core/services/project_service.go` to consume `EnvironmentInput`, validate duplicates, and honor `--force` by rewriting metadata/env files.  
 - [x] **T014 [Story US2]** – Modify config loading in `internal/core/services/project_options.go` to drop legacy `environments` map, ignore it when `--allow-unknown` is set, and surface errors otherwise.  

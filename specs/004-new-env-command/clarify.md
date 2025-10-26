@@ -14,7 +14,7 @@
 - **Description:** Define the set of CLI flags that configure environment creation in shortcut mode.
 - **Options:**
   - **A.** No new flags; positional env name plus defaults only.
-  - **B.** Introduce flags for `--env-name`, `--env-color`, `--env-file`, `--env-mode`.
+  - **B.** Introduce flags for `--env-name`, `--environment-color`, `--environment-env-file`, `--environment-mode`.
   - **C.** Mirror existing project-level flags (e.g., metadata) plus an env vars file path.
   - **D.** Postpone flags; require `--cli-input` for advanced environment configuration.
 
@@ -153,10 +153,10 @@
 ## Q16. Final Environment Flag Set
 - **Description:** Clarify the exact flag surface for environment customization given the decision to add flags from option B without `--env-name`.
 - **Options:**
-  - **A.** Provide `--env-color`, `--env-file`, and `--env-mode` flags only.
+  - **A.** Provide `--environment-color`, `--environment-env-file`, and `--environment-mode` flags only.
   - **B.** Expose all flags from option B but alias `--env-name` to the positional argument for backward compatibility.
   - **C.** Introduce a single `--environment` flag accepting JSON/YAML to cover advanced fields.
-  - **D.** Publish `--env-color`, `--env-file`, `--env-mode`, and reserve `--env-name` for future use with clear documentation.
+  - **D.** Publish `--environment-color`, `--environment-env-file`, `--environment-mode`, and reserve `--env-name` for future use with clear documentation.
 
 - Answer: A
 
@@ -231,7 +231,7 @@
 - Answer: A
 
 ## Q24. Environment Field Precedence
-- **Description:** Clarify how `--env-color`, `--env-file`, and `--env-mode` flags interact with values provided in the `environment` object from `--cli-input` (Answer: Q11=D, Q16=A).
+- **Description:** Clarify how `--environment-color`, `--environment-env-file`, and `--environment-mode` flags interact with values provided in the `environment` object from `--cli-input` (Answer: Q11=D, Q16=A).
 - **Options:**
   - **A.** CLI flags override config values for the corresponding fields; config provides defaults.
   - **B.** Config values override CLI flags to preserve declarative input.
@@ -271,7 +271,7 @@
 - Answer: A
 
 ## Q28. Environment Flags During Initial Creation
-- **Description:** With Q13=B disallowing create+env in one run, define the behavior when users pass `--env-color`, `--env-file`, or `--env-mode` while the target project does not yet exist.
+- **Description:** With Q13=B disallowing create+env in one run, define the behavior when users pass `--environment-color`, `--environment-env-file`, or `--environment-mode` while the target project does not yet exist.
 - **Options:**
   - **A.** Fail immediately with guidance to run project creation first, then re-run with the flags.
   - **B.** Ignore the environment flags and proceed with project creation only, emitting a warning.
@@ -294,14 +294,14 @@
 - **Description:** Specify how environment-specific key/value pairs should be supplied now that the legacy `environments` map is deprecated (Q3=B) and the environment object is preferred.
 - **Options:**
   - **A.** Add an `env_vars` map within the `environment` object; CLI flags cannot set individual keys.
-  - **B.** Require users to provide a separate `--env-var KEY=VALUE` repeatable flag alongside the environment object.
+  - **B.** Require users to provide a separate `--environment-env-var KEY=VALUE` repeatable flag alongside the environment object.
   - **C.** Continue reading top-level `.env` style maps for backward compatibility but translate them into the environment object internally.
   - **D.** Do not support specifying env vars during shortcut creation; require manual editing after creation.
 
 - Answer: B
 
 ## Q31. Config-Provided Environment Variables
-- **Description:** With CLI env vars supplied via `--env-var` (Q30=B), define how configuration files should express environment key/value pairs.
+- **Description:** With CLI env vars supplied via `--environment-env-var` (Q30=B), define how configuration files should express environment key/value pairs.
 - **Options:**
   - **A.** Allow an `env_vars` map inside the `environment` object when using `--cli-input`.
   - **B.** Require config files to list env vars under a new top-level `env_vars` array of `KEY=VALUE` strings.
@@ -311,9 +311,9 @@
 - Answer: A
 
 ## Q32. Env Var Precedence
-- **Description:** Clarify how env vars from `--env-var` flags (Q30=B) interact with the `env_vars` map provided in config files (Q31=A).
+- **Description:** Clarify how env vars from `--environment-env-var` flags (Q30=B) interact with the `env_vars` map provided in config files (Q31=A).
 - **Options:**
-  - **A.** CLI `--env-var` flags override config-provided keys.
+  - **A.** CLI `--environment-env-var` flags override config-provided keys.
   - **B.** Config-provided `env_vars` override CLI flags to ensure reproducible declarative configs.
   - **C.** Treat duplicate keys as an error requiring user resolution.
   - **D.** Merge keys; if collisions occur, prefer the value with the latest timestamp (requires tracking order).
@@ -341,7 +341,7 @@
 - Answer: D
 
 ## Q35. Simultaneous Config and Flag Env Vars
-- **Description:** Given config `env_vars` maps (Q31=A) and CLI `--env-var` flags (Q30=B, Q32=A), decide how dry-run output should display combined env var sources.
+- **Description:** Given config `env_vars` maps (Q31=A) and CLI `--environment-env-var` flags (Q30=B, Q32=A), decide how dry-run output should display combined env var sources.
 - **Options:**
   - **A.** Show a merged map with CLI overrides applied, marking overridden keys.
   - **B.** List config-derived vars and CLI-derived vars separately in the output.
